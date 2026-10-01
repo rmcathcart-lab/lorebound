@@ -125,6 +125,8 @@ var SIGILS = {
     '</g></svg>',
 
   imp: null, hound: null, wyrm: null, sprite: null, golem: null, drake: null, boss2: null,
+  thornling: null, mosswight: null, treant: null, barksprite: null, shade: null, rootbound: null, boss3: null,
+  scarab: null, ghoul: null, reliquary: null, spider: null, cryptknight: null, sentinel: null, boss4: null,
   /* Fog: unexplored land marker */
   fog: '<svg viewBox="0 0 200 200"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" opacity=".8"><path d="M40 96c12-20 36-20 48 0 12-20 36-20 48 0 8-12 24-12 32 0"/><path d="M28 130c12-16 32-16 44 0 12-16 32-16 44 0 12-16 32-16 44 0"/><path d="M56 64c12-16 28-16 40 0 12-16 28-16 40 0"/></g></svg>'
 };

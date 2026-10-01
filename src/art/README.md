@@ -30,6 +30,22 @@ of the same name in this folder. Then ask Claude to rebuild, or run `python3 bui
 | drake.jpg | Pyroclast Drake (Land 2, AN3 rational · MAS) | https://www.canva.com/M/MAHWyTxm-Kg |
 | boss2.jpg | Ignathar, the Furnace King (Land 2 boss) | https://www.canva.com/M/MAHWyeA0_Bw |
 | banner-l2.jpg | Land 2 banner (Ember Peaks) | https://www.canva.com/M/MAHWyZDZmXk |
+| thornling.jpg | Thornling (Land 3, AN4 A · BEG) | https://www.canva.com/M/MAHWzYfu1y4 |
+| mosswight.jpg | Moss Wight (Land 3, AN4 A · PRG) | https://www.canva.com/M/MAHWzfASTJU |
+| treant.jpg | Elder Treant (Land 3, AN4 A · MAS) | https://www.canva.com/M/MAHWzX49lXg |
+| barksprite.jpg | Bark Sprite (Land 3, AN4 B · BEG) | https://www.canva.com/M/MAHWzQ7dA7s |
+| shade.jpg | Weald Shade (Land 3, AN4 B · PRG) | https://www.canva.com/M/MAHWzTYOSyk |
+| rootbound.jpg | Rootbound Horror (Land 3, AN4 B · MAS) | https://www.canva.com/M/MAHWzXctAG4 |
+| boss3.jpg | The Hollow Oak (Land 3 boss) | https://www.canva.com/M/MAHWzReucXk |
+| banner-l3.jpg | Land 3 banner (Whispering Weald) | https://www.canva.com/M/MAHWzaagKh4 |
+| scarab.jpg | Bone Scarab (Land 4, AN5 A · BEG) | https://www.canva.com/M/MAHWzTnFngk |
+| ghoul.jpg | Crypt Ghoul (Land 4, AN5 A · PRG) | https://www.canva.com/M/MAHWzfwBpQE |
+| reliquary.jpg | Living Reliquary (Land 4, AN5 A · MAS) | https://www.canva.com/M/MAHWzdqPiy4 |
+| spider.jpg | Tomb Spider (Land 4, AN5 B · BEG) | https://www.canva.com/M/MAHWzcq2VyI |
+| cryptknight.jpg | Crypt Knight (Land 4, AN5 B · PRG) | https://www.canva.com/M/MAHWzXbSe1g |
+| sentinel.jpg | Ossuary Sentinel (Land 4, AN5 B · MAS) | https://www.canva.com/M/MAHWzZBWBd0 |
+| boss4.jpg | Vaultkeeper Ossirion (Land 4 boss) | https://www.canva.com/M/MAHWzWRjcIE |
+| banner-l4.jpg | Land 4 banner (Shattered Crypts) | https://www.canva.com/M/MAHWzZaUKNw |
 
 All images in this folder are now the full-resolution downloads.
 

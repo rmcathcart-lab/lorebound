@@ -35,8 +35,34 @@ var LANDS = [
     boss: { id: 'boss2', name: 'Ignathar, the Furnace King', level: 'BOSS', sigil: 'boss2', gens: ['AN3L_PRG', 'AN3R_PRG', 'AN3L_MAS', 'AN3R_MAS'], title: 'Ashwalker',
       flavor: 'The forge at the heart of the Peaks. Four questions in the heat, no mercy, four hundred Lore.' }
   },
-  { id: 'L3', unit: 3, name: 'The Whispering Weald', subject: 'Polynomial Operations' },
-  { id: 'L4', unit: 4, name: 'The Shattered Crypts', subject: 'Factoring' },
+  { id: 'L3', unit: 3, name: 'The Whispering Weald', subject: 'Polynomial Operations', open: true, banner: 'banner-l3',
+    blurb: 'An ancient forest where every tree is a sum of terms and the roots braid together underground. Walk carefully: the Weald multiplies what you say.',
+    outcomes: { AN4A: 'AN4 · Terms, degree, adding, subtracting and multiplying by a monomial', AN4B: 'AN4 · Binomial products, special products and trinomials' },
+    creatures: [
+      { id: 'thornling', name: 'Thornling', outcome: 'AN4', group: 'AN4A', level: 'BEG', sigil: 'thornling', gen: 'AN4A_BEG', flavor: 'A bramble that walks. It counts its own thorns and dares you to name its degree.' },
+      { id: 'mosswight', name: 'Moss Wight', outcome: 'AN4', group: 'AN4A', level: 'PRG', sigil: 'mosswight', gen: 'AN4A_PRG', flavor: 'Half corpse, half undergrowth. It subtracts whole polynomials from itself and never drops a sign.' },
+      { id: 'treant', name: 'Elder Treant', outcome: 'AN4', group: 'AN4A', level: 'MAS', sigil: 'treant', gen: 'AN4A_MAS', flavor: 'A thousand rings old. Its branches are nested brackets; its roots are the hidden terms.' },
+      { id: 'barksprite', name: 'Bark Sprite', outcome: 'AN4', group: 'AN4B', level: 'BEG', sigil: 'barksprite', gen: 'AN4B_BEG', flavor: 'Two quick wings, two quick terms. FOIL it before it flits away.' },
+      { id: 'shade', name: 'Weald Shade', outcome: 'AN4', group: 'AN4B', level: 'PRG', sigil: 'shade', gen: 'AN4B_PRG', flavor: 'It squares itself in the dark and wears the middle term as a cloak.' },
+      { id: 'rootbound', name: 'Rootbound Horror', outcome: 'AN4', group: 'AN4B', level: 'MAS', sigil: 'rootbound', gen: 'AN4B_MAS', flavor: 'Three binomials knotted into one body. Expand it all or be dragged under.' }
+    ],
+    boss: { id: 'boss3', name: 'The Hollow Oak', level: 'BOSS', sigil: 'boss3', gens: ['AN4A_PRG', 'AN4B_PRG', 'AN4A_MAS', 'AN4B_MAS'], title: 'Thornbreaker',
+      flavor: 'The heart of the Weald, awake and hungry. Four questions beneath its canopy, four hundred Lore if you walk out.' }
+  },
+  { id: 'L4', unit: 4, name: 'The Shattered Crypts', subject: 'Factoring', open: true, banner: 'banner-l4',
+    blurb: 'Vaults beneath the Weald where everything that was multiplied is pulled apart again. Every door is a product; the key is its factors.',
+    outcomes: { AN5A: 'AN5 · Common factors, x² + bx + c and difference of squares', AN5B: 'AN5 · ax² + bx + c, perfect squares and solving by factoring' },
+    creatures: [
+      { id: 'scarab', name: 'Bone Scarab', outcome: 'AN5', group: 'AN5A', level: 'BEG', sigil: 'scarab', gen: 'AN5A_BEG', flavor: 'It swarms over anything with a common factor and strips it to the bracket.' },
+      { id: 'ghoul', name: 'Crypt Ghoul', outcome: 'AN5', group: 'AN5A', level: 'PRG', sigil: 'ghoul', gen: 'AN5A_PRG', flavor: 'It remembers the two numbers that multiply and add. Do you?' },
+      { id: 'reliquary', name: 'Living Reliquary', outcome: 'AN5', group: 'AN5A', level: 'MAS', sigil: 'reliquary', gen: 'AN5A_MAS', flavor: 'A casket that factors twice. The difference of squares is only its first lock.' },
+      { id: 'spider', name: 'Tomb Spider', outcome: 'AN5', group: 'AN5B', level: 'BEG', sigil: 'spider', gen: 'AN5B_BEG', flavor: 'Eight legs, two brackets. Set each one to zero and it falls.' },
+      { id: 'cryptknight', name: 'Crypt Knight', outcome: 'AN5', group: 'AN5B', level: 'PRG', sigil: 'cryptknight', gen: 'AN5B_PRG', flavor: 'Its armour is a perfect square and its blade decomposes the middle term.' },
+      { id: 'sentinel', name: 'Ossuary Sentinel', outcome: 'AN5', group: 'AN5B', level: 'MAS', sigil: 'sentinel', gen: 'AN5B_MAS', flavor: 'It guards the deepest vault with equations that are not yet equal to zero.' }
+    ],
+    boss: { id: 'boss4', name: 'Vaultkeeper Ossirion', level: 'BOSS', sigil: 'boss4', gens: ['AN5A_PRG', 'AN5B_PRG', 'AN5A_MAS', 'AN5B_MAS'], title: 'Cryptbreaker',
+      flavor: 'Keeper of every key the Crypts have swallowed. Four locks, four questions, four hundred Lore.' }
+  },
   { id: 'L5', unit: 5, name: 'The Mirrorfen', subject: 'Relations and Functions' },
   { id: 'L6', unit: 6, name: 'The Drowned Causeway', subject: 'Characteristics of Linear Relations' },
   { id: 'L7', unit: 7, name: 'The Slopes of Thornhold', subject: 'Equations of Linear Relations' },

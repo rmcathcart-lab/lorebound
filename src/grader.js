@@ -7,7 +7,8 @@ function gradeAnswer(q, raw) {
   if (!raw) return { ok: false, reason: 'blank' };
   var work = raw;
   // "x = 4" or working like "8+2 = 10": mark the last part
-  if (work.indexOf('=') >= 0) { var parts = work.split('='), last = parts[parts.length - 1].trim(); if (last) work = last; }
+  var wantsEq = q.type === 'expr' && q.answers.some(function (a) { return a.indexOf('=') >= 0; });
+  if (!wantsEq && work.indexOf('=') >= 0) { var parts = work.split('='), last = parts[parts.length - 1].trim(); if (last) work = last; }
   // forgive units / degree signs typed after the answer
   var bare = work.replace(/\\text\{[^}]*\}/g, '').replace(/\\mathrm\{[^}]*\}/g, '').replace(/\^\{?\\circ\}?|°|\\degree/g, '');
   if (q.type === 'num') bare = bare.replace(/(\s|\\,|\\ )*(mm|cm|km|m|in|ft|yd|mi|mL|ml|L|kg|g|s|h|min|units?|degrees?|deg)(\^\{?[23]\}?)?\s*$/, '');
@@ -25,6 +26,10 @@ function gradeAnswer(q, raw) {
     return { ok: false, reason: 'wrong', value: v };
   }
   var mode = q.check || 'exact', trees = q.answers.map(function (a) { return mathParse_(a); });
+  // a bare list "4, -2/3" typed for a solution set: compare it as a set (any order)
+  var St = mathStrip_(S), isSolList = function (t) { t = mathStrip_(t); return t.t === 'set' && t.a.length && t.a.every(function (x) { return mathStrip_(x).t === 'eq'; }); };
+  if (St.t === 'tuple' && trees.some(isSolList) && !trees.some(function (t) { return mathStrip_(t).t === 'tuple'; })) S = { t: 'set', a: St.a };
+  if (St.t === 'eq' && trees.some(isSolList)) S = { t: 'set', a: [St] };
   var opMissing = q.requireOp && !/\\times|\\cdot|\*|×|·|\^/.test(work);
   if (!opMissing) for (var j = 0; j < trees.length; j++) { try { if (mathSame_(S, trees[j], mode)) return { ok: true, reason: '' }; } catch (e) {} }
   if (mode === 'exact') { for (var k = 0; k < trees.length; k++) { try { if (mathSame_(S, trees[k], 'equivalent')) return { ok: false, reason: 'form' }; } catch (e2) {} } }

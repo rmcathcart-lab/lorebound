@@ -276,7 +276,7 @@
     if (B.phase === 'ask' || B.phase === 'sight' || B.phase === 'warn') {
       var qp = el('div', 'panel');
       qp.appendChild(el('div', 'eyebrow', B.isBoss ? 'It speaks' : 'The creature asks'));
-      qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">Type your answer with the keypad. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '') + '</div>' : '')));
+      qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Type your answer with the keypad. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
       if (B.phase === 'warn') qp.appendChild(el('div', 'result warn', '<h2>It staggers, but does not fall</h2><p>Your answer has the <b>right value</b> but is not in the <b>form the question asks for</b>. Write it that way. A second slip will be fatal.</p>'));
       if (B.phase === 'sight') {
         var sp = el('div', 'result lose', '<h2>Your answer was wrong</h2><p>Second Sight flickers. Spend its charge to try this question once more, or accept your fate.</p>');
