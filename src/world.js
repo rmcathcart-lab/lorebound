@@ -7,7 +7,7 @@ var LEVELS = {
 };
 
 var LANDS = [
-  { id: 'L1', unit: 1, name: 'The Barrow Marches', subject: 'Number', open: true, explore: 2, banner: 'title',
+  { id: 'L1', unit: 1, name: 'Barrow Marches', subject: 'Number', open: true, explore: 2, banner: 'title',
     blurb: 'Fog-choked graves where the dead count in primes. Factor them, root them, and put them back in the ground.',
     outcomes: { AN1: 'Factors and roots of whole numbers', AN2: 'Irrational numbers and radicals' },
     creatures: [
@@ -21,7 +21,7 @@ var LANDS = [
     boss: { id: 'boss1', name: 'Vessarion, Archlich of the Marches', level: 'BOSS', sigil: 'boss', gens: ['AN1_PRG', 'AN2_PRG', 'AN1_MAS', 'AN2_MAS'], title: 'Numberbane',
       flavor: 'The gate is sealed until every creature of the Marches has fallen at least once. Behind it: four questions, no mercy, four hundred Lore.' }
   },
-  { id: 'L2', unit: 2, name: 'The Ember Peaks', subject: 'Exponents', open: true, explore: 2, banner: 'banner-l2',
+  { id: 'L2', unit: 2, name: 'Ember Peaks', subject: 'Exponents', open: true, explore: 2, banner: 'banner-l2',
     blurb: 'A volcanic ridge where the forge-born multiply themselves by their own fire. Every law of exponents is written in the lava here.',
     outcomes: { AN3L: 'AN3 · Exponent laws and integral exponents', AN3R: 'AN3 · Rational exponents, radicals and scientific notation' },
     creatures: [
@@ -35,7 +35,7 @@ var LANDS = [
     boss: { id: 'boss2', name: 'Ignathar, the Furnace King', level: 'BOSS', sigil: 'boss2', gens: ['AN3L_PRG', 'AN3R_PRG', 'AN3L_MAS', 'AN3R_MAS'], title: 'Ashwalker',
       flavor: 'The forge at the heart of the Peaks. Four questions in the heat, no mercy, four hundred Lore.' }
   },
-  { id: 'L3', unit: 3, name: 'The Whispering Weald', subject: 'Polynomial Operations', open: true, explore: 2, banner: 'banner-l3',
+  { id: 'L3', unit: 3, name: 'Whispering Weald', subject: 'Polynomial Operations', open: true, explore: 2, banner: 'banner-l3',
     blurb: 'An ancient forest where every tree is a sum of terms and the roots braid together underground. Walk carefully: the Weald multiplies what you say.',
     outcomes: { AN4A: 'AN4 · Terms, degree, adding, subtracting and multiplying by a monomial', AN4B: 'AN4 · Binomial products, special products and trinomials' },
     creatures: [
@@ -49,7 +49,7 @@ var LANDS = [
     boss: { id: 'boss3', name: 'The Hollow Oak', level: 'BOSS', sigil: 'boss3', gens: ['AN4A_PRG', 'AN4B_PRG', 'AN4A_MAS', 'AN4B_MAS'], title: 'Thornbreaker',
       flavor: 'The heart of the Weald, awake and hungry. Four questions beneath its canopy, four hundred Lore if you walk out.' }
   },
-  { id: 'L4', unit: 4, name: 'The Shattered Crypts', subject: 'Factoring', open: true, banner: 'banner-l4',
+  { id: 'L4', unit: 4, name: 'Shattered Crypts', subject: 'Factoring', open: true, banner: 'banner-l4',
     blurb: 'Vaults beneath the Weald where everything that was multiplied is pulled apart again. Every door is a product; the key is its factors.',
     outcomes: { AN5A: 'AN5 · Common factors, x² + bx + c and difference of squares', AN5B: 'AN5 · ax² + bx + c, perfect squares and solving by factoring' },
     creatures: [
@@ -63,11 +63,11 @@ var LANDS = [
     boss: { id: 'boss4', name: 'Vaultkeeper Ossirion', level: 'BOSS', sigil: 'boss4', gens: ['AN5A_PRG', 'AN5B_PRG', 'AN5A_MAS', 'AN5B_MAS'], title: 'Cryptbreaker',
       flavor: 'Keeper of every key the Crypts have swallowed. Four locks, four questions, four hundred Lore.' }
   },
-  { id: 'L5', unit: 5, name: 'The Mirrorfen', subject: 'Relations and Functions' },
+  { id: 'L5', unit: 5, name: 'Mirrorfen', subject: 'Relations and Functions' },
   { id: 'L6', unit: 6, name: 'The Drowned Causeway', subject: 'Characteristics of Linear Relations' },
-  { id: 'L7', unit: 7, name: 'The Slopes of Thornhold', subject: 'Equations of Linear Relations' },
-  { id: 'L8', unit: 8, name: 'The Twin Citadels', subject: 'Systems of Linear Equations' },
-  { id: 'L9', unit: 9, name: 'The Sundered Spire', subject: 'Trigonometry' },
+  { id: 'L7', unit: 7, name: 'Slopes of Thornhold', subject: 'Equations of Linear Relations' },
+  { id: 'L8', unit: 8, name: 'Twin Citadels', subject: 'Systems of Linear Equations' },
+  { id: 'L9', unit: 9, name: 'Sundered Spire', subject: 'Trigonometry' },
   { id: 'L10', unit: 10, name: 'The Frozen Reach', subject: 'Measurement' }
 ];
 

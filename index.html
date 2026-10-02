@@ -2329,7 +2329,7 @@ var LEVELS = {
 };
 
 var LANDS = [
-  { id: 'L1', unit: 1, name: 'The Barrow Marches', subject: 'Number', open: true, explore: 2, banner: 'title',
+  { id: 'L1', unit: 1, name: 'Barrow Marches', subject: 'Number', open: true, explore: 2, banner: 'title',
     blurb: 'Fog-choked graves where the dead count in primes. Factor them, root them, and put them back in the ground.',
     outcomes: { AN1: 'Factors and roots of whole numbers', AN2: 'Irrational numbers and radicals' },
     creatures: [
@@ -2343,7 +2343,7 @@ var LANDS = [
     boss: { id: 'boss1', name: 'Vessarion, Archlich of the Marches', level: 'BOSS', sigil: 'boss', gens: ['AN1_PRG', 'AN2_PRG', 'AN1_MAS', 'AN2_MAS'], title: 'Numberbane',
       flavor: 'The gate is sealed until every creature of the Marches has fallen at least once. Behind it: four questions, no mercy, four hundred Lore.' }
   },
-  { id: 'L2', unit: 2, name: 'The Ember Peaks', subject: 'Exponents', open: true, explore: 2, banner: 'banner-l2',
+  { id: 'L2', unit: 2, name: 'Ember Peaks', subject: 'Exponents', open: true, explore: 2, banner: 'banner-l2',
     blurb: 'A volcanic ridge where the forge-born multiply themselves by their own fire. Every law of exponents is written in the lava here.',
     outcomes: { AN3L: 'AN3 · Exponent laws and integral exponents', AN3R: 'AN3 · Rational exponents, radicals and scientific notation' },
     creatures: [
@@ -2357,7 +2357,7 @@ var LANDS = [
     boss: { id: 'boss2', name: 'Ignathar, the Furnace King', level: 'BOSS', sigil: 'boss2', gens: ['AN3L_PRG', 'AN3R_PRG', 'AN3L_MAS', 'AN3R_MAS'], title: 'Ashwalker',
       flavor: 'The forge at the heart of the Peaks. Four questions in the heat, no mercy, four hundred Lore.' }
   },
-  { id: 'L3', unit: 3, name: 'The Whispering Weald', subject: 'Polynomial Operations', open: true, explore: 2, banner: 'banner-l3',
+  { id: 'L3', unit: 3, name: 'Whispering Weald', subject: 'Polynomial Operations', open: true, explore: 2, banner: 'banner-l3',
     blurb: 'An ancient forest where every tree is a sum of terms and the roots braid together underground. Walk carefully: the Weald multiplies what you say.',
     outcomes: { AN4A: 'AN4 · Terms, degree, adding, subtracting and multiplying by a monomial', AN4B: 'AN4 · Binomial products, special products and trinomials' },
     creatures: [
@@ -2371,7 +2371,7 @@ var LANDS = [
     boss: { id: 'boss3', name: 'The Hollow Oak', level: 'BOSS', sigil: 'boss3', gens: ['AN4A_PRG', 'AN4B_PRG', 'AN4A_MAS', 'AN4B_MAS'], title: 'Thornbreaker',
       flavor: 'The heart of the Weald, awake and hungry. Four questions beneath its canopy, four hundred Lore if you walk out.' }
   },
-  { id: 'L4', unit: 4, name: 'The Shattered Crypts', subject: 'Factoring', open: true, banner: 'banner-l4',
+  { id: 'L4', unit: 4, name: 'Shattered Crypts', subject: 'Factoring', open: true, banner: 'banner-l4',
     blurb: 'Vaults beneath the Weald where everything that was multiplied is pulled apart again. Every door is a product; the key is its factors.',
     outcomes: { AN5A: 'AN5 · Common factors, x² + bx + c and difference of squares', AN5B: 'AN5 · ax² + bx + c, perfect squares and solving by factoring' },
     creatures: [
@@ -2385,11 +2385,11 @@ var LANDS = [
     boss: { id: 'boss4', name: 'Vaultkeeper Ossirion', level: 'BOSS', sigil: 'boss4', gens: ['AN5A_PRG', 'AN5B_PRG', 'AN5A_MAS', 'AN5B_MAS'], title: 'Cryptbreaker',
       flavor: 'Keeper of every key the Crypts have swallowed. Four locks, four questions, four hundred Lore.' }
   },
-  { id: 'L5', unit: 5, name: 'The Mirrorfen', subject: 'Relations and Functions' },
+  { id: 'L5', unit: 5, name: 'Mirrorfen', subject: 'Relations and Functions' },
   { id: 'L6', unit: 6, name: 'The Drowned Causeway', subject: 'Characteristics of Linear Relations' },
-  { id: 'L7', unit: 7, name: 'The Slopes of Thornhold', subject: 'Equations of Linear Relations' },
-  { id: 'L8', unit: 8, name: 'The Twin Citadels', subject: 'Systems of Linear Equations' },
-  { id: 'L9', unit: 9, name: 'The Sundered Spire', subject: 'Trigonometry' },
+  { id: 'L7', unit: 7, name: 'Slopes of Thornhold', subject: 'Equations of Linear Relations' },
+  { id: 'L8', unit: 8, name: 'Twin Citadels', subject: 'Systems of Linear Equations' },
+  { id: 'L9', unit: 9, name: 'Sundered Spire', subject: 'Trigonometry' },
   { id: 'L10', unit: 10, name: 'The Frozen Reach', subject: 'Measurement' }
 ];
 
@@ -2792,7 +2792,7 @@ if (typeof module !== 'undefined') module.exports = LOREBOOK;
 var WorldMap = (function () {
   var W = 1000, H = 640;
   var NODES_PROC = { L1: [110, 545], L2: [280, 480], L3: [450, 545], L4: [615, 470], L5: [800, 520], L6: [880, 370], L7: [700, 300], L8: [520, 350], L9: [330, 270], L10: [185, 205] };
-  var NODES_ART = { L1: [150, 520], L2: [165, 180], L3: [300, 250], L4: [520, 445], L5: [690, 520], L6: [870, 500], L7: [790, 300], L8: [600, 300], L9: [650, 150], L10: [400, 80] };
+  var NODES_ART = { L1: [150, 520], L2: [165, 180], L3: [300, 250], L4: [520, 445], L5: [690, 520], L6: [870, 500], L7: [800, 330], L8: [585, 260], L9: [650, 150], L10: [400, 80] };
   var NODES = (typeof ART_IMG !== 'undefined' && ART_IMG.map) ? NODES_ART : NODES_PROC;
   var ORDER = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10'];
   /* biome palette per land: [low ground, high ground, peak], plus flags */
@@ -3671,6 +3671,7 @@ var Overworld = (function () {
   function typedTex(raw) { if (/\\/.test(String(raw))) return tex(raw); try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
   function sfx(name) { try { if (window.Sfx) Sfx.play(name); } catch (e) {} }
   function toast(msg) { if (UI.toast) UI.toast.remove(); var t = el('div', 'toast', msg); document.body.appendChild(t); UI.toast = t; setTimeout(function () { if (UI.toast === t) { t.remove(); UI.toast = null; } }, 2600); }
+  function theLand(L) { var nm = L && L.name || ''; return /^The /.test(nm) ? nm : 'the ' + nm; }
   function landById(id) { return LANDS.filter(function (l) { return l.id === id; })[0]; }
   function creatureById(land, id) { if (land.boss && land.boss.id === id) return land.boss; return land.creatures.filter(function (c) { return c.id === id; })[0]; }
   function gearById(id) { return GEAR.filter(function (g) { return g.id === id; })[0]; }
@@ -4021,7 +4022,7 @@ var Overworld = (function () {
     bc.innerHTML = '<div class="foe">' + portrait(B.sigil) + '<div><div class="tag" style="color:var(--boss)">Boss · ' + B.gens.length + ' questions · ' + n(LEVELS.BOSS.lore) + ' Lore</div><h2>' + esc(B.name) + '</h2><p class="muted" style="margin:6px 0 0">' + esc(B.flavor) + '</p>' + (S.dropped && S.dropped.creature === B.id ? '<p class="drop-pill" style="display:inline-block">' + n(S.dropped.amount) + ' Lore lies here</p>' : '') + '</div></div>';
     var act = el('div', 'actions', ''); act.style.marginTop = '12px';
     var bb = el('button', 'btn', open ? 'Seal broken — find the gate' : 'Sealed'); bb.type = 'button'; bb.disabled = !open;
-    bb.onclick = function () { toast('The gate lies at the far side of ' + esc(L.name) + '. Bring the key.'); };
+    bb.onclick = function () { toast('The gate lies at the far side of ' + esc(theLand(L)) + '. Bring the key.'); };
     act.appendChild(bb);
     if (S.bossKills[L.id]) act.appendChild(el('span', 'muted', 'Slain ' + n(S.bossKills[L.id]) + '× · Title earned: ' + esc(B.title)));
     else if (!open) act.appendChild(el('span', 'muted', 'Slay every creature in this land at least once.'));
@@ -4032,7 +4033,7 @@ var Overworld = (function () {
     var k = S.kills[c.id] || 0, l = S.losses[c.id] || 0;
     b.innerHTML = portrait(c.sigil) + '<span><span class="nm">' + esc(c.name) + '</span><span class="tag">' + c.outcome + ' · ' + LEVELS[c.level].name + '</span><span class="fl">' + esc(c.flavor) + '</span><span class="meta"><span class="lr">' + n(LEVELS[c.level].lore) + ' Lore</span><span>Slain ' + n(k) + '×</span>' + (l ? '<span>Deaths ' + n(l) + '</span>' : '') + '</span></span>' +
       (S.dropped && S.dropped.creature === c.id ? '<span class="drop">' + n(S.dropped.amount) + ' Lore here</span>' : '');
-    b.onclick = function () { toast(esc(c.name) + ' lurks somewhere in ' + esc(L.name) + '. Find it.'); };
+    b.onclick = function () { toast(esc(c.name) + ' lurks somewhere in ' + esc(theLand(L)) + '. Find it.'); };
     return b;
   }
 
@@ -4284,7 +4285,7 @@ var Overworld = (function () {
     S.lore = keep;
     B.done = true; B.phase = 'result'; B.outcome = 'died';
     if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.pos = null; } }
-    var html = '<h2>You died</h2>' + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(B.land.name) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
+    var html = '<h2>You died</h2>' + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(theLand(B.land)) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
       notes.map(function (t) { return '<p>' + t + '</p>'; }).join('') + youTyped(B) + solutionBlock(q);
     var res = el('div', 'result lose', html);
     res.appendChild(afterActions(false)); B.result = res; render();
@@ -4297,7 +4298,7 @@ var Overworld = (function () {
   }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
-    var label = B.outcome === 'died' && B.land.explore === 2 ? 'Wake at the bonfire' : won ? 'Return to ' + esc(B.land.name) : 'Back to ' + esc(B.land.name);
+    var label = B.outcome === 'died' && B.land.explore === 2 ? 'Wake at the bonfire' : won ? 'Return to ' + esc(theLand(B.land)) : 'Back to ' + esc(theLand(B.land));
     var back = el('button', 'btn big', label); back.type = 'button'; back.onclick = function () { UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: B.outcome || 'fled' }; UI.battle = null; go('land'); };
     acts.appendChild(back);
     return acts;

@@ -6,7 +6,7 @@
 var WorldMap = (function () {
   var W = 1000, H = 640;
   var NODES_PROC = { L1: [110, 545], L2: [280, 480], L3: [450, 545], L4: [615, 470], L5: [800, 520], L6: [880, 370], L7: [700, 300], L8: [520, 350], L9: [330, 270], L10: [185, 205] };
-  var NODES_ART = { L1: [150, 520], L2: [165, 180], L3: [300, 250], L4: [520, 445], L5: [690, 520], L6: [870, 500], L7: [790, 300], L8: [600, 300], L9: [650, 150], L10: [400, 80] };
+  var NODES_ART = { L1: [150, 520], L2: [165, 180], L3: [300, 250], L4: [520, 445], L5: [690, 520], L6: [870, 500], L7: [800, 330], L8: [585, 260], L9: [650, 150], L10: [400, 80] };
   var NODES = (typeof ART_IMG !== 'undefined' && ART_IMG.map) ? NODES_ART : NODES_PROC;
   var ORDER = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9', 'L10'];
   /* biome palette per land: [low ground, high ground, peak], plus flags */
