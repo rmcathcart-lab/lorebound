@@ -2651,8 +2651,9 @@ var Overworld = (function () {
     // creature instances: tiers rise toward the boss. BEG ×3 each, PRG ×2 each, MAS ×2 each
     var lairs = [], byLevel = { BEG: [], PRG: [], MAS: [] };
     L.creatures.forEach(function (c) { byLevel[c.level].push(c); });
-    var mid = rooms.slice(1, -1), third = Math.max(1, Math.floor(mid.length / 3));
-    function place(list, copies, roomsFor) { list.forEach(function (c) { for (var n = 0; n < copies; n++) { var rm = roomsFor[(n * 2 + lairs.length) % roomsFor.length]; var p = freeIn(rm, used); p.kind = 'creature'; p.ref = c; p.n = n; used.push(p); lairs.push(p); } }); }
+    var mid = rooms.slice(1, -1).filter(function (rm) { return Math.hypot(rm.cx - spawn.x, rm.cy - spawn.y) > 15; }); if (mid.length < 3) mid = rooms.slice(2, -1);
+    var third = Math.max(1, Math.floor(mid.length / 3));
+    function place(list, copies, roomsFor) { list.forEach(function (c) { for (var n = 0; n < copies; n++) { var rm = roomsFor[(n * 2 + lairs.length) % roomsFor.length]; var p = freeIn(rm, used); if (Math.hypot(p.x - spawn.x, p.y - spawn.y) < 14) { rm = roomsFor[roomsFor.length - 1]; p = freeIn(rm, used); } p.kind = 'creature'; p.ref = c; p.n = n; used.push(p); lairs.push(p); } }); }
     place(byLevel.BEG, 3, mid.slice(0, third + 1)); place(byLevel.PRG, 2, mid.slice(third, 2 * third + 1)); place(byLevel.MAS, 2, mid.slice(2 * third));
     // key in a dead end (late), pages and chests in dead ends and rooms
     var keyP = dead.length ? dead.sort(function (a, b) { return b.x - a.x; })[Math.min(1, dead.length - 1)] : freeIn(mid[mid.length - 1], used); keyP = { x: keyP.x, y: keyP.y, kind: 'key' }; used.push(keyP);
@@ -2790,7 +2791,7 @@ var Overworld = (function () {
       if (e.kind !== 'creature') return;
       if (R.map.v2) {
         if (e.stun > 0) { e.stun -= dt; return; }
-        var pdx = p.x - e.x, pdy = p.y - e.y, pd = Math.hypot(pdx, pdy), sees = pd < 6.5 * T && lineOfSight(e.x, e.y, p.x, p.y);
+        var pdx = p.x - e.x, pdy = p.y - e.y, pd = Math.hypot(pdx, pdy), nearFire = Math.hypot(p.x - (R.map.spawn.x * T + T / 2), p.y - (R.map.spawn.y * T + T / 2)) < 6 * T, sees = !nearFire && pd < 6.5 * T && lineOfSight(e.x, e.y, p.x, p.y);
         if (sees) { e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > 2.5) { e.state = 'home'; } }
         if (e.state === 'chase') {
           if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); return; }
