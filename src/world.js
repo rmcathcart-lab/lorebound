@@ -1,13 +1,13 @@
 /* ===================== WORLD DATA ===================== */
 var LEVELS = {
-  BEG: { name: 'Beginning', short: 'BEG', lore: 20, color: 'var(--beg)' },
-  PRG: { name: 'Progressing', short: 'PRG', lore: 45, color: 'var(--prg)' },
-  MAS: { name: 'Mastery', short: 'MAS', lore: 100, color: 'var(--mas)' },
-  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, color: 'var(--boss)' }
+  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 45, color: 'var(--beg)' },
+  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 75, color: 'var(--prg)' },
+  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 120, color: 'var(--mas)' },
+  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 120, color: 'var(--boss)' }
 };
 
 var LANDS = [
-  { id: 'L1', unit: 1, name: 'The Barrow Marches', subject: 'Number', open: true, banner: 'title',
+  { id: 'L1', unit: 1, name: 'The Barrow Marches', subject: 'Number', open: true, explore: 2, banner: 'title',
     blurb: 'Fog-choked graves where the dead count in primes. Factor them, root them, and put them back in the ground.',
     outcomes: { AN1: 'Factors and roots of whole numbers', AN2: 'Irrational numbers and radicals' },
     creatures: [

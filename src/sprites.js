@@ -23,13 +23,13 @@
 
   /* terrain tables per theme: Kenney cells (col,row), or 0x72 names prefixed with 'dt:' */
   var TERRAIN = {
-    marsh: { ground: [K(0, 16), K(1, 16), K(0, 16), K(5, 1)], path: [K(6, 0), K(6, 1)], water: [K(0, 0), K(1, 0), K(0, 1), K(1, 1)], waterRaw: false,
+    marsh: { wallBase: '#0a0e0c', ground: [K(0, 16), K(1, 16), K(0, 16), K(5, 1)], path: [K(6, 0), K(6, 1)], water: [K(0, 0), K(1, 0), K(0, 1), K(1, 1)], waterRaw: false,
       wall: [{ base: K(27, 11), top: K(27, 9) }, { base: K(27, 11), top: K(27, 9) }, { base: K(18, 10) }, { base: K(18, 11) }, { base: K(15, 11) }], deco: [K(51, 11), K(52, 11), K(53, 11), K(49, 9), K(53, 9), K(22, 10)] },
-    forest: { ground: [K(5, 0), K(5, 1), K(0, 16), K(1, 16), K(0, 16)], path: [K(6, 0), K(6, 1)], water: [K(0, 0), K(1, 0), K(0, 1), K(1, 1)],
+    forest: { wallBase: '#09100a', ground: [K(5, 0), K(5, 1), K(0, 16), K(1, 16), K(0, 16)], path: [K(6, 0), K(6, 1)], water: [K(0, 0), K(1, 0), K(0, 1), K(1, 1)],
       wall: [{ base: K(13, 9) }, { base: K(13, 10) }, { base: K(13, 11) }, { base: K(15, 9) }, { base: K(15, 10) }, { base: K(16, 10) }, { base: K(16, 11) }, { base: K(18, 9) }, { base: K(18, 11) }, { base: K(23, 10) }], deco: [K(48, 2), K(48, 3), K(48, 5), K(19, 9), K(25, 11), K(22, 11), K(28, 10)] },
-    volcano: { ground: [K(6, 0), K(6, 1), K(6, 0), K(7, 0)], path: [K(8, 0), K(8, 1)], water: [K(0, 18), K(1, 18), K(0, 19), K(1, 19)], waterRaw: true,
+    volcano: { wallBase: '#120c0a', ground: [K(6, 0), K(6, 1), K(6, 0), K(7, 0)], path: [K(8, 0), K(8, 1)], water: [K(0, 18), K(1, 18), K(0, 19), K(1, 19)], waterRaw: true,
       wall: [{ base: K(5, 16) }, { base: K(6, 16) }, { base: K(8, 16) }, { base: K(5, 18) }, { base: K(6, 18) }, { base: K(8, 18) }, { base: K(9, 16) }], deco: [K(49, 9), K(9, 0), K(9, 1), K(49, 9)] },
-    crypt: { ground: ['dt:floor_1', 'dt:floor_2', 'dt:floor_3', 'dt:floor_4', 'dt:floor_5', 'dt:floor_1', 'dt:floor_1'], path: ['dt:floor_8', 'dt:floor_7'], water: ['dt:hole'], wall: 'dtwall', deco: ['dt:skull', 'dt:crate', K(49, 9), K(51, 11)] },
+    crypt: { wallBase: '#15131a', ground: ['dt:floor_1', 'dt:floor_2', 'dt:floor_3', 'dt:floor_4', 'dt:floor_5', 'dt:floor_1', 'dt:floor_1'], path: ['dt:floor_8', 'dt:floor_7'], water: ['dt:hole'], wall: 'dtwall', deco: ['dt:skull', 'dt:crate', K(49, 9), K(51, 11)] },
     wild: { ground: [K(5, 0), K(5, 1), K(0, 16)], path: [K(6, 0)], water: [K(0, 0), K(1, 0)], wall: [{ base: K(13, 9) }, { base: K(16, 10) }], deco: [K(49, 9)] }
   };
   function cell(src, name) { if (typeof src === 'string') { var f = DT_DEFS[src.slice(3)]; return f ? { img: dt, x: f[0][0], y: f[0][1], w: f[0][2], h: f[0][3] } : null; } return { img: name, x: src[0], y: src[1], w: src[2], h: src[3] }; }
@@ -41,7 +41,8 @@
   SP.tiles = function (ctx, th, t, tx, ty, x, y, tiles) {
     var G = Overworld.G, MW = Overworld.MW, tab = TERRAIN[th.name] || TERRAIN.wild, sheet = tinted[th.name] || tinted.wild, raw = ken, r = h2(tx, ty);
     var ground = tab.ground[Math.floor(r * tab.ground.length)];
-    drawCell(ctx, cell(ground, sheet), x, y, sheet);
+    if (t === G.WALL || t === G.EDGE) { ctx.fillStyle = tab.wallBase || '#0b0e0c'; ctx.fillRect(x, y, 16, 16); }   // solid ground under thickets/rock: unmistakably not walkable
+    else drawCell(ctx, cell(ground, sheet), x, y, sheet);
     if (t === G.GROUND || t === G.GROUND2) return true;
     if (t === G.PATH) { drawCell(ctx, cell(tab.path[Math.floor(r * tab.path.length)], sheet), x, y, sheet); return true; }
     if (t === G.WATER) { var fr = tab.water, f = fr[(Math.floor(Overworld.time() * 1.5) + Math.floor(r * 2)) % fr.length]; var c = cell(f, tab.waterRaw ? raw : sheet); if (c && c.img !== dt) { ctx.drawImage(tab.waterRaw ? raw : sheet, c.x, c.y, 16, 16, x, y, 16, 16); } else drawCell(ctx, c, x, y, sheet); return true; }
@@ -69,7 +70,7 @@
   function def(name) { if (SP.defs[name]) return SP.defs[name]; var d = ddef(name, 8); if (d) SP.defs[name] = d; return d; }
   SP.nameFor = function (e, L) {
     if (e.kind === 'hero') { var base = e.cls === 'sorcerer' ? 'wizzard_m' : 'knight_m'; var nm = animName(base, e.moving); var d = def(nm); if (d && e.stage > 1) { var key = nm + ':s' + e.stage; if (!SP.defs[key]) SP.defs[key] = { img: d.img, frames: d.frames, fps: d.fps, tint: e.stage === 3 ? 'rgba(255,200,80,.42)' : 'rgba(140,210,255,.38)' }; return key; } return nm; }
-    if (e.kind === 'creature') { var b = CREATURE[e.ref.sigil] || CREATURE[e.ref.id] || 'skelet'; var mv = e.tx != null && Math.hypot(e.tx - e.x, e.ty - e.y) > 1; var an = animName(b, mv); def(an); return an; }
+    if (e.kind === 'creature') { var b = CREATURE[e.ref.sigil] || CREATURE[e.ref.id] || 'skelet'; var mv = e.moving || (e.tx != null && Math.hypot(e.tx - e.x, e.ty - e.y) > 1); var an = animName(b, mv); def(an); return an; }
     if (e.kind === 'boss') { var bb = BOSS[L.id] || ['big_zombie', 1]; var bn = animName(bb[0], false); var bd = def(bn); if (bd && bb[1] !== 1) { var bk = bn + ':x' + bb[1]; if (!SP.defs[bk]) SP.defs[bk] = { img: bd.img, frames: bd.frames, fps: 6, scale: bb[1], tint: L.id === 'L4' ? 'rgba(255,200,80,.3)' : null }; return bk; } return bn; }
     if (e.kind === 'chest') { if (!SP.defs.chest) SP.defs.chest = { img: dt, frames: [{ x: DT_DEFS.chest_full_open_anim[0][0], y: DT_DEFS.chest_full_open_anim[0][1], w: 16, h: 16 }], fps: 1, anchorBottom: false }; return 'chest'; }
     if (e.kind === 'page') { if (!SP.defs.page) SP.defs.page = kdef(ken, [K(44, 15)], 1); return 'page'; }

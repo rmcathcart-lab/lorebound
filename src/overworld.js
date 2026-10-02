@@ -39,6 +39,7 @@ var Overworld = (function () {
     };
   }
   function generate(L) {
+    if (L.explore === 2) return generateV2(L);
     var r = rng(hash('lorebound:' + L.id + ':v1')), th = themeFor(L);
     var tiles = new Uint8Array(MW * MH), x, y, i;
     var idx = function (x, y) { return y * MW + x; };
@@ -99,13 +100,84 @@ var Overworld = (function () {
     return { tiles: tiles, spawn: spawn, lairs: lairs, gate: gate, boss: bossP, key: keyP, chests: chests, pages: pages, theme: th };
   }
 
+
+  /* ---------- map generation v2: chambers joined by winding corridors, everything else solid ---------- */
+  function generateV2(L) {
+    var r = rng(hash('lorebound:' + L.id + ':v2')), th = themeFor(L);
+    var W = MW, H = MH, tiles = new Uint8Array(W * H), x, y, i;
+    var idx = function (x, y) { return y * W + x; }, inb = function (x, y) { return x > 1 && y > 1 && x < W - 2 && y < H - 2; };
+    for (i = 0; i < tiles.length; i++) tiles[i] = G.WALL;
+    for (x = 0; x < W; x++) { tiles[idx(x, 0)] = G.EDGE; tiles[idx(x, H - 1)] = G.EDGE; } for (y = 0; y < H; y++) { tiles[idx(0, y)] = G.EDGE; tiles[idx(W - 1, y)] = G.EDGE; }
+    // rooms along a left-to-right progression
+    var rooms = [], tries, nRooms = 11;
+    function overlaps(a) { return rooms.some(function (b) { return a.x < b.x + b.w + 3 && a.x + a.w + 3 > b.x && a.y < b.y + b.h + 3 && a.y + a.h + 3 > b.y; }); }
+    for (var k = 0; k < nRooms; k++) {
+      var band0 = 3 + Math.floor((W - 14) * k / nRooms), band1 = band0 + Math.floor((W - 14) / nRooms) + 4;
+      for (tries = 0; tries < 200; tries++) {
+        var rw = 4 + Math.floor(r() * 5), rh = 3 + Math.floor(r() * 4);
+        var rm = { x: Math.max(2, Math.min(W - rw - 3, band0 + Math.floor(r() * Math.max(1, band1 - band0 - rw)))), y: 3 + Math.floor(r() * (H - rh - 6)), w: rw, h: rh, k: k };
+        if (!overlaps(rm)) { rooms.push(rm); break; }
+      }
+    }
+    rooms.sort(function (a, b) { return a.x - b.x; }); rooms.forEach(function (rm, j) { rm.k = j; rm.cx = Math.floor(rm.x + rm.w / 2); rm.cy = Math.floor(rm.y + rm.h / 2); });
+    function carveRoom(rm) { for (y = rm.y; y < rm.y + rm.h; y++) for (x = rm.x; x < rm.x + rm.w; x++) if (inb(x, y)) tiles[idx(x, y)] = (r() < 0.2 ? G.GROUND2 : G.GROUND); }
+    rooms.forEach(carveRoom);
+    // winding corridors: biased random walk, 1-2 wide
+    function corridor(a, b, wide) {
+      var cx = a.x, cy = a.y, steps = 0;
+      while ((cx !== b.x || cy !== b.y) && steps++ < 600) {
+        if (inb(cx, cy)) { if (tiles[idx(cx, cy)] === G.WALL) tiles[idx(cx, cy)] = G.PATH; if (wide && inb(cx + 1, cy) && tiles[idx(cx + 1, cy)] === G.WALL) tiles[idx(cx + 1, cy)] = G.PATH; }
+        var dx = b.x - cx, dy = b.y - cy, rr = r();
+        if (rr < 0.62) { if (Math.abs(dx) > Math.abs(dy) || (dy === 0)) cx += dx > 0 ? 1 : -1; else cy += dy > 0 ? 1 : -1; }
+        else if (rr < 0.82) { if (dx !== 0) cx += dx > 0 ? 1 : -1; else cy += dy > 0 ? 1 : -1; }
+        else { var sd = Math.floor(r() * 4); var nx = cx + (sd === 0 ? 1 : sd === 1 ? -1 : 0), ny = cy + (sd === 2 ? 1 : sd === 3 ? -1 : 0); if (inb(nx, ny)) { cx = nx; cy = ny; } }
+        if (!inb(cx, cy)) { cx = Math.max(2, Math.min(W - 3, cx)); cy = Math.max(2, Math.min(H - 3, cy)); }
+      }
+      if (inb(cx, cy) && tiles[idx(cx, cy)] === G.WALL) tiles[idx(cx, cy)] = G.PATH;
+    }
+    for (i = 0; i < rooms.length - 1; i++) corridor({ x: rooms[i].cx, y: rooms[i].cy }, { x: rooms[i + 1].cx, y: rooms[i + 1].cy }, r() < 0.5);
+    for (i = 0; i < 3; i++) { var a = Math.floor(r() * (rooms.length - 3)), b2 = a + 2 + Math.floor(r() * Math.min(3, rooms.length - a - 2)); if (rooms[b2]) corridor({ x: rooms[a].cx, y: rooms[a].cy }, { x: rooms[b2].cx, y: rooms[b2].cy }, false); }
+    // dead-end side passages (good hiding spots)
+    var dead = [];
+    for (i = 0; i < 7; i++) {
+      var from = rooms[1 + Math.floor(r() * (rooms.length - 2))], px = from.cx, py = from.cy, len = 7 + Math.floor(r() * 9), dir = Math.floor(r() * 4), lastOk = null;
+      for (var st = 0; st < len; st++) { if (r() < 0.3) dir = Math.floor(r() * 4); var nx2 = px + (dir === 0 ? 1 : dir === 1 ? -1 : 0), ny2 = py + (dir === 2 ? 1 : dir === 3 ? -1 : 0); if (!inb(nx2, ny2)) break; px = nx2; py = ny2; if (tiles[idx(px, py)] === G.WALL) { tiles[idx(px, py)] = G.PATH; lastOk = { x: px, y: py }; } }
+      if (lastOk) dead.push(lastOk);
+    }
+    // water pools inside a few rooms (never blocking the centre) and decoration
+    rooms.slice(1, -1).forEach(function (rm) { if (r() < 0.45 && rm.w >= 6 && rm.h >= 4) { var wx = rm.x + (r() < 0.5 ? 0 : rm.w - 2), wy = rm.y + (r() < 0.5 ? 0 : rm.h - 2); for (y = wy; y < wy + 2; y++) for (x = wx; x < wx + 2; x++) tiles[idx(x, y)] = G.WATER; } });
+    for (i = 0; i < tiles.length; i++) if (tiles[i] === G.GROUND && r() < 0.07) tiles[i] = G.DECO;
+    // entrance, boss room, gate
+    var start = rooms[0], last = rooms[rooms.length - 1];
+    var spawn = { x: start.cx, y: start.cy }; tiles[idx(spawn.x, spawn.y)] = G.FIRE;
+    var gate = { x: last.x - 1, y: last.cy }; for (y = last.y - 1; y <= last.y + last.h; y++) if (inb(last.x - 1, y)) tiles[idx(last.x - 1, y)] = (y === gate.y) ? G.GATE : G.WALL;
+    corridor({ x: rooms[rooms.length - 2].cx, y: rooms[rooms.length - 2].cy }, { x: gate.x - 1, y: gate.y }, true);
+    tiles[idx(gate.x - 1, gate.y)] = G.PATH; tiles[idx(gate.x, gate.y)] = G.GATE;
+    var bossP = { x: last.cx + 1, y: last.cy, kind: 'boss', ref: L.boss };
+    // free tiles per room for placing things
+    function freeIn(rm, avoid) { for (var t = 0; t < 60; t++) { var fx = rm.x + Math.floor(r() * rm.w), fy = rm.y + Math.floor(r() * rm.h), ti = idx(fx, fy); if (SOLID[tiles[ti]] || tiles[ti] === G.FIRE || tiles[ti] === G.WATER) continue; if (avoid.some(function (p) { return Math.abs(p.x - fx) < 2 && Math.abs(p.y - fy) < 2; })) continue; return { x: fx, y: fy }; } return { x: rm.cx, y: rm.cy }; }
+    var used = [spawn];
+    // creature instances: tiers rise toward the boss. BEG ×3 each, PRG ×2 each, MAS ×2 each
+    var lairs = [], byLevel = { BEG: [], PRG: [], MAS: [] };
+    L.creatures.forEach(function (c) { byLevel[c.level].push(c); });
+    var mid = rooms.slice(1, -1), third = Math.max(1, Math.floor(mid.length / 3));
+    function place(list, copies, roomsFor) { list.forEach(function (c) { for (var n = 0; n < copies; n++) { var rm = roomsFor[(n * 2 + lairs.length) % roomsFor.length]; var p = freeIn(rm, used); p.kind = 'creature'; p.ref = c; p.n = n; used.push(p); lairs.push(p); } }); }
+    place(byLevel.BEG, 3, mid.slice(0, third + 1)); place(byLevel.PRG, 2, mid.slice(third, 2 * third + 1)); place(byLevel.MAS, 2, mid.slice(2 * third));
+    // key in a dead end (late), pages and chests in dead ends and rooms
+    var keyP = dead.length ? dead.sort(function (a, b) { return b.x - a.x; })[Math.min(1, dead.length - 1)] : freeIn(mid[mid.length - 1], used); keyP = { x: keyP.x, y: keyP.y, kind: 'key' }; used.push(keyP);
+    var chests = [], pages = [], pool = dead.filter(function (d) { return d.x !== keyP.x || d.y !== keyP.y; });
+    for (i = 0; i < 7; i++) { var cp = pool.length && r() < 0.5 ? pool.splice(Math.floor(r() * pool.length), 1)[0] : freeIn(mid[Math.floor(r() * mid.length)], used); cp = { x: cp.x, y: cp.y, kind: 'chest', n: i }; used.push(cp); chests.push(cp); }
+    for (i = 0; i < 5; i++) { var pp = pool.length && r() < 0.5 ? pool.splice(Math.floor(r() * pool.length), 1)[0] : freeIn(rooms[1 + Math.floor(r() * (rooms.length - 2))], used); pp = { x: pp.x, y: pp.y, kind: 'page', n: i }; used.push(pp); pages.push(pp); }
+    return { v2: true, tiles: tiles, spawn: spawn, lairs: lairs, gate: gate, boss: bossP, key: keyP, chests: chests, pages: pages, theme: th, rooms: rooms };
+  }
+
   /* ---------- sprites (filled in by Overworld.useSprites once a sheet is loaded) ---------- */
   var SP = { ready: false, img: null, defs: {} };
   function useSprites(img, defs) { SP.img = img; SP.defs = defs; SP.ready = !!img; }
 
   /* ---------- runtime ---------- */
   var R = null; // current run: { L, S, map, cv, ctx, scale, vw, vh, player, ents, keys, raf, ... }
-  function worldState(S, L) { S.world = S.world || {}; var w = S.world[L.id]; if (!w) { w = S.world[L.id] = { seen: '', chests: [], pages: [], key: false, pos: null }; } return w; }
+  function worldState(S, L) { S.world = S.world || {}; var w = S.world[L.id]; if (!w) { w = S.world[L.id] = { seen: '', chests: [], pages: [], key: false, pos: null, dead: [] }; } return w; }
   var seenCache = {}; // land id -> Uint8Array (kept out of the saved state; the state holds a packed bitset)
   function seenArr(w, id) {
     var a = seenCache[id]; if (a) return a;
@@ -124,11 +196,18 @@ var Overworld = (function () {
     var stick = document.createElement('div'); stick.className = 'ow-stick'; stick.innerHTML = '<div class="ow-stick-knob"></div>'; wrap.appendChild(stick);
     var act = document.createElement('button'); act.type = 'button'; act.className = 'ow-act'; act.textContent = '⚔'; wrap.appendChild(act);
     container.appendChild(wrap);
-    var start = w.pos || { x: (map.spawn.x + 1) * T + T / 2, y: map.spawn.y * T + T / 2 };
+    var ret = opts.returnFrom || null, fireAt = { x: (map.spawn.x + 1) * T + T / 2, y: map.spawn.y * T + T / 2 };
+    if (ret && map.v2) {
+      if (ret.outcome === 'won' && ret.inst != null && !ret.isBoss) { var dk = ret.ref.id + '#' + ret.inst; if (w.dead.indexOf(dk) < 0) w.dead.push(dk); }
+      if (ret.outcome === 'died') { w.dead = []; w.pos = fireAt; }
+    }
+    var start = w.pos || fireAt;
     R = { container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
       player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0 }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
-    R.ents = buildEntities(map, S, L, w);
+    R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
+    if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
+    if (ret && map.v2 && ret.outcome === 'died') say('You wake at the bonfire. The dead have risen again.');
     layout(); window.addEventListener('resize', layout);
     bindInput();
     reveal(); R.last = performance.now(); R.raf = requestAnimationFrame(frame);
@@ -143,7 +222,12 @@ var Overworld = (function () {
 
   function buildEntities(map, S, L, w) {
     var ents = [];
-    map.lairs.forEach(function (p, k) { ents.push({ kind: 'creature', ref: p.ref, x: p.x * T + T / 2, y: p.y * T + T / 2, hx: p.x, hy: p.y, wander: 0, dir: 1, anim: Math.random() * 10, level: p.ref.level }); });
+    w.dead = w.dead || [];
+    map.lairs.forEach(function (p, k) {
+      var key = p.ref.id + '#' + (p.n || 0), base = { ref: p.ref, key: key, n: p.n || 0, x: p.x * T + T / 2, y: p.y * T + T / 2, hx: p.x, hy: p.y, dir: 1, anim: Math.random() * 10, level: p.ref.level };
+      if (map.v2 && w.dead.indexOf(key) >= 0) { base.kind = 'corpse'; ents.push(base); return; }
+      base.kind = 'creature'; base.wander = 0; base.state = 'idle'; base.lost = 0; base.stun = 0; ents.push(base);
+    });
     ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
     if (!w.key) ents.push({ kind: 'key', x: map.key.x * T + T / 2, y: map.key.y * T + T / 2, anim: 0 });
     map.chests.forEach(function (c) { if (w.chests.indexOf(c.n) < 0) ents.push({ kind: 'chest', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
@@ -190,6 +274,7 @@ var Overworld = (function () {
     if (!R) return;
     var dt = Math.max(0, Math.min(50, now - R.last)) / 1000; R.last = now; R.t += dt;
     if (!R.frozen) step(dt);
+    if (!R) return;
     draw();
     R.raf = requestAnimationFrame(frame);
   }
@@ -206,14 +291,29 @@ var Overworld = (function () {
       p.anim += dt * 8;
     } else p.anim += dt * 4;
     if (Math.floor(p.x / T) !== p.tx || Math.floor(p.y / T) !== p.ty) { p.tx = Math.floor(p.x / T); p.ty = Math.floor(p.y / T); reveal(); }
-    // creatures wander
+    // creatures: wander, see, chase (slower than the hero), give up
+    if (R.contactCool > 0) R.contactCool -= dt;
     R.ents.forEach(function (e) {
+      if (!R) return; // a contact fight unmounted the world mid-loop
       e.anim += dt * 6;
       if (e.kind !== 'creature') return;
+      if (R.map.v2) {
+        if (e.stun > 0) { e.stun -= dt; return; }
+        var pdx = p.x - e.x, pdy = p.y - e.y, pd = Math.hypot(pdx, pdy), sees = pd < 6.5 * T && lineOfSight(e.x, e.y, p.x, p.y);
+        if (sees) { e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > 2.5) { e.state = 'home'; } }
+        if (e.state === 'chase') {
+          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); return; }
+          var cs = (e.level === 'MAS' ? 46 : e.level === 'PRG' ? 44 : 40) * dt, mx = e.x + pdx / (pd || 1) * cs, my = e.y + pdy / (pd || 1) * cs;
+          if (!blocked(mx, e.y)) e.x = mx; if (!blocked(e.x, my)) e.y = my; e.dir = pdx < 0 ? -1 : 1; e.moving = true; return;
+        }
+        if (e.state === 'home') { var hx = e.hx * T + T / 2, hy = e.hy * T + T / 2, hdx = hx - e.x, hdy = hy - e.y, hd = Math.hypot(hdx, hdy); if (hd < 2) { e.state = 'idle'; } else { var hs = 30 * dt; var nx3 = e.x + hdx / hd * hs, ny3 = e.y + hdy / hd * hs; if (!blocked(nx3, e.y)) e.x = nx3; if (!blocked(e.x, ny3)) e.y = ny3; e.dir = hdx < 0 ? -1 : 1; e.moving = true; return; } }
+        e.moving = false;
+      }
       e.wander -= dt;
       if (e.wander <= 0) { e.wander = 1.5 + Math.random() * 3; var ang = Math.random() * Math.PI * 2, dist = Math.random() * 1.6 * T; e.tx = e.hx * T + T / 2 + Math.cos(ang) * dist; e.ty = e.hy * T + T / 2 + Math.sin(ang) * dist; }
       if (e.tx != null) { var ex = e.tx - e.x, ey = e.ty - e.y, ed = Math.hypot(ex, ey); if (ed > 1) { var sp = 14 * dt; var nx2 = e.x + ex / ed * sp, ny2 = e.y + ey / ed * sp; if (!blocked(nx2, ny2)) { e.x = nx2; e.y = ny2; e.dir = ex < 0 ? -1 : 1; } else e.tx = null; } }
     });
+    if (!R) return;
     // pickups and proximity
     R.near = null;
     for (var i = R.ents.length - 1; i >= 0; i--) {
@@ -245,7 +345,12 @@ var Overworld = (function () {
     if (!R.near.e) return;
     var e = R.near.e; persist();
     if (e.kind === 'boss') { if (R.opts.onBattle) R.opts.onBattle(e.ref, true); }
-    else if (R.opts.onBattle) R.opts.onBattle(e.ref, false);
+    else if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n);
+  }
+  function lineOfSight(x0, y0, x1, y1) { // tile-stepping ray; blocked by solid tiles
+    var steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6), last = -1;
+    for (var i = 1; i < steps; i++) { var t = i / steps, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t, ti = Math.floor(py / T) * MW + Math.floor(px / T); if (ti === last) continue; last = ti; var tt = R.map.tiles[ti]; if (SOLID[tt] || tt === G.GATE) return false; }
+    return true;
   }
   function reveal() {
     var p = R.player, tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), rad = 6;
@@ -266,9 +371,9 @@ var Overworld = (function () {
     // entities sorted by y
     var list = R.ents.slice(); list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving, anim: p.anim, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
     list.sort(function (a, b) { return a.y - b.y; });
-    list.forEach(function (e) { if (e.kind !== 'hero' && !R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; drawEnt(ctx, e, e.x - camx, e.y - camy); });
+    list.forEach(function (e) { if (e.kind !== 'hero' && !R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'corpse') drawCorpse(ctx, e, e.x - camx, e.y - camy); else drawEnt(ctx, e, e.x - camx, e.y - camy); });
     // dropped lore marker
-    if (R.S.dropped && R.S.dropped.land === R.L.id) { var de = R.ents.filter(function (e) { return e.ref && e.ref.id === R.S.dropped.creature; })[0]; if (de) { var gx = de.x - camx, gy = de.y - camy - 14 + Math.sin(R.t * 4) * 1.5; ctx.fillStyle = '#8fd3ff'; ctx.beginPath(); ctx.arc(gx, gy, 2.5, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(143,211,255,.35)'; ctx.beginPath(); ctx.arc(gx, gy, 5, 0, 7); ctx.fill(); } }
+    if (R.S.dropped && R.S.dropped.land === R.L.id) { var de = R.ents.filter(function (e) { return e.ref && e.ref.id === R.S.dropped.creature && (R.S.dropped.inst == null || e.n === R.S.dropped.inst); })[0]; if (de) { var gx = de.x - camx, gy = de.y - camy - 14 + Math.sin(R.t * 4) * 1.5; ctx.fillStyle = '#8fd3ff'; ctx.beginPath(); ctx.arc(gx, gy, 2.5, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(143,211,255,.35)'; ctx.beginPath(); ctx.arc(gx, gy, 5, 0, 7); ctx.fill(); } }
     // fog: seen-but-far tiles darkened, unseen black (already black), soft light around hero
     ctx.fillStyle = 'rgba(0,0,0,.45)';
     for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
@@ -278,7 +383,7 @@ var Overworld = (function () {
     if (cvw >= 300) {
     var mx = cvw - MW - 4, my = 4; ctx.fillStyle = 'rgba(10,8,12,.75)'; ctx.fillRect(mx - 2, my - 2, MW + 4, MH + 4);
     for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { i = y * MW + x; if (!R.seen[i]) continue; var tt = R.map.tiles[i]; ctx.fillStyle = tt === G.WALL || tt === G.EDGE ? '#3a3a3a' : tt === G.WATER ? (th.lava ? '#a0401a' : '#1f3550') : tt === G.PATH ? '#6a5a40' : tt === G.GATE ? '#d6a860' : '#4a5a44'; ctx.fillRect(mx + x, my + y, 1, 1); }
-    R.ents.forEach(function (e) { if (!R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = e.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[e.ref.level]; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } });
+    R.ents.forEach(function (e) { if (!R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = e.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[e.ref.level]; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } else if (e.kind === 'corpse') { ctx.fillStyle = '#555'; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } });
     ctx.fillStyle = '#ff9a3c'; ctx.fillRect(mx + R.map.spawn.x, my + R.map.spawn.y, 1, 1);
     ctx.fillStyle = Math.floor(R.t * 3) % 2 ? '#ffffff' : '#e8dcc0'; ctx.fillRect(mx + Math.floor(p.x / T), my + Math.floor(p.y / T), 1, 1);
     }
@@ -317,6 +422,12 @@ var Overworld = (function () {
     else if (t === G.FIRE) { ctx.fillStyle = '#3a3030'; ctx.fillRect(x + 3, y + 10, 10, 4); var fl = 2 + Math.sin(R.t * 9) * 1.5; ctx.fillStyle = '#ff9a3c'; ctx.fillRect(x + 6, y + 10 - fl - 2, 4, fl + 2); ctx.fillStyle = '#ffd27a'; ctx.fillRect(x + 7, y + 10 - fl, 2, fl); }
     else if (t === G.GROUND2) { ctx.fillStyle = 'rgba(0,0,0,.08)'; ctx.fillRect(x + v * 3, y + v * 2, 2, 1); }
   }
+  function drawCorpse(ctx, e, x, y) {
+    ctx.fillStyle = 'rgba(60,20,30,.55)'; ctx.beginPath(); ctx.ellipse(x, y + 5, 9, 3.5, 0, 0, 7); ctx.fill();
+    var name = SP.ready && SP.nameFor ? SP.nameFor({ kind: 'creature', ref: e.ref, tx: null, x: 0, y: 0 }, R.L) : null, d = name && spr(name);
+    if (!d) { ctx.fillStyle = '#3a3030'; ctx.fillRect(x - 6, y, 12, 4); return; }
+    var f = d.frames[0]; ctx.save(); ctx.translate(x, y + 3); ctx.rotate(e.dir < 0 ? Math.PI / 2 : -Math.PI / 2); ctx.globalAlpha = 0.8; ctx.drawImage(d.img || SP.img, f.x, f.y, f.w, f.h, -f.w / 2, -f.h + 2, f.w, f.h); ctx.restore();
+  }
   function drawEnt(ctx, e, x, y) {
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
     if (name) { if (e.kind === 'hero' || e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, e.kind === 'boss' ? 10 : 6, e.kind === 'boss' ? 4 : 2.5, 0, 0, 7); ctx.fill(); }
@@ -333,9 +444,10 @@ var Overworld = (function () {
 
   /* ---------- public ---------- */
   function freeze(on) { if (R) { R.frozen = !!on; R.keys = {}; R.stickVec = null; } }
-  function nudgeAway(ref) { // after a battle, step the hero back from the creature so they don't instantly re-engage
-    if (!R) return; var e = R.ents.filter(function (x) { return x.ref && x.ref.id === ref.id; })[0]; if (!e) return;
+  function nudgeAway(ref, inst) { // after a battle, step the hero back from the creature so they don't instantly re-engage
+    if (!R) return; var e = R.ents.filter(function (x) { return x.ref && x.ref.id === ref.id && (inst == null || x.n === inst); })[0]; if (!e) return;
     var dx = R.player.x - e.x, dy = R.player.y - e.y, d = Math.hypot(dx, dy) || 1; var nx = e.x + dx / d * 30, ny = e.y + dy / d * 30; if (!blocked(nx, ny)) { R.player.x = nx; R.player.y = ny; }
   }
-  return { mount: mount, unmount: unmount, useSprites: useSprites, freeze: freeze, nudgeAway: nudgeAway, generate: generate, T: T, MW: MW, MH: MH, G: G, SP: SP, run: function () { return R; }, time: function () { return R ? R.t : 0; }, gateOpen: function () { return R ? gateOpen() : false; } };
+  function counts() { if (!R) return null; var alive = 0, dead = 0; R.ents.forEach(function (e) { if (e.kind === 'creature') alive++; else if (e.kind === 'corpse') dead++; }); return { alive: alive, dead: dead }; }
+  return { counts: counts, mount: mount, unmount: unmount, useSprites: useSprites, freeze: freeze, nudgeAway: nudgeAway, generate: generate, T: T, MW: MW, MH: MH, G: G, SP: SP, run: function () { return R; }, time: function () { return R ? R.t : 0; }, gateOpen: function () { return R ? gateOpen() : false; } };
 })();

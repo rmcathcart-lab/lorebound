@@ -311,3 +311,7 @@ table.attempts tr.r-correct td:last-child { color: var(--good); } table.attempts
 details.bestiary { margin-top: 14px; } details.bestiary summary { cursor: pointer; font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--bone-dim); padding: 8px 0; }
 .ow-legend .touch { display: none; }
 @media (pointer: coarse) { .ow-legend .kb { display: none; } .ow-legend .touch { display: inline; } }
+.qtimer { position: relative; height: 8px; background: var(--ash-2); border: 1px solid var(--edge); border-radius: 4px; margin: 14px 0 10px; }
+.qtimer .fill { height: 100%; width: 100%; background: var(--lore); border-radius: 3px; transition: width .25s linear; }
+.qtimer.low .fill { background: var(--bad); } .qtimer .n { position: absolute; right: 0; top: -18px; font-family: var(--font-ui); font-size: 12px; letter-spacing: .1em; color: var(--bone-dim); }
+.qtimer.low .n { color: var(--bad); }

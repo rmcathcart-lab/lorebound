@@ -296,17 +296,18 @@
     var legend = el('div', 'ow-legend', '<span class="kb"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to walk · <kbd>E</kbd> fight · open · rest</span><span class="touch">Drag the stick to walk · ⚔ to fight, open or rest</span><span class="muted">Creatures lurk in the dark. Chests hold Lore, pages tell the lore, and the boss gate needs the key hidden somewhere in this land.</span>');
     owPanel.appendChild(legend);
     var wst = (S.world && S.world[L.id]) || {};
-    var owStat = el('div', 'ow-stat', '<span>Pages ' + ((wst.pages || []).length) + ' / 5</span><span>Chests ' + ((wst.chests || []).length) + ' / 7</span><span>' + (wst.key ? 'Gate key found' : 'Gate key: not yet found') + '</span><span>' + (bossOpen(L) ? 'Every creature slain once — the seal can break' : 'Creatures slain: ' + L.creatures.filter(function (c) { return S.kills[c.id]; }).length + ' / ' + L.creatures.length) + '</span>');
+    var owStat = el('div', 'ow-stat', '<span>Pages ' + ((wst.pages || []).length) + ' / 5</span><span>Chests ' + ((wst.chests || []).length) + ' / 7</span><span>' + (wst.key ? 'Gate key found' : 'Gate key: not yet found') + '</span><span>' + (bossOpen(L) ? 'Every kind of creature slain once — the seal can break' : 'Kinds slain: ' + L.creatures.filter(function (c) { return S.kills[c.id]; }).length + ' / ' + L.creatures.length) + '</span>' + (L.explore === 2 ? '<span>Corpses: ' + (((S.world || {})[L.id] || {}).dead || []).length + '</span>' : ''));
     owPanel.appendChild(owStat);
     app.appendChild(owPanel);
     Overworld.mount(owPanel, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(),
       bossOpen: function () { return bossOpen(L); },
-      onBattle: function (c, isBoss) { startBattle(L, c, isBoss); },
-      onBonfire: function () { go('bonfire'); },
+      returnFrom: UI.returnFrom,
+      onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
+      onBonfire: function () { if (L.explore === 2) { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); },
       onChest: function (amt) { S.lore += amt; S.legend += amt; renderHud(); saveLocal(); },
       onPage: function (have, total) { var gain = 10 + (have >= total ? 100 : 0); S.lore += gain; S.legend += gain; if (have >= total) toast('You have gathered every page of the ' + esc(L.name) + ' Lorebook. +100 Lore.'); renderHud(); saveLocal(); },
       onSave: function () { saveLocal(); } });
-    if (UI.returnFrom) { Overworld.nudgeAway(UI.returnFrom); UI.returnFrom = null; }
+    if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
     var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore on gear here. Lore you spend can never be lost; Lore you carry can.</span></div>');
     var bfb = el('button', 'btn', 'Rest at the bonfire'); bfb.type = 'button'; bfb.onclick = function () { go('bonfire'); }; bf.appendChild(bfb);
     app.appendChild(bf);
@@ -340,10 +341,29 @@
   }
 
   /* ---------- battle ---------- */
-  function startBattle(L, c, isBoss) {
+  function startBattle(L, c, isBoss, inst) {
     var qs = (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
-    UI.battle = { land: L, foe: c, isBoss: isBoss, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null };
+    UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null };
+    armTimer();
     UI.land = L.id; go('battle');
+  }
+  function questionTime(B) { return (B.isBoss ? LEVELS.BOSS : LEVELS[B.foe.level]).time || 0; }
+  function armTimer() { var B = UI.battle; if (!B) return; var t = questionTime(B); B.deadline = t ? Date.now() + t * 1000 : 0; }
+  function tickTimer() {
+    var B = UI.battle; if (!B || B.done || !B.deadline || UI.screen !== 'battle') return;
+    if (B.phase !== 'ask' && B.phase !== 'warn') return;
+    var left = Math.max(0, B.deadline - Date.now()), bar = document.getElementById('qtimer');
+    if (bar) { var tot = questionTime(B) * 1000, fr = left / tot; bar.querySelector('.fill').style.width = (fr * 100) + '%'; bar.querySelector('.n').textContent = Math.ceil(left / 1000) + ' s'; bar.classList.toggle('low', left < 10000); }
+    if (left <= 0) timeUp();
+  }
+  setInterval(tickTimer, 250);
+  function timeUp() {
+    var B = UI.battle, q = B.qs[B.i]; B.deadline = 0;
+    logAttempt(q, '(out of time)', 'wrong'); B.lastRaw = '';
+    toast('Too slow. The creature strikes first.');
+    if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
+    if (charges('shield') > 0) { shieldBreak(); return; }
+    die();
   }
   function screenBattle() {
     var B = UI.battle; if (!B) { go('land'); return; }
@@ -362,12 +382,13 @@
     if (B.phase === 'ask' || B.phase === 'sight' || B.phase === 'warn') {
       var qp = el('div', 'panel');
       qp.appendChild(el('div', 'eyebrow', B.isBoss ? 'It speaks' : 'The creature asks'));
+      if (B.deadline) qp.appendChild(el('div', 'qtimer', '<div class="fill"></div><span class="n"></span>')).id = 'qtimer';
       qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Type your answer with the keypad. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
       if (B.phase === 'warn') qp.appendChild(el('div', 'result warn', '<h2>It staggers, but does not fall</h2><p>Your answer has the <b>right value</b> but is not in the <b>form the question asks for</b>. Write it that way. A second slip will be fatal.</p>'));
       if (B.phase === 'sight') {
         var sp = el('div', 'result lose', '<h2>Your answer was wrong</h2><p>Second Sight flickers. Spend its charge to try this question once more, or accept your fate.</p>');
         var row = el('div', 'actions');
-        var use = el('button', 'btn lore', 'Use Second Sight (1 charge)'); use.type = 'button'; use.onclick = function () { S.gear.sight.charges--; B.sightUsed = true; B.phase = 'ask'; render(); };
+        var use = el('button', 'btn lore', 'Use Second Sight (1 charge)'); use.type = 'button'; use.onclick = function () { S.gear.sight.charges--; B.sightUsed = true; B.phase = 'ask'; armTimer(); render(); };
         var no = el('button', 'btn ghost', 'Accept fate'); no.type = 'button'; no.onclick = function () { die(); };
         row.appendChild(use); row.appendChild(no); sp.appendChild(row); qp.appendChild(sp);
       }
@@ -414,15 +435,15 @@
   function win() {
     var B = UI.battle, q = B.qs[B.i], foe = B.foe;
     if (B.isBoss && B.i < B.qs.length - 1) { // next boss question
-      B.i++; B.hintShown = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask';
+      B.i++; B.hintShown = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; armTimer();
       toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); render(); return;
     }
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
     if (B.isBoss) { S.bossKills[B.land.id] = (S.bossKills[B.land.id] || 0) + 1; if (S.titles.indexOf(foe.title) < 0) S.titles.push(foe.title); }
-    if (S.dropped && S.dropped.creature === foe.id) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
-    B.done = true; B.phase = 'result';
+    if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
+    B.done = true; B.phase = 'result'; B.outcome = 'won';
     var html = '<h2>' + (B.isBoss ? esc(foe.name) + ' falls' : esc(foe.name) + ' is slain') + '</h2><div class="gain">+' + n(rw.amount) + ' Lore</div><div class="breakdown">' + rw.parts.map(function (p) { return p.k + ' ' + p.m; }).join(' · ') + '</div>' +
       (reclaimed ? '<p><b style="color:var(--lore)">You reclaim ' + n(reclaimed) + ' Lore</b> from where you fell.</p>' : '') +
       (B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
@@ -434,7 +455,7 @@
   function shieldBreak() {
     var B = UI.battle, q = B.qs[B.i];
     S.gear.shield.charges--; S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1;
-    B.done = true; B.phase = 'result';
+    B.done = true; B.phase = 'result'; B.outcome = 'fled';
     var res = el('div', 'result warn', '<h2>Your Bone Shield shatters</h2><p>The blow that should have killed you breaks on the shield. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Recharge the shield at a bonfire.</p>' + youTyped(B) + solutionBlock(q));
     res.appendChild(afterActions(false)); B.result = res; render();
   }
@@ -447,26 +468,27 @@
       if (charges('phoenix') > 0) { S.gear.phoenix.charges--; drop += S.dropped.amount; notes.push('The Phoenix Sigil burns: the ' + n(S.dropped.amount) + ' Lore already on the ground joins this pile instead of vanishing.'); }
       else { S.lostForever += S.dropped.amount; notes.push('The ' + n(S.dropped.amount) + ' Lore you had left at ' + esc((creatureById(landById(S.dropped.land), S.dropped.creature) || {}).name || 'the grave') + ' is <b>lost forever</b>.'); }
     }
-    S.dropped = drop > 0 ? { amount: drop, creature: foe.id, land: B.land.id } : null;
+    S.dropped = drop > 0 ? { amount: drop, creature: foe.id, land: B.land.id, inst: B.inst } : null;
     S.lore = keep;
-    B.done = true; B.phase = 'result';
-    var html = '<h2>You died</h2>' + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
+    B.done = true; B.phase = 'result'; B.outcome = 'died';
+    if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.pos = null; } }
+    var html = '<h2>You died</h2>' + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(B.land.name) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
       notes.map(function (t) { return '<p>' + t + '</p>'; }).join('') + youTyped(B) + solutionBlock(q);
     var res = el('div', 'result lose', html);
     res.appendChild(afterActions(false)); B.result = res; render();
   }
   function flee() {
     var B = UI.battle, cost = Math.floor(S.lore * 0.10);
-    S.lore -= cost; B.done = true;
+    S.lore -= cost; B.done = true; B.outcome = 'fled';
     toast(cost ? 'You escape, but ' + esc(B.foe.name) + ' claws ' + n(cost) + ' Lore from you.' : 'You slip away.');
-    UI.returnFrom = B.foe; UI.battle = null; go('land');
+    UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: 'fled' }; UI.battle = null; go('land');
   }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
     var again = el('button', 'btn', won ? 'Fight another ' + esc(B.foe.name) : 'Face ' + esc(B.foe.name) + ' again'); again.type = 'button';
     again.onclick = function () { startBattle(B.land, B.foe, B.isBoss); };
     acts.appendChild(again);
-    var back = el('button', 'btn ghost', 'Back to ' + esc(B.land.name)); back.type = 'button'; back.onclick = function () { UI.returnFrom = B.foe; UI.battle = null; go('land'); };
+    var back = el('button', 'btn ghost', 'Back to ' + esc(B.land.name)); back.type = 'button'; back.onclick = function () { UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: B.outcome || 'fled' }; UI.battle = null; go('land'); };
     acts.appendChild(back);
     return acts;
   }
@@ -655,6 +677,8 @@
       '<li><b>Win streaks pay.</b> Every kill in a row adds 5% (up to +50%). A death resets it.</li>' +
       '<li><b>Answers must be in the form asked for.</b> A right value in the wrong form staggers the creature once; the second time it kills you.</li>' +
       '<li><b>Fleeing</b> a fight costs 10% of the Lore you carry.</li>' +
+      '<li><b>The clock.</b> Each question has a time limit (Beginning 45 s, Progressing 75 s, Mastery and bosses 120 s). Out of time counts as a wrong answer.</li>' +
+      '<li><b>In the Marches</b>, creatures roam in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +
       '<li><b>Legend</b> is the total Lore you have ever earned. It never goes down. Compare Legends, not Lore.</li>' +
       '<li><b>Saving.</b> Progress saves itself in this browser. With a class code, it is also kept in your teacher\'s ledger, so you can continue on any device by entering the same name and class code. The save code in the Chronicle is a backup.</li>' +
