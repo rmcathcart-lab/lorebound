@@ -322,6 +322,18 @@ details.bestiary { margin-top: 14px; } details.bestiary summary { cursor: pointe
 .qtimer.low .fill { background: var(--bad); } .qtimer .n { position: absolute; right: 0; top: -18px; font-family: var(--font-ui); font-size: 12px; letter-spacing: .1em; color: var(--bone-dim); }
 .qtimer.low .n { color: var(--bad); }
 
+/* ---- full-screen world ---- */
+body.in-world { overflow: hidden; }
+body.in-world #app { padding: 0; max-width: none; }
+.world-screen { position: static; }
+.ow-wrap.full { z-index: 5; }
+.ow-wrap.full { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: #07060a; width: auto; max-width: none; margin: 0; }
+.ow-wrap.full .ow-canvas { border: 0; border-radius: 0; }
+.ow-title { position: absolute; left: 0; right: 0; top: 18%; text-align: center; pointer-events: none; opacity: 1; transition: opacity 1s ease; text-shadow: 0 2px 12px rgba(0,0,0,.9); }
+.ow-title h1 { font-family: var(--font-display); font-size: clamp(32px, 6vw, 64px); margin: 4px 0 0; color: var(--bone); letter-spacing: .02em; }
+.ow-title .eyebrow { font-size: 13px; letter-spacing: .3em; }
+.ow-title.gone { opacity: 0; }
+
 </style></head><body>
 <div id="artdefs"></div>
 <div id="hud" class="hud" hidden></div>
@@ -2170,10 +2182,10 @@ if (typeof module !== 'undefined') module.exports = { SIGILS: SIGILS, ART_DEFS: 
 
 /* ===================== WORLD DATA ===================== */
 var LEVELS = {
-  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 45, color: 'var(--beg)' },
-  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 75, color: 'var(--prg)' },
-  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 120, color: 'var(--mas)' },
-  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 120, color: 'var(--boss)' }
+  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 90, color: 'var(--beg)' },
+  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 150, color: 'var(--prg)' },
+  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 240, color: 'var(--mas)' },
+  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 240, color: 'var(--boss)' }
 };
 
 var LANDS = [
@@ -2685,6 +2697,8 @@ var Overworld = (function () {
     var cv = document.createElement('canvas'); cv.className = 'ow-canvas'; cv.tabIndex = 0;
     var wrap = document.createElement('div'); wrap.className = 'ow-wrap'; wrap.appendChild(cv);
     var hint = document.createElement('div'); hint.className = 'ow-hint'; wrap.appendChild(hint);
+    if (opts.title) { var tt = document.createElement('div'); tt.className = 'ow-title'; tt.innerHTML = '<div class="eyebrow">' + opts.title.sub + '</div><h1>' + opts.title.name + '</h1>'; wrap.appendChild(tt); setTimeout(function () { tt.classList.add('gone'); }, 2600); setTimeout(function () { if (tt.parentNode) tt.parentNode.removeChild(tt); }, 3600); }
+    if (opts.fullscreen) wrap.classList.add('full');
     var stick = document.createElement('div'); stick.className = 'ow-stick'; stick.innerHTML = '<div class="ow-stick-knob"></div>'; wrap.appendChild(stick);
     var act = document.createElement('button'); act.type = 'button'; act.className = 'ow-act'; act.textContent = '⚔'; wrap.appendChild(act);
     container.appendChild(wrap);
@@ -2729,8 +2743,16 @@ var Overworld = (function () {
 
   function layout() {
     if (!R) return;
-    var cw = (R.container && R.container.clientWidth ? R.container.clientWidth - 22 : 0) || 800, scale = cw >= 1240 ? 3 : 2;
-    var vw = Math.min(26, Math.floor(cw / (T * scale))), vh = Math.max(9, Math.min(15, Math.round(vw * 0.6)));
+    var cw, ch, scale, vw, vh;
+    if (R.opts.fullscreen) {
+      var hud = document.getElementById('hud'), top = hud && !hud.hidden ? hud.getBoundingClientRect().bottom : 0;
+      cw = window.innerWidth; ch = window.innerHeight - top; R.wrap.style.top = top + 'px';
+      scale = cw >= 1400 ? 4 : cw >= 900 ? 3 : 2;
+      vw = Math.max(10, Math.floor(cw / (T * scale))); vh = Math.max(8, Math.floor(ch / (T * scale)));
+    } else {
+      cw = (R.container && R.container.clientWidth ? R.container.clientWidth - 22 : 0) || 800; scale = cw >= 1240 ? 3 : 2;
+      vw = Math.min(26, Math.floor(cw / (T * scale))); vh = Math.max(9, Math.min(15, Math.round(vw * 0.6)));
+    }
     R.scale = scale; R.vw = vw; R.vh = vh;
     R.cv.width = vw * T; R.cv.height = vh * T; R.cv.style.width = (vw * T * scale) + 'px'; R.cv.style.height = (vh * T * scale) + 'px';
     R.ctx.imageSmoothingEnabled = false;
@@ -2878,6 +2900,11 @@ var Overworld = (function () {
     R.ents.forEach(function (e) { if (!R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = e.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[e.ref.level]; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } else if (e.kind === 'corpse') { ctx.fillStyle = '#555'; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } });
     ctx.fillStyle = '#ff9a3c'; ctx.fillRect(mx + R.map.spawn.x, my + R.map.spawn.y, 1, 1);
     ctx.fillStyle = Math.floor(R.t * 3) % 2 ? '#ffffff' : '#e8dcc0'; ctx.fillRect(mx + Math.floor(p.x / T), my + Math.floor(p.y / T), 1, 1);
+    }
+    if (R.opts.fullscreen) {
+      var dead = R.w.dead ? R.w.dead.length : 0, st = 'Pages ' + R.w.pages.length + '/' + R.map.pages.length + '   Chests ' + R.w.chests.length + '/' + R.map.chests.length + '   ' + (R.w.key ? 'Key found' : 'Key ?') + (R.map.v2 ? '   Corpses ' + dead : '');
+      ctx.font = '7px monospace'; var sw = ctx.measureText(st).width + 8; ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(2, cvh - 13, sw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(st, 6, cvh - 5);
+      if (R.t < 8) { var ht = ('ontouchstart' in window) ? 'Drag the stick to walk  -  tap the sword to act' : 'WASD / arrows to walk  -  E to fight, open, rest'; var hw = ctx.measureText(ht).width + 8; ctx.globalAlpha = Math.min(1, 8 - R.t); ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(cvw - hw - 2, cvh - 13, hw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(ht, cvw - hw + 2, cvh - 5); ctx.globalAlpha = 1; }
     }
     // name tags for nearby creature
     if (R.near && R.near.e) { var ne = R.near.e; tag(ctx, ne.x - camx, ne.y - camy - 16, ne.ref.name, ne.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[ne.ref.level] || '#e8dcc0'); }
@@ -3184,7 +3211,12 @@ var Overworld = (function () {
     var nav = el('div', 'nav');
     [['map', 'Map'], ['bonfire', 'Bonfire'], ['chronicle', 'Chronicle'], ['help', 'Rules']].forEach(function (b) {
       var btn = el('button', UI.screen === b[0] ? 'on' : '', b[1]); btn.type = 'button';
-      btn.onclick = function () { if (UI.screen === 'battle' && UI.battle && !UI.battle.done) { toast('Finish the fight or flee first.'); return; } go(b[0]); };
+      btn.onclick = function () {
+        if (UI.screen === 'battle' && UI.battle && !UI.battle.done) { toast('Finish the fight or flee first.'); return; }
+        var Lc = landById(UI.land || S.lastLand || 'L1');
+        if (UI.screen === 'land' && Lc && Lc.explore === 2 && (b[0] === 'map' || b[0] === 'bonfire')) { toast(b[0] === 'map' ? 'Rest at a bonfire to travel between lands.' : 'Walk back to the bonfire to rest.'); return; }
+        go(b[0]);
+      };
       nav.appendChild(btn);
     });
     w.appendChild(nav); hudEl.appendChild(w);
@@ -3194,7 +3226,7 @@ var Overworld = (function () {
   function go(screen, opts) { UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
   function render() {
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
-    Overworld.unmount(); renderHud(); app.innerHTML = '';
+    Overworld.unmount(); document.body.classList.remove('in-world'); renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     fn(); typeset(app); saveLocal();
   }
@@ -3314,22 +3346,38 @@ var Overworld = (function () {
     var mapWrap = WorldMap.build(S, landCleared);
     app.appendChild(mapWrap);
     mapWrap.querySelectorAll('.mnode.open').forEach(function (g) {
-      var open = function () { S.lastLand = g.getAttribute('data-land'); go('land', { land: S.lastLand }); };
+      var open = function () { S.lastLand = g.getAttribute('data-land'); UI.landFresh = true; go('land', { land: S.lastLand }); };
       g.addEventListener('click', open); g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
     });
     var list = el('div', 'land-list');
     LANDS.forEach(function (L) {
       var b = el('button', 'land-row' + (L.open ? ' open' : ' fog')); b.type = 'button'; b.disabled = !L.open;
       b.innerHTML = '<span class="num">' + L.unit + '</span><span class="nm">' + esc(L.name) + '</span><span class="sj">' + esc(L.subject) + '</span><span class="st">' + (L.open ? (landCleared(L) ? 'Boss slain' : L.creatures.filter(function (c) { return S.kills[c.id]; }).length + ' / ' + L.creatures.length + ' slain') : 'Fog') + '</span>';
-      if (L.open) b.onclick = function () { S.lastLand = L.id; go('land', { land: L.id }); };
+      if (L.open) b.onclick = function () { S.lastLand = L.id; UI.landFresh = true; go('land', { land: L.id }); };
       list.appendChild(b);
     });
     app.appendChild(list);
   }
 
   function bossOpen(L) { return L.creatures.every(function (c) { return S.kills[c.id]; }); }
+  function screenWorld(L) { // full-viewport overworld: the land is the screen
+    document.body.classList.add('in-world');
+    var wrap = el('div', 'world-screen');
+    app.appendChild(wrap);
+    var fresh = !!UI.landFresh; UI.landFresh = false;
+    Overworld.mount(wrap, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true, title: fresh ? { name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject } : null,
+      bossOpen: function () { return bossOpen(L); },
+      returnFrom: UI.returnFrom,
+      onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
+      onBonfire: function () { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
+      onChest: function (amt) { S.lore += amt; S.legend += amt; renderHud(); saveLocal(); },
+      onPage: function (have, total) { var gain = 10 + (have >= total ? 100 : 0); S.lore += gain; S.legend += gain; if (have >= total) toast('You have gathered every page of the ' + esc(L.name) + ' Lorebook. +100 Lore.'); renderHud(); saveLocal(); },
+      onSave: function () { saveLocal(); } });
+    if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
+  }
   function screenLand() {
     var L = landById(UI.land || S.lastLand || 'L1'); if (!L || !L.open) { go('map'); return; }
+    if (L.explore === 2) { screenWorld(L); return; }
     var head = el('div', 'land-head' + (L.banner && window.ART_IMG && ART_IMG[L.banner] ? ' banner' : ''));
     if (L.banner && window.ART_IMG && ART_IMG[L.banner]) { var bn = el('div', 'banner-img'); bn.style.backgroundImage = 'url(' + ART_IMG[L.banner] + ')'; head.appendChild(bn); }
     head.appendChild(el('div', 'land-title', '<div class="eyebrow">Land ' + L.unit + ' · ' + esc(L.subject) + '</div><h1>' + esc(L.name) + '</h1><p class="muted" style="margin:6px 0 0">' + esc(L.blurb) + '</p>'));
@@ -3637,6 +3685,7 @@ var Overworld = (function () {
     var head = el('div', 'land-head');
     head.appendChild(el('div', 'row', portrait('fire', 'square hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Bonfire</div><h1>Rest, and spend</h1><p class="muted" style="margin:6px 0 0">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b>. Anything you buy is yours for good. Tier 3 gear needs a boss kill.</p></div>'));
     var back = el('button', 'btn ghost', '← Back to the land'); back.type = 'button'; back.onclick = function () { go('land'); }; head.appendChild(back);
+    var travel = el('button', 'btn ghost', 'World map · travel'); travel.type = 'button'; travel.style.marginLeft = '8px'; travel.onclick = function () { go('map'); }; head.appendChild(travel);
     app.appendChild(head);
     var br = el('div', 'branches');
     ['Ward', 'Insight', 'Greed', 'Regalia'].forEach(function (name) {

@@ -1,9 +1,9 @@
 /* ===================== WORLD DATA ===================== */
 var LEVELS = {
-  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 45, color: 'var(--beg)' },
-  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 75, color: 'var(--prg)' },
-  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 120, color: 'var(--mas)' },
-  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 120, color: 'var(--boss)' }
+  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 90, color: 'var(--beg)' },
+  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 150, color: 'var(--prg)' },
+  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 240, color: 'var(--mas)' },
+  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 240, color: 'var(--boss)' }
 };
 
 var LANDS = [

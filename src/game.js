@@ -141,7 +141,12 @@
     var nav = el('div', 'nav');
     [['map', 'Map'], ['bonfire', 'Bonfire'], ['chronicle', 'Chronicle'], ['help', 'Rules']].forEach(function (b) {
       var btn = el('button', UI.screen === b[0] ? 'on' : '', b[1]); btn.type = 'button';
-      btn.onclick = function () { if (UI.screen === 'battle' && UI.battle && !UI.battle.done) { toast('Finish the fight or flee first.'); return; } go(b[0]); };
+      btn.onclick = function () {
+        if (UI.screen === 'battle' && UI.battle && !UI.battle.done) { toast('Finish the fight or flee first.'); return; }
+        var Lc = landById(UI.land || S.lastLand || 'L1');
+        if (UI.screen === 'land' && Lc && Lc.explore === 2 && (b[0] === 'map' || b[0] === 'bonfire')) { toast(b[0] === 'map' ? 'Rest at a bonfire to travel between lands.' : 'Walk back to the bonfire to rest.'); return; }
+        go(b[0]);
+      };
       nav.appendChild(btn);
     });
     w.appendChild(nav); hudEl.appendChild(w);
@@ -151,7 +156,7 @@
   function go(screen, opts) { UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
   function render() {
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
-    Overworld.unmount(); renderHud(); app.innerHTML = '';
+    Overworld.unmount(); document.body.classList.remove('in-world'); renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     fn(); typeset(app); saveLocal();
   }
@@ -271,22 +276,38 @@
     var mapWrap = WorldMap.build(S, landCleared);
     app.appendChild(mapWrap);
     mapWrap.querySelectorAll('.mnode.open').forEach(function (g) {
-      var open = function () { S.lastLand = g.getAttribute('data-land'); go('land', { land: S.lastLand }); };
+      var open = function () { S.lastLand = g.getAttribute('data-land'); UI.landFresh = true; go('land', { land: S.lastLand }); };
       g.addEventListener('click', open); g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
     });
     var list = el('div', 'land-list');
     LANDS.forEach(function (L) {
       var b = el('button', 'land-row' + (L.open ? ' open' : ' fog')); b.type = 'button'; b.disabled = !L.open;
       b.innerHTML = '<span class="num">' + L.unit + '</span><span class="nm">' + esc(L.name) + '</span><span class="sj">' + esc(L.subject) + '</span><span class="st">' + (L.open ? (landCleared(L) ? 'Boss slain' : L.creatures.filter(function (c) { return S.kills[c.id]; }).length + ' / ' + L.creatures.length + ' slain') : 'Fog') + '</span>';
-      if (L.open) b.onclick = function () { S.lastLand = L.id; go('land', { land: L.id }); };
+      if (L.open) b.onclick = function () { S.lastLand = L.id; UI.landFresh = true; go('land', { land: L.id }); };
       list.appendChild(b);
     });
     app.appendChild(list);
   }
 
   function bossOpen(L) { return L.creatures.every(function (c) { return S.kills[c.id]; }); }
+  function screenWorld(L) { // full-viewport overworld: the land is the screen
+    document.body.classList.add('in-world');
+    var wrap = el('div', 'world-screen');
+    app.appendChild(wrap);
+    var fresh = !!UI.landFresh; UI.landFresh = false;
+    Overworld.mount(wrap, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true, title: fresh ? { name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject } : null,
+      bossOpen: function () { return bossOpen(L); },
+      returnFrom: UI.returnFrom,
+      onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
+      onBonfire: function () { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
+      onChest: function (amt) { S.lore += amt; S.legend += amt; renderHud(); saveLocal(); },
+      onPage: function (have, total) { var gain = 10 + (have >= total ? 100 : 0); S.lore += gain; S.legend += gain; if (have >= total) toast('You have gathered every page of the ' + esc(L.name) + ' Lorebook. +100 Lore.'); renderHud(); saveLocal(); },
+      onSave: function () { saveLocal(); } });
+    if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
+  }
   function screenLand() {
     var L = landById(UI.land || S.lastLand || 'L1'); if (!L || !L.open) { go('map'); return; }
+    if (L.explore === 2) { screenWorld(L); return; }
     var head = el('div', 'land-head' + (L.banner && window.ART_IMG && ART_IMG[L.banner] ? ' banner' : ''));
     if (L.banner && window.ART_IMG && ART_IMG[L.banner]) { var bn = el('div', 'banner-img'); bn.style.backgroundImage = 'url(' + ART_IMG[L.banner] + ')'; head.appendChild(bn); }
     head.appendChild(el('div', 'land-title', '<div class="eyebrow">Land ' + L.unit + ' · ' + esc(L.subject) + '</div><h1>' + esc(L.name) + '</h1><p class="muted" style="margin:6px 0 0">' + esc(L.blurb) + '</p>'));
@@ -594,6 +615,7 @@
     var head = el('div', 'land-head');
     head.appendChild(el('div', 'row', portrait('fire', 'square hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Bonfire</div><h1>Rest, and spend</h1><p class="muted" style="margin:6px 0 0">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b>. Anything you buy is yours for good. Tier 3 gear needs a boss kill.</p></div>'));
     var back = el('button', 'btn ghost', '← Back to the land'); back.type = 'button'; back.onclick = function () { go('land'); }; head.appendChild(back);
+    var travel = el('button', 'btn ghost', 'World map · travel'); travel.type = 'button'; travel.style.marginLeft = '8px'; travel.onclick = function () { go('map'); }; head.appendChild(travel);
     app.appendChild(head);
     var br = el('div', 'branches');
     ['Ward', 'Insight', 'Greed', 'Regalia'].forEach(function (name) {

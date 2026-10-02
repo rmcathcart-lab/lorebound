@@ -194,6 +194,8 @@ var Overworld = (function () {
     var cv = document.createElement('canvas'); cv.className = 'ow-canvas'; cv.tabIndex = 0;
     var wrap = document.createElement('div'); wrap.className = 'ow-wrap'; wrap.appendChild(cv);
     var hint = document.createElement('div'); hint.className = 'ow-hint'; wrap.appendChild(hint);
+    if (opts.title) { var tt = document.createElement('div'); tt.className = 'ow-title'; tt.innerHTML = '<div class="eyebrow">' + opts.title.sub + '</div><h1>' + opts.title.name + '</h1>'; wrap.appendChild(tt); setTimeout(function () { tt.classList.add('gone'); }, 2600); setTimeout(function () { if (tt.parentNode) tt.parentNode.removeChild(tt); }, 3600); }
+    if (opts.fullscreen) wrap.classList.add('full');
     var stick = document.createElement('div'); stick.className = 'ow-stick'; stick.innerHTML = '<div class="ow-stick-knob"></div>'; wrap.appendChild(stick);
     var act = document.createElement('button'); act.type = 'button'; act.className = 'ow-act'; act.textContent = '⚔'; wrap.appendChild(act);
     container.appendChild(wrap);
@@ -238,8 +240,16 @@ var Overworld = (function () {
 
   function layout() {
     if (!R) return;
-    var cw = (R.container && R.container.clientWidth ? R.container.clientWidth - 22 : 0) || 800, scale = cw >= 1240 ? 3 : 2;
-    var vw = Math.min(26, Math.floor(cw / (T * scale))), vh = Math.max(9, Math.min(15, Math.round(vw * 0.6)));
+    var cw, ch, scale, vw, vh;
+    if (R.opts.fullscreen) {
+      var hud = document.getElementById('hud'), top = hud && !hud.hidden ? hud.getBoundingClientRect().bottom : 0;
+      cw = window.innerWidth; ch = window.innerHeight - top; R.wrap.style.top = top + 'px';
+      scale = cw >= 1400 ? 4 : cw >= 900 ? 3 : 2;
+      vw = Math.max(10, Math.floor(cw / (T * scale))); vh = Math.max(8, Math.floor(ch / (T * scale)));
+    } else {
+      cw = (R.container && R.container.clientWidth ? R.container.clientWidth - 22 : 0) || 800; scale = cw >= 1240 ? 3 : 2;
+      vw = Math.min(26, Math.floor(cw / (T * scale))); vh = Math.max(9, Math.min(15, Math.round(vw * 0.6)));
+    }
     R.scale = scale; R.vw = vw; R.vh = vh;
     R.cv.width = vw * T; R.cv.height = vh * T; R.cv.style.width = (vw * T * scale) + 'px'; R.cv.style.height = (vh * T * scale) + 'px';
     R.ctx.imageSmoothingEnabled = false;
@@ -387,6 +397,11 @@ var Overworld = (function () {
     R.ents.forEach(function (e) { if (!R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = e.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[e.ref.level]; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } else if (e.kind === 'corpse') { ctx.fillStyle = '#555'; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } });
     ctx.fillStyle = '#ff9a3c'; ctx.fillRect(mx + R.map.spawn.x, my + R.map.spawn.y, 1, 1);
     ctx.fillStyle = Math.floor(R.t * 3) % 2 ? '#ffffff' : '#e8dcc0'; ctx.fillRect(mx + Math.floor(p.x / T), my + Math.floor(p.y / T), 1, 1);
+    }
+    if (R.opts.fullscreen) {
+      var dead = R.w.dead ? R.w.dead.length : 0, st = 'Pages ' + R.w.pages.length + '/' + R.map.pages.length + '   Chests ' + R.w.chests.length + '/' + R.map.chests.length + '   ' + (R.w.key ? 'Key found' : 'Key ?') + (R.map.v2 ? '   Corpses ' + dead : '');
+      ctx.font = '7px monospace'; var sw = ctx.measureText(st).width + 8; ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(2, cvh - 13, sw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(st, 6, cvh - 5);
+      if (R.t < 8) { var ht = ('ontouchstart' in window) ? 'Drag the stick to walk  -  tap the sword to act' : 'WASD / arrows to walk  -  E to fight, open, rest'; var hw = ctx.measureText(ht).width + 8; ctx.globalAlpha = Math.min(1, 8 - R.t); ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(cvw - hw - 2, cvh - 13, hw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(ht, cvw - hw + 2, cvh - 5); ctx.globalAlpha = 1; }
     }
     // name tags for nearby creature
     if (R.near && R.near.e) { var ne = R.near.e; tag(ctx, ne.x - camx, ne.y - camy - 16, ne.ref.name, ne.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[ne.ref.level] || '#e8dcc0'); }
