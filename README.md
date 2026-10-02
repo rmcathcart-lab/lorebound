@@ -11,3 +11,5 @@ Open so far: Land 1 Number (AN1–AN2), Land 2 Exponents (AN3), Land 3 Polynomia
 Student progress is saved in the browser and in save codes; nothing is stored in this repository.
 
 **Teacher's Ledger.** With a class code entered on the title screen, the game reports play time, Lore, deaths, kills and every answered question to a Google Apps Script web app (`backend/Code.gs`) that writes to a Google Sheet in the teacher's account, and keeps a cloud copy of each save so students can continue on any device. The web-app URL lives in `src/config.js`. The dashboard is the "Teacher's Ledger" link at the bottom of the title screen; it needs the teacher key kept in the script's properties. No student data is in this repository.
+
+**Pixel art credits (overworld).** Characters, chests and crypt tiles: [0x72 "16x16 DungeonTileset II"](https://0x72.itch.io/dungeontileset-ii) (CC0). Terrain, trees, graves and props: [Kenney "Roguelike/RPG pack"](https://kenney.nl/assets/roguelike-rpg-pack) (CC0). Both sheets are in `src/art/` unchanged; the game darkens and tints the Kenney sheet at run time. Painted portraits, banners and the world map were generated with Canva.

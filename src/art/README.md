@@ -51,3 +51,6 @@ All images in this folder are now the full-resolution downloads.
 
 Any JPG/PNG/WebP with one of these names is picked up automatically. New creatures for later lands use the creature's `sigil`
 name from `world.js` as the file name.
+
+| sheet-dt.png | 0x72 16x16 DungeonTileset II v1.7 (CC0) — overworld characters, chests, crypt tiles | https://0x72.itch.io/dungeontileset-ii |
+| sheet-kenney.png | Kenney Roguelike/RPG pack (CC0) — overworld terrain and props | https://kenney.nl/assets/roguelike-rpg-pack |

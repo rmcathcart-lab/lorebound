@@ -291,3 +291,23 @@ table.attempts tr.r-correct td:last-child { color: var(--good); } table.attempts
 .ledger-pill.ok { color: var(--good); border-color: rgba(127,176,105,.4); } .ledger-pill.offline { color: var(--bad); border-color: rgba(216,67,58,.4); }
 .panel.ledger-warn { border-color: rgba(216,67,58,.5); } .panel.ledger-warn .btn { margin-top: 10px; }
 .btn.danger { border-color: rgba(216,67,58,.5); color: var(--bad); }
+
+/* ---- overworld ---- */
+.ow-panel { padding: 10px; }
+.ow-wrap { position: relative; margin: 0 auto; width: fit-content; max-width: 100%; }
+.ow-canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; background: #07060a; border: 1px solid var(--edge); border-radius: 4px; outline: none; max-width: 100%; }
+.ow-canvas:focus { box-shadow: 0 0 0 2px rgba(214,168,96,.35); }
+.ow-hint { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); background: rgba(10,8,12,.85); color: var(--bone); font-family: var(--font-body); font-size: 15px; padding: 5px 12px; border: 1px solid var(--edge); border-radius: 4px; pointer-events: none; opacity: 0; transition: opacity .15s; white-space: nowrap; max-width: 95%; overflow: hidden; text-overflow: ellipsis; }
+.ow-hint kbd, .ow-legend kbd { font-family: var(--font-mono); font-size: 12px; background: var(--ash-2); border: 1px solid var(--edge); border-radius: 3px; padding: 1px 5px; margin: 0 1px; }
+.ow-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; margin: 0 0 8px; align-items: center; }
+.ow-stat { display: flex; flex-wrap: wrap; gap: 6px 16px; font-family: var(--font-ui); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--bone-dim); margin-top: 8px; }
+.ow-stick, .ow-act { display: none; }
+@media (pointer: coarse) {
+  .ow-stick { display: block; position: absolute; left: 12px; bottom: 12px; width: 96px; height: 96px; border-radius: 50%; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2); touch-action: none; }
+  .ow-stick-knob { position: absolute; left: 30px; top: 30px; width: 36px; height: 36px; border-radius: 50%; background: rgba(232,220,192,.5); }
+  .ow-act { display: flex; align-items: center; justify-content: center; position: absolute; right: 12px; bottom: 18px; width: 68px; height: 68px; border-radius: 50%; background: rgba(216,67,58,.35); border: 1px solid rgba(216,67,58,.6); color: #fff; font-size: 28px; opacity: .5; }
+  .ow-act.on { opacity: 1; background: rgba(216,67,58,.75); }
+}
+details.bestiary { margin-top: 14px; } details.bestiary summary { cursor: pointer; font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--bone-dim); padding: 8px 0; }
+.ow-legend .touch { display: none; }
+@media (pointer: coarse) { .ow-legend .kb { display: none; } .ow-legend .touch { display: inline; } }

@@ -151,7 +151,7 @@
   function go(screen, opts) { UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
   function render() {
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
-    renderHud(); app.innerHTML = '';
+    Overworld.unmount(); renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     fn(); typeset(app); saveLocal();
   }
@@ -292,22 +292,39 @@
     head.appendChild(el('div', 'land-title', '<div class="eyebrow">Land ' + L.unit + ' · ' + esc(L.subject) + '</div><h1>' + esc(L.name) + '</h1><p class="muted" style="margin:6px 0 0">' + esc(L.blurb) + '</p>'));
     var back = el('button', 'btn ghost', '← World map'); back.type = 'button'; back.onclick = function () { go('map'); }; head.appendChild(back);
     app.appendChild(head);
+    var owPanel = el('div', 'panel ow-panel');
+    var legend = el('div', 'ow-legend', '<span class="kb"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows to walk · <kbd>E</kbd> fight · open · rest</span><span class="touch">Drag the stick to walk · ⚔ to fight, open or rest</span><span class="muted">Creatures lurk in the dark. Chests hold Lore, pages tell the lore, and the boss gate needs the key hidden somewhere in this land.</span>');
+    owPanel.appendChild(legend);
+    var wst = (S.world && S.world[L.id]) || {};
+    var owStat = el('div', 'ow-stat', '<span>Pages ' + ((wst.pages || []).length) + ' / 5</span><span>Chests ' + ((wst.chests || []).length) + ' / 7</span><span>' + (wst.key ? 'Gate key found' : 'Gate key: not yet found') + '</span><span>' + (bossOpen(L) ? 'Every creature slain once — the seal can break' : 'Creatures slain: ' + L.creatures.filter(function (c) { return S.kills[c.id]; }).length + ' / ' + L.creatures.length) + '</span>');
+    owPanel.appendChild(owStat);
+    app.appendChild(owPanel);
+    Overworld.mount(owPanel, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(),
+      bossOpen: function () { return bossOpen(L); },
+      onBattle: function (c, isBoss) { startBattle(L, c, isBoss); },
+      onBonfire: function () { go('bonfire'); },
+      onChest: function (amt) { S.lore += amt; S.legend += amt; renderHud(); saveLocal(); },
+      onPage: function (have, total) { var gain = 10 + (have >= total ? 100 : 0); S.lore += gain; S.legend += gain; if (have >= total) toast('You have gathered every page of the ' + esc(L.name) + ' Lorebook. +100 Lore.'); renderHud(); saveLocal(); },
+      onSave: function () { saveLocal(); } });
+    if (UI.returnFrom) { Overworld.nudgeAway(UI.returnFrom); UI.returnFrom = null; }
     var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore on gear here. Lore you spend can never be lost; Lore you carry can.</span></div>');
     var bfb = el('button', 'btn', 'Rest at the bonfire'); bfb.type = 'button'; bfb.onclick = function () { go('bonfire'); }; bf.appendChild(bfb);
     app.appendChild(bf);
+    var best = el('details', 'bestiary'); best.innerHTML = '<summary>Bestiary · every creature of this land</summary>';
     Object.keys(L.outcomes).forEach(function (oc) {
       var g = el('div', 'outcome-group'); g.appendChild(el('h3', null, (L.outcomes[oc].indexOf(oc) === 0 || /^AN\d+ ·/.test(L.outcomes[oc]) ? '' : oc + ' · ') + esc(L.outcomes[oc])));
       var grid = el('div', 'creatures');
       L.creatures.filter(function (c) { return (c.group || c.outcome) === oc; }).forEach(function (c) { grid.appendChild(creatureCard(L, c)); });
-      g.appendChild(grid); app.appendChild(g);
+      g.appendChild(grid); best.appendChild(g);
     });
+    app.appendChild(best);
     // boss
     var B = L.boss, open = bossOpen(L);
     var bc = el('div', 'panel boss-card');
     bc.innerHTML = '<div class="foe">' + portrait(B.sigil) + '<div><div class="tag" style="color:var(--boss)">Boss · ' + B.gens.length + ' questions · ' + n(LEVELS.BOSS.lore) + ' Lore</div><h2>' + esc(B.name) + '</h2><p class="muted" style="margin:6px 0 0">' + esc(B.flavor) + '</p>' + (S.dropped && S.dropped.creature === B.id ? '<p class="drop-pill" style="display:inline-block">' + n(S.dropped.amount) + ' Lore lies here</p>' : '') + '</div></div>';
     var act = el('div', 'actions', ''); act.style.marginTop = '12px';
-    var bb = el('button', 'btn', open ? 'Break the seal' : 'Sealed'); bb.type = 'button'; bb.disabled = !open;
-    bb.onclick = function () { startBattle(L, B, true); };
+    var bb = el('button', 'btn', open ? 'Seal broken — find the gate' : 'Sealed'); bb.type = 'button'; bb.disabled = !open;
+    bb.onclick = function () { toast('The gate lies at the far side of ' + esc(L.name) + '. Bring the key.'); };
     act.appendChild(bb);
     if (S.bossKills[L.id]) act.appendChild(el('span', 'muted', 'Slain ' + n(S.bossKills[L.id]) + '× · Title earned: ' + esc(B.title)));
     else if (!open) act.appendChild(el('span', 'muted', 'Slay every creature in this land at least once.'));
@@ -318,7 +335,7 @@
     var k = S.kills[c.id] || 0, l = S.losses[c.id] || 0;
     b.innerHTML = portrait(c.sigil) + '<span><span class="nm">' + esc(c.name) + '</span><span class="tag">' + c.outcome + ' · ' + LEVELS[c.level].name + '</span><span class="fl">' + esc(c.flavor) + '</span><span class="meta"><span class="lr">' + n(LEVELS[c.level].lore) + ' Lore</span><span>Slain ' + n(k) + '×</span>' + (l ? '<span>Deaths ' + n(l) + '</span>' : '') + '</span></span>' +
       (S.dropped && S.dropped.creature === c.id ? '<span class="drop">' + n(S.dropped.amount) + ' Lore here</span>' : '');
-    b.onclick = function () { startBattle(L, c, false); };
+    b.onclick = function () { toast(esc(c.name) + ' lurks somewhere in ' + esc(L.name) + '. Find it.'); };
     return b;
   }
 
@@ -442,14 +459,14 @@
     var B = UI.battle, cost = Math.floor(S.lore * 0.10);
     S.lore -= cost; B.done = true;
     toast(cost ? 'You escape, but ' + esc(B.foe.name) + ' claws ' + n(cost) + ' Lore from you.' : 'You slip away.');
-    UI.battle = null; go('land');
+    UI.returnFrom = B.foe; UI.battle = null; go('land');
   }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
     var again = el('button', 'btn', won ? 'Fight another ' + esc(B.foe.name) : 'Face ' + esc(B.foe.name) + ' again'); again.type = 'button';
     again.onclick = function () { startBattle(B.land, B.foe, B.isBoss); };
     acts.appendChild(again);
-    var back = el('button', 'btn ghost', 'Back to ' + esc(B.land.name)); back.type = 'button'; back.onclick = function () { UI.battle = null; go('land'); };
+    var back = el('button', 'btn ghost', 'Back to ' + esc(B.land.name)); back.type = 'button'; back.onclick = function () { UI.returnFrom = B.foe; UI.battle = null; go('land'); };
     acts.appendChild(back);
     return acts;
   }
@@ -605,6 +622,8 @@
     });
     st.appendChild(stats);
     st.appendChild(el('p', 'muted', 'Legend is every Lore you have ever earned. It never goes down, even when you die.'));
+    var books = LANDS.filter(function (L) { return L.open; }).map(function (L) { var w = (S.world && S.world[L.id]) || {}; return '<span>' + esc(L.name) + ': ' + ((w.pages || []).length) + ' / 5 pages · ' + ((w.chests || []).length) + ' / 7 chests' + (w.key ? ' · key' : '') + '</span>'; });
+    st.appendChild(el('div', 'ow-stat', books.join('')));
     app.appendChild(st);
     var oc = el('div', 'panel', '<span class="eyebrow">By outcome</span>');
     var os = outcomeStats(), tw = el('div', 'table-wrap');
@@ -793,5 +812,7 @@
     try { if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start); else start(window.claude && window.claude.hot ? window.claude.hot.data : null); } catch (e) { start(null); }
   })();
   window.Lorebound = { encode: encode, decode: decode, state: function () { return S; } };
-  if (window.LOREBOUND_DEBUG === true) window.Lorebound.battle = function () { return UI.battle; };
+  if (window.LOREBOUND_DEBUG === true) { window.Lorebound.battle = function () { return UI.battle; };
+    window.Lorebound.fight = function (i) { var L = landById(UI.land || S.lastLand); startBattle(L, L.creatures[i], false); };
+    window.Lorebound.fightBoss = function () { var L = landById(UI.land || S.lastLand); startBattle(L, L.boss, true); }; }
 })();
