@@ -41,8 +41,19 @@
 
   /* ---------- state ---------- */
   function newState(name) {
-    return { v: 1, name: name, klass: '', created: Date.now(), updated: Date.now(), play: 0, lore: 0, legend: 0, dropped: null, gear: {}, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
+    return { v: 1, name: name, klass: '', created: Date.now(), updated: Date.now(), play: 0, lore: 0, legend: 0, dropped: null, gear: {}, items: {}, level: 1, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
   }
+  function migrate() { if (!S) return; S.level = S.level || 1; S.items = S.items || {}; S.gear = S.gear || {}; S.world = S.world || {}; }
+  /* ---------- perks from level and gear ---------- */
+  function itemById(id) { return ITEMS.filter(function (i) { return i.id === id; })[0]; }
+  function itemCount(id) { return (S && S.items && S.items[id]) || 0; }
+  function levelTitle() { var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
+  function levelLoreMult() { return 1 + LEVEL.lorePct / 100 * ((S.level || 1) - 1); }
+  function timeMult() { var m = 1 + LEVEL.timePct / 100 * ((S.level || 1) - 1); if (owns('stillness')) m += 0.75; else if (owns('lichglass')) m += 0.4; else if (owns('sundial')) m += 0.2; return m; }
+  function heroSpeed() { var v = 58 + LEVEL.speed * ((S.level || 1) - 1); if (owns('boots')) v *= 1.12; if (owns('ghost')) v *= 1.08; return v; }
+  function sightTiles() { return owns('cloak') ? 5 : 6.5; }
+  function loseAfter() { return owns('ghost') ? 1 : 2.5; }
+  function heroLevelLine() { return 'Level ' + S.level + ' · ' + levelTitle(); }
   function outcomeStats() { // { AN1: { BEG: {w,l}, ... } }
     var out = {};
     LANDS.forEach(function (L) { if (!L.creatures) return; L.creatures.forEach(function (c) {
@@ -118,6 +129,7 @@
     if (owns('blade')) { mult *= 1.25; parts.push({ k: 'Runed Blade', m: '×1.25' }); }
     if (owns('mark') && (level === 'PRG' || level === 'MAS')) { mult *= 1.5; parts.push({ k: "Hunter's Mark", m: '×1.5' }); }
     if (owns('crown') && isBoss) { mult *= 2; parts.push({ k: 'Crown of Ash', m: '×2' }); }
+    if ((S.level || 1) > 1) { var lm = levelLoreMult(); mult *= lm; parts.push({ k: 'Level ' + S.level, m: '×' + lm.toFixed(2) }); }
     var sr = streakRate(), sm = 1 + Math.min(S.streak, sr.cap) * sr.rate;
     if (S.streak > 0) parts.push({ k: 'Streak ' + S.streak, m: '×' + sm.toFixed(2).replace(/0$/, '') });
     var use = 1; if (used.tome) { use = 0.5; parts.push({ k: "Scholar's Tome", m: '×0.5' }); } else if (used.hint) { use = 0.75; parts.push({ k: 'Lantern', m: '×0.75' }); }
@@ -138,23 +150,21 @@
     if (S.streak > 1) w.appendChild(el('span', 'streak-pill', 'Streak ' + S.streak));
     if (Ledger.enabled() && S.klass) { var st = Ledger.status(); var lp = el('span', 'ledger-pill ' + st, st === 'ok' ? 'Ledger ✓' : st === 'offline' ? 'Ledger ✗' : 'Ledger …'); lp.title = st === 'ok' ? 'Connected to your teacher\'s ledger (class ' + S.klass + ')' : 'Not connected to your teacher\'s ledger'; w.appendChild(lp); }
     w.appendChild(el('span', 'spacer'));
-    var nav = el('div', 'nav');
-    [['map', 'Map'], ['bonfire', 'Bonfire'], ['chronicle', 'Chronicle'], ['help', 'Rules']].forEach(function (b) {
-      var btn = el('button', UI.screen === b[0] ? 'on' : '', b[1]); btn.type = 'button';
-      btn.onclick = function () {
-        if (UI.screen === 'battle' && UI.battle && !UI.battle.done) { toast('Finish the fight or flee first.'); return; }
-        var Lc = landById(UI.land || S.lastLand || 'L1');
-        if (UI.screen === 'land' && Lc && Lc.explore === 2 && (b[0] === 'map' || b[0] === 'bonfire')) { toast(b[0] === 'map' ? 'Rest at a bonfire to travel between lands.' : 'Walk back to the bonfire to rest.'); return; }
-        go(b[0]);
-      };
-      nav.appendChild(btn);
-    });
+    var nav = el('div', 'nav'), Lc = landById(UI.land || S.lastLand || 'L1'), inWorld = UI.screen === 'land' && Lc && Lc.explore === 2, inFight = UI.screen === 'battle';
+    if (!inWorld && !inFight) { // everything else lives in the bonfire menu
+      [['bonfire', 'Bonfire'], ['map', 'Map']].forEach(function (b) {
+        if (UI.screen === 'land' && b[0] === 'map') return;
+        var btn = el('button', UI.screen === b[0] ? 'on' : '', b[1]); btn.type = 'button'; btn.onclick = function () { go(b[0]); }; nav.appendChild(btn);
+      });
+    }
+    var sb = el('button', UI.satchel ? 'on' : '', 'Satchel' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? ' ●' : '')); sb.type = 'button'; sb.onclick = function () { openSatchel(); }; nav.appendChild(sb);
     w.appendChild(nav); hudEl.appendChild(w);
   }
 
   /* ---------- screens ---------- */
-  function go(screen, opts) { UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
+  function go(screen, opts) { closeSatchel(); closeModal(); UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
   function render() {
+    migrate();
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
     Overworld.unmount(); document.body.classList.remove('in-world'); renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
@@ -300,10 +310,11 @@
     Overworld.mount(wrap, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true, title: splash,
       bossOpen: function () { return bossOpen(L); },
       returnFrom: UI.returnFrom,
+      heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
       onBonfire: function () { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
-      onChest: function (amt) { S.lore += amt; S.legend += amt; renderHud(); saveLocal(); },
-      onPage: function (have, total) { var gain = 10 + (have >= total ? 100 : 0); S.lore += gain; S.legend += gain; if (have >= total) toast('You have gathered every page of the ' + esc(L.name) + ' Lorebook. +100 Lore.'); renderHud(); saveLocal(); },
+      onChest: function (nn) { return openChest(L, nn); },
+      onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
     if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
   }
@@ -327,8 +338,9 @@
       returnFrom: UI.returnFrom,
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
       onBonfire: function () { if (L.explore === 2) { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); },
-      onChest: function (amt) { S.lore += amt; S.legend += amt; renderHud(); saveLocal(); },
-      onPage: function (have, total) { var gain = 10 + (have >= total ? 100 : 0); S.lore += gain; S.legend += gain; if (have >= total) toast('You have gathered every page of the ' + esc(L.name) + ' Lorebook. +100 Lore.'); renderHud(); saveLocal(); },
+      heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
+      onChest: function (nn) { return openChest(L, nn); },
+      onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
     if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
     var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore on gear here. Lore you spend can never be lost; Lore you carry can.</span></div>');
@@ -364,13 +376,103 @@
   }
 
   /* ---------- battle ---------- */
+  /* ---------- chests, pages, items ---------- */
+  function seeded(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } var a = h >>> 0; return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function weighted(r, list) { var tot = 0; list.forEach(function (x) { tot += x.weight; }); var v = r() * tot; for (var i = 0; i < list.length; i++) { v -= list[i].weight; if (v <= 0) return list[i]; } return list[list.length - 1]; }
+  function chestRoll(L, nn) { // fixed per chest: the same chest holds the same thing for every student
+    var r = seeded('chest:' + L.id + ':' + nn + ':v2'), v = r() * 100;
+    if (v < CHEST_ODDS.lore) return { kind: 'lore', amt: Math.round((20 + Math.floor(r() * 41)) * (1 + 0.25 * ((L.unit || 1) - 1))) };
+    if (v < CHEST_ODDS.lore + CHEST_ODDS.item) return { kind: 'item', id: weighted(r, ITEMS).id };
+    return { kind: 'trap', id: weighted(r, TRAPS).id, pick: r() };
+  }
+  function openChest(L, nn) {
+    var roll = chestRoll(L, nn);
+    if (roll.kind === 'lore') { S.lore += roll.amt; S.legend += roll.amt; renderHud(); saveLocal(); return 'A chest! +' + roll.amt + ' Lore.'; }
+    if (roll.kind === 'item') { S.items[roll.id] = itemCount(roll.id) + 1; renderHud(); saveLocal(); var it = itemById(roll.id); showModal(itemCard(it, 'You found'), 'Take it'); return null; }
+    if (roll.id === 'leech') { var lost = Math.floor(S.lore * 0.15); S.lore -= lost; renderHud(); saveLocal(); return lost ? 'A trap! Black moths pour out and eat ' + n(lost) + ' Lore.' : 'A trap! Black moths pour out — and find nothing to eat.'; }
+    if (roll.id === 'alarm') { Overworld.alarm(14); return 'A trap! A shriek rings through the labyrinth. Everything nearby is coming.'; }
+    // mimic: the chest fights back — a surprise battle (no corpse, no instance)
+    var pool = L.creatures.filter(function (c) { return c.level !== 'MAS'; }), c = pool[Math.floor(roll.pick * pool.length)] || L.creatures[0];
+    toast('The chest has teeth! ' + esc(c.name) + ' bursts out of it.');
+    startBattle(L, c, false, -1); return null;
+  }
+  function showPage(L, nn, fresh) {
+    var pg = (LOREBOOK[L.id] || [])[nn]; if (!pg) { toast('A blank page. Nothing is written on it.'); return; }
+    var html = '<div class="page-card"><div class="eyebrow">' + (fresh ? 'A page of the Lorebook' : 'Lorebook') + ' · ' + esc(L.name) + ' · page ' + (nn + 1) + '</div><h2>' + esc(pg.title) + '</h2><p class="lore">' + pg.lore + '</p><div class="math"><div class="eyebrow">What it teaches</div>' + pg.math + '</div></div>';
+    showModal(html, fresh ? 'Keep the page' : 'Close');
+  }
+  function itemCard(it, eyebrow, extra) {
+    var img = (window.ART_IMG && ART_IMG[it.art]) ? '<img class="item-img" src="' + ART_IMG[it.art] + '" alt="">' : '<div class="item-img ph"></div>';
+    return '<div class="item-card">' + img + '<div><div class="eyebrow">' + esc(eyebrow || '') + '</div><h2>' + esc(it.name) + '</h2><p>' + esc(it.desc) + '</p><p class="muted"><i>' + esc(it.flavor || '') + '</i></p>' + (extra || '') + '</div></div>';
+  }
+  function showModal(html, closeLabel, onClose) {
+    closeModal();
+    var ov = el('div', 'modal-ov'), box = el('div', 'modal'); box.innerHTML = html;
+    var row = el('div', 'actions'); var b = el('button', 'btn big', closeLabel || 'Close'); b.type = 'button'; b.onclick = function () { closeModal(); if (onClose) onClose(); }; row.appendChild(b); box.appendChild(row);
+    ov.appendChild(box); document.body.appendChild(ov); UI.modal = ov; typeset(box);
+    try { Overworld.freeze(true); } catch (e) {}
+    setTimeout(function () { try { b.focus(); } catch (e) {} }, 30);
+  }
+  function closeModal() { if (UI.modal) { UI.modal.remove(); UI.modal = null; } try { Overworld.freeze(false); } catch (e) {} }
+  function useItem(id) {
+    var it = itemById(id); if (!it || itemCount(id) <= 0) return;
+    var inWorld = !!Overworld.run(), B = UI.battle, inFight = UI.screen === 'battle' && B && !B.done;
+    if (it.where === 'auto') { toast(it.name + ' works on its own when the moment comes. Keep it in the Satchel.'); return; }
+    if (it.where === 'world') {
+      if (!inWorld) { toast('Use the ' + it.name + ' while you are out in a land.'); return; }
+      S.items[id]--; closeSatchel();
+      if (id === 'smoke') { Overworld.smoke(); Overworld.announce('Smoke. Whatever was chasing you has lost you.'); }
+      if (id === 'wisp') { Overworld.revealAll(); Overworld.announce('The wisp flies the labyrinth. Every path is on your minimap.'); }
+      renderHud(); saveLocal(); return;
+    }
+    if (!inFight) { toast('Use the ' + it.name + ' during a fight.'); return; }
+    S.items[id]--; closeSatchel();
+    if (id === 'hourglass') { B.deadline = (B.deadline || Date.now()) + 60000; toast('The sand runs backwards. +60 seconds.'); }
+    if (id === 'lens') { B.hintShown = true; B.freeHint = true; toast('The lens shows you the way in.'); render(); }
+    renderHud(); saveLocal();
+  }
+  function openSatchel() {
+    if (UI.satchel) { closeSatchel(); return; }
+    var ov = el('div', 'modal-ov'), box = el('div', 'modal satchel'); UI.satchel = ov;
+    var tab = UI.satchelTab || 'items';
+    function draw() {
+      box.innerHTML = '<div class="satchel-head"><div><div class="eyebrow">Satchel</div><h2>' + esc(S.hero ? S.hero.name : S.name) + ' · ' + esc(heroLevelLine()) + '</h2></div></div>';
+      var tabs = el('div', 'tabs');
+      [['items', 'Items'], ['book', 'Lorebook']].forEach(function (t) { var b = el('button', 'tab' + (tab === t[0] ? ' on' : ''), t[1]); b.type = 'button'; b.onclick = function () { tab = UI.satchelTab = t[0]; draw(); }; tabs.appendChild(b); });
+      box.appendChild(tabs);
+      if (tab === 'items') {
+        var have = ITEMS.filter(function (it) { return itemCount(it.id) > 0; });
+        if (!have.length) box.appendChild(el('p', 'muted', 'Nothing yet. Chests in the lands hold items; the bonfire sells them.'));
+        have.forEach(function (it) {
+          var card = el('div', null, itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + ' · you carry ' + itemCount(it.id)));
+          var canUse = it.where !== 'auto'; var ub = el('button', 'btn' + (canUse ? '' : ' ghost'), canUse ? 'Use' : 'Automatic'); ub.type = 'button'; ub.disabled = !canUse; ub.onclick = function () { useItem(it.id); }; card.querySelector('.item-card > div').appendChild(ub);
+          box.appendChild(card);
+        });
+      } else {
+        var any = false;
+        LANDS.filter(function (L) { return L.open && LOREBOOK[L.id]; }).forEach(function (L) {
+          var w = (S.world && S.world[L.id]) || { pages: [] }, got = (w.pages || []).slice().sort();
+          var sec = el('div', 'book-land'); sec.appendChild(el('div', 'eyebrow', esc(L.name) + ' · ' + got.length + (got.length === 1 ? ' page' : ' pages') + ' found'));
+          if (!got.length) sec.appendChild(el('p', 'muted', 'No pages found here yet.'));
+          got.forEach(function (nn) { any = true; var pg = LOREBOOK[L.id][nn]; if (!pg) return; var b = el('button', 'page-btn', '<b>' + esc(pg.title) + '</b><span>page ' + (nn + 1) + '</span>'); b.type = 'button'; b.onclick = function () { closeSatchel(); showPage(L, nn, false); }; sec.appendChild(b); });
+          box.appendChild(sec);
+        });
+        if (!any) box.appendChild(el('p', 'muted', 'Pages of the Lorebook lie scattered through every land. Each one holds a piece of the story and a piece of the math.'));
+      }
+      var row = el('div', 'actions'); var cb = el('button', 'btn', 'Close'); cb.type = 'button'; cb.onclick = closeSatchel; row.appendChild(cb); box.appendChild(row); typeset(box);
+    }
+    draw(); ov.appendChild(box); document.body.appendChild(ov);
+    try { Overworld.freeze(true); } catch (e) {} renderHud();
+  }
+  function closeSatchel() { if (UI.satchel) { UI.satchel.remove(); UI.satchel = null; } try { if (!UI.modal) Overworld.freeze(false); } catch (e) {} renderHud(); }
+
   function startBattle(L, c, isBoss, inst) {
     var qs = (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
     UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null };
     armTimer();
     UI.land = L.id; go('battle');
   }
-  function questionTime(B) { return (B.isBoss ? LEVELS.BOSS : LEVELS[B.foe.level]).time || 0; }
+  function questionTime(B) { var t = (B.isBoss ? LEVELS.BOSS : LEVELS[B.foe.level]).time || 0; return t ? Math.round(t * timeMult()) : 0; }
   function armTimer() { var B = UI.battle; if (!B) return; var t = questionTime(B); B.deadline = t ? Date.now() + t * 1000 : 0; }
   function tickTimer() {
     var B = UI.battle; if (!B || B.done || !B.deadline || UI.screen !== 'battle') return;
@@ -386,6 +488,7 @@
     toast('Too slow. The creature strikes first.');
     if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
     if (charges('shield') > 0) { shieldBreak(); return; }
+    if (itemCount('draught') > 0) { shieldBreak('draught'); return; }
     die();
   }
   function screenBattle() {
@@ -415,7 +518,7 @@
         var no = el('button', 'btn ghost', 'Accept fate'); no.type = 'button'; no.onclick = function () { die(); };
         row.appendChild(use); row.appendChild(no); sp.appendChild(row); qp.appendChild(sp);
       }
-      if (B.hintShown) qp.appendChild(el('div', 'aid', '<div class="eyebrow">Lantern of Hints</div>' + esc(q.hint)));
+      if (B.hintShown) qp.appendChild(el('div', 'aid', '<div class="eyebrow">' + (B.freeHint ? 'Scholar\'s Lens' : 'Lantern of Hints') + '</div>' + esc(q.hint)));
       if (B.tomeQ) qp.appendChild(el('div', 'aid', '<div class="eyebrow">Scholar\'s Tome · a similar problem, worked</div><div class="question" style="font-size:17px">' + B.tomeQ.prompt + '</div><div class="solution"><div class="eyebrow">Solution</div>' + B.tomeQ.solution + '</div>'));
       if (B.phase !== 'sight') {
         var ar = el('div', 'answer-row'); ar.appendChild(el('label', null, 'Your answer'));
@@ -426,6 +529,8 @@
         var atk = el('button', 'btn big', 'Strike'); atk.type = 'button'; atk.onclick = function () { submit(mf.value()); }; acts.appendChild(atk);
         mf.onEnter(function () { submit(mf.value()); });
         if (owns('lantern') && !B.hintShown) { var hb = el('button', 'btn ghost', 'Lantern: hint (Lore ×0.75)'); hb.type = 'button'; hb.onclick = function () { B.hintShown = true; B.used.hint = true; render(); }; acts.appendChild(hb); }
+        if (itemCount('lens') > 0 && !B.hintShown) { var lb = el('button', 'btn ghost', 'Scholar\'s Lens: free hint (' + itemCount('lens') + ')'); lb.type = 'button'; lb.onclick = function () { useItem('lens'); }; acts.appendChild(lb); }
+        if (itemCount('hourglass') > 0 && B.deadline) { var gb = el('button', 'btn ghost', 'Hourglass: +60 s (' + itemCount('hourglass') + ')'); gb.type = 'button'; gb.onclick = function () { useItem('hourglass'); }; acts.appendChild(gb); }
         if (owns('tome') && !B.tomeQ) { var tb = el('button', 'btn ghost', 'Tome: worked example (Lore ×0.5)'); tb.type = 'button'; tb.onclick = function () { B.tomeQ = QGen.make(q.key); B.used.tome = true; render(); }; acts.appendChild(tb); }
         acts.appendChild(el('span', 'spacer'));
         var fl = el('button', 'btn ghost', 'Flee (lose 10% Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
@@ -451,6 +556,7 @@
     if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; render(); return; }
     if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
     if (charges('shield') > 0) { shieldBreak(); return; }
+    if (itemCount('draught') > 0) { shieldBreak('draught'); return; }
     die();
   }
   function youTyped(B) { return B.lastRaw ? '<div class="you-typed">You wrote: ' + typedTex(B.lastRaw) + '</div>' : ''; }
@@ -476,11 +582,13 @@
     res.appendChild(afterActions(true));
     B.result = res; render();
   }
-  function shieldBreak() {
+  function shieldBreak(how) {
     var B = UI.battle, q = B.qs[B.i];
-    S.gear.shield.charges--; S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1;
+    if (how === 'draught') S.items.draught--; else S.gear.shield.charges--;
+    S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1;
     B.done = true; B.phase = 'result'; B.outcome = 'fled';
-    var res = el('div', 'result warn', '<h2>Your Bone Shield shatters</h2><p>The blow that should have killed you breaks on the shield. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Recharge the shield at a bonfire.</p>' + youTyped(B) + solutionBlock(q));
+    var res = el('div', 'result warn', how === 'draught' ? '<h2>You drink the Ember Draught</h2><p>Fire in your throat, and the blow that should have killed you lands on nothing. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. The draught is gone.</p>' + youTyped(B) + solutionBlock(q)
+      : '<h2>Your Bone Shield shatters</h2><p>The blow that should have killed you breaks on the shield. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Recharge the shield at a bonfire.</p>' + youTyped(B) + solutionBlock(q));
     res.appendChild(afterActions(false)); B.result = res; render();
   }
   function die() {
@@ -490,6 +598,7 @@
     if (keep) notes.push('Your Lorekeeper\'s Satchel holds on to ' + n(keep) + ' Lore.');
     if (S.dropped) {
       if (charges('phoenix') > 0) { S.gear.phoenix.charges--; drop += S.dropped.amount; notes.push('The Phoenix Sigil burns: the ' + n(S.dropped.amount) + ' Lore already on the ground joins this pile instead of vanishing.'); }
+      else if (itemCount('feather') > 0) { S.items.feather--; drop += S.dropped.amount; notes.push('The Phoenix Feather burns: the ' + n(S.dropped.amount) + ' Lore already on the ground joins this pile instead of vanishing.'); }
       else { S.lostForever += S.dropped.amount; notes.push('The ' + n(S.dropped.amount) + ' Lore you had left at ' + esc((creatureById(landById(S.dropped.land), S.dropped.creature) || {}).name || 'the grave') + ' is <b>lost forever</b>.'); }
     }
     S.dropped = drop > 0 ? { amount: drop, creature: foe.id, land: B.land.id, inst: B.inst } : null;
@@ -651,23 +760,39 @@
   function gearLock(g) {
     if (owns(g.id)) return null;
     if (g.needs && !owns(g.needs)) return 'Needs ' + gearById(g.needs).name;
+    if (LEVEL.gate[g.tier] && (S.level || 1) < LEVEL.gate[g.tier]) return 'Needs level ' + LEVEL.gate[g.tier];
     if (g.boss && !Object.keys(S.bossKills).length) return 'Needs a boss kill';
     if (S.lore < g.cost) return 'Need ' + n(g.cost - S.lore) + ' more Lore';
     return null;
   }
   function screenBonfire() {
+    var tab = UI.bonfireTab || 'gear', Lc = landById(UI.land || S.lastLand || 'L1');
     var head = el('div', 'land-head');
-    head.appendChild(el('div', 'row', portrait('fire', 'square hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Bonfire</div><h1>Rest, and spend</h1><p class="muted" style="margin:6px 0 0">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b>. Anything you buy is yours for good. Tier 3 gear needs a boss kill.</p></div>'));
-    var back = el('button', 'btn ghost', '← Back to the land'); back.type = 'button'; back.onclick = function () { go('land'); }; head.appendChild(back);
-    var travel = el('button', 'btn ghost', 'World map · travel'); travel.type = 'button'; travel.style.marginLeft = '8px'; travel.onclick = function () { go('map'); }; head.appendChild(travel);
+    head.appendChild(el('div', 'row', portrait('fire', 'square hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>Rest, and spend</h1><p class="muted" style="margin:6px 0 0">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>'));
     app.appendChild(head);
+    var menu = el('div', 'bonfire-menu');
+    [['gear', 'Gear'], ['level', 'Level up'], ['shop', 'Provisions'], ['book', 'Lorebook'], ['chronicle', 'Chronicle'], ['help', 'Rules'], ['map', 'World map'], ['back', '← Return to the land']].forEach(function (t) {
+      var b = el('button', 'tab' + (tab === t[0] ? ' on' : '') + (t[0] === 'back' ? ' back' : ''), t[1]); b.type = 'button';
+      b.onclick = function () {
+        if (t[0] === 'chronicle' || t[0] === 'help' || t[0] === 'map') { go(t[0]); return; }
+        if (t[0] === 'back') { go('land'); return; }
+        UI.bonfireTab = t[0]; render();
+      };
+      menu.appendChild(b);
+    });
+    app.appendChild(menu);
+    if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else bonfireBook();
+  }
+  function bonfireGear() {
+    app.appendChild(el('p', 'muted', 'Tier 2 needs tier 1 and level ' + LEVEL.gate[2] + '. Tier 3 needs tier 2, level ' + LEVEL.gate[3] + ' and a boss kill.'));
     var br = el('div', 'branches');
-    ['Ward', 'Insight', 'Greed', 'Regalia'].forEach(function (name) {
-      var col = el('div', 'branch'); col.appendChild(el('h3', null, name + (name === 'Ward' ? ' · survive' : name === 'Insight' ? ' · understand' : name === 'Greed' ? ' · profit' : ' · look the part')));
+    [['Ward', 'survive'], ['Insight', 'understand'], ['Greed', 'profit'], ['Swiftness', 'outrun'], ['Patience', 'take your time'], ['Regalia', 'look the part']].forEach(function (pair) {
+      var name = pair[0], col = el('div', 'branch'); col.appendChild(el('h3', null, name + ' · ' + pair[1]));
       if (name === 'Regalia') col.appendChild(el('div', 'regalia-preview', heroPortrait('shop') + '<div class="muted" style="font-size:14px"><b>' + esc(S.hero ? S.hero.name : S.name) + '</b><br>' + esc(heroTitle()) + '<br><span style="font-size:13px">Your look upgrades on its own: any tier-2 item, then tier-3 plus a boss kill. Regalia is purely for show.</span></div>'));
       GEAR.filter(function (g) { return g.branch === name; }).forEach(function (g) {
         var lock = gearLock(g), has = owns(g.id);
-        var card = el('div', 'gear' + (has ? ' owned' : lock && (g.needs && !owns(g.needs) || g.boss && !Object.keys(S.bossKills).length) ? ' locked' : ''));
+        var hardLock = lock && !/more Lore/.test(lock);
+        var card = el('div', 'gear' + (has ? ' owned' : hardLock ? ' locked' : ''));
         card.innerHTML = '<div class="tier">Tier ' + g.tier + (has ? ' · owned' : '') + '</div><div class="nm">' + esc(g.name) + '</div><div class="desc">' + esc(g.desc) + (g.use ? ' ' + esc(g.use) : '') + '</div>';
         if (!has) {
           card.appendChild(el('div', 'cost', n(g.cost) + ' Lore'));
@@ -696,21 +821,63 @@
     });
     app.appendChild(br);
   }
+  function bonfireLevel() {
+    var lv = S.level || 1, cost = LEVEL.cost(lv), maxed = lv >= LEVEL.max;
+    var pn = el('div', 'panel level-panel');
+    var perks = '<ul class="perks"><li><b>+' + (LEVEL.lorePct * (lv - 1)) + '%</b> Lore from every kill (next: +' + (LEVEL.lorePct * lv) + '%)</li><li><b>+' + (LEVEL.timePct * (lv - 1)) + '%</b> time on every question (next: +' + (LEVEL.timePct * lv) + '%)</li><li><b>' + Math.round(heroSpeed()) + '</b> walking speed (creatures chase at 40–46)</li><li>Gear: tier 2 at level ' + LEVEL.gate[2] + ', tier 3 at level ' + LEVEL.gate[3] + '</li></ul>';
+    var next = ''; LEVEL.titles.forEach(function (t) { if (!next && t[0] > lv) next = 'At level ' + t[0] + ' you become <b>' + t[1] + '</b>.'; });
+    pn.innerHTML = '<div class="row"><div class="level-badge"><div class="k">Level</div><div class="v">' + lv + '</div></div><div style="flex:1;min-width:220px"><div class="eyebrow">' + esc(levelTitle()) + '</div><h2 style="margin:4px 0 8px">' + esc(S.hero ? S.hero.name : S.name) + '</h2>' + perks + '<p class="muted">' + next + ' Legend so far: ' + n(S.legend) + '.</p></div></div>';
+    var row = el('div', 'actions');
+    if (maxed) row.appendChild(el('span', 'muted', 'You have reached the highest level.'));
+    else {
+      var b = el('button', 'btn big', 'Level up · ' + n(cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < cost;
+      b.onclick = function () { S.lore -= cost; S.level = lv + 1; toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
+      row.appendChild(b);
+      if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
+    }
+    pn.appendChild(row); app.appendChild(pn);
+    var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') + '</div>' +
+      '<p class="muted">Every level costs more than the last (' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore). Lore spent on levels, like Lore spent on gear, can never be lost.</p>';
+    app.appendChild(ladder);
+  }
+  function bonfireShop() {
+    app.appendChild(el('p', 'muted', 'Provisions go in your Satchel. Chests in the lands hold the same things, for free, if you can find them.'));
+    var grid = el('div', 'shop');
+    ITEMS.forEach(function (it) {
+      var card = el('div', 'gear shop-item'); card.innerHTML = itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + ' · you carry ' + itemCount(it.id));
+      var b = el('button', 'btn', 'Buy · ' + n(it.cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < it.cost;
+      b.onclick = function () { S.lore -= it.cost; S.items[it.id] = itemCount(it.id) + 1; toast(it.name + ' added to your Satchel.'); render(); };
+      card.querySelector('.item-card > div').appendChild(b); grid.appendChild(card);
+    });
+    app.appendChild(grid);
+  }
+  function bonfireBook() {
+    var any = false, wrap = el('div', 'panel');
+    wrap.appendChild(el('p', 'muted', 'Pages of the Lorebook lie hidden in every land. Each holds a piece of the story and a piece of the math. Found pages can be read here or from your Satchel at any time, even mid-fight.'));
+    LANDS.filter(function (L) { return L.open && LOREBOOK[L.id]; }).forEach(function (L) {
+      var w = (S.world && S.world[L.id]) || { pages: [] }, got = (w.pages || []).slice().sort();
+      var sec = el('div', 'book-land'); sec.appendChild(el('div', 'eyebrow', esc(L.name) + ' · ' + got.length + (got.length === 1 ? ' page' : ' pages') + ' found'));
+      got.forEach(function (nn) { any = true; var pg = LOREBOOK[L.id][nn]; if (!pg) return; var b = el('button', 'page-btn', '<b>' + esc(pg.title) + '</b><span>page ' + (nn + 1) + '</span>'); b.type = 'button'; b.onclick = function () { showPage(L, nn, false); }; sec.appendChild(b); });
+      wrap.appendChild(sec);
+    });
+    app.appendChild(wrap);
+  }
 
   /* ---------- chronicle ---------- */
   function screenChronicle() {
     var head = el('div', 'land-head');
     head.appendChild(el('div', 'row', heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Chronicle · ' + esc(heroClass().name) + ' · ' + esc(heroTitle()) + '</div><h1>' + esc(S.hero ? S.hero.name : S.name) + (S.titles.length ? ', ' + esc(S.titles.join(', ')) : '') + '</h1><p class="muted" style="margin:6px 0 0">Played by ' + esc(S.name) + '. ' + (heroStage() < 3 ? 'Next look: ' + (heroStage() === 1 ? 'own any tier-2 item.' : 'own a tier-3 item and slay a boss.') : 'Final form reached.') + '</p></div>'));
     var ed = el('button', 'btn ghost', 'Change hero'); ed.type = 'button'; ed.onclick = function () { go('hero'); }; head.appendChild(ed);
+    var bk = el('button', 'btn ghost', '← Bonfire'); bk.type = 'button'; bk.style.marginLeft = '8px'; bk.onclick = function () { go('bonfire'); }; head.appendChild(bk);
     app.appendChild(head);
     var st = el('div', 'panel');
     var stats = el('div', 'stats');
-    [['Legend', n(S.legend), 'lore'], ['Lore carried', n(S.lore), 'lore'], ['Deaths', n(S.deaths)], ['Best streak', n(S.bestStreak)], ['Lore lost forever', n(S.lostForever)], ['Gear', GEAR.filter(function (g) { return !g.cosmetic && owns(g.id); }).length + ' / ' + GEAR.filter(function (g) { return !g.cosmetic; }).length]].forEach(function (s) {
+    [['Level', (S.level || 1) + ' · ' + levelTitle()], ['Legend', n(S.legend), 'lore'], ['Lore carried', n(S.lore), 'lore'], ['Deaths', n(S.deaths)], ['Best streak', n(S.bestStreak)], ['Lore lost forever', n(S.lostForever)], ['Gear', GEAR.filter(function (g) { return !g.cosmetic && owns(g.id); }).length + ' / ' + GEAR.filter(function (g) { return !g.cosmetic; }).length]].forEach(function (s) {
       stats.appendChild(el('div', 'stat', '<div class="k">' + s[0] + '</div><div class="v ' + (s[2] || '') + '">' + s[1] + '</div>'));
     });
     st.appendChild(stats);
     st.appendChild(el('p', 'muted', 'Legend is every Lore you have ever earned. It never goes down, even when you die.'));
-    var books = LANDS.filter(function (L) { return L.open; }).map(function (L) { var w = (S.world && S.world[L.id]) || {}; return '<span>' + esc(L.name) + ': ' + ((w.pages || []).length) + ' / 5 pages · ' + ((w.chests || []).length) + ' / 7 chests' + (w.key ? ' · key' : '') + '</span>'; });
+    var books = LANDS.filter(function (L) { return L.open; }).map(function (L) { var w = (S.world && S.world[L.id]) || {}; return '<span>' + esc(L.name) + ': ' + ((w.pages || []).length) + ' pages · ' + ((w.chests || []).length) + ' chests' + (w.key ? ' · key' : '') + '</span>'; });
     st.appendChild(el('div', 'ow-stat', books.join('')));
     app.appendChild(st);
     var oc = el('div', 'panel', '<span class="eyebrow">By outcome</span>');
@@ -734,17 +901,20 @@
   }
 
   function screenHelp() {
-    app.appendChild(el('div', 'land-head', '<div><div class="eyebrow">Rules</div><h1>How Lorebound works</h1></div>'));
+    var hh = el('div', 'land-head', '<div><div class="eyebrow">Rules</div><h1>How Lorebound works</h1></div>');
+    var bk = el('button', 'btn ghost', '← Bonfire'); bk.type = 'button'; bk.onclick = function () { go('bonfire'); }; hh.appendChild(bk); app.appendChild(hh);
     app.appendChild(el('div', 'panel', '<ul class="rules">' +
       '<li><b>Each land is a unit of Math 10C.</b> Each creature is one outcome at one level: Beginning, Progressing or Mastery. The same creature always asks the same kind of question, but never the same numbers.</li>' +
       '<li><b>To fight is to answer.</b> Right answer: the creature dies and you earn Lore. Wrong answer: you die.</li>' +
       '<li><b>When you die, the Lore you were carrying drops where you fell.</b> Defeat that same creature to take it back. If you die anywhere before you do, that Lore is gone forever.</li>' +
-      '<li><b>Lore you spend is safe.</b> Rest at a bonfire to buy gear. Three branches: Ward keeps you alive, Insight helps you understand, Greed pays more. Tier 3 gear needs a boss kill.</li>' +
+      '<li><b>Lore you spend is safe.</b> Rest at a bonfire to <b>level up</b> (more Lore per kill, more time per question, faster feet) and to buy gear: Ward keeps you alive, Insight helps you understand, Greed pays more, Swiftness outruns, Patience slows the clock. Tier 2 needs level ' + LEVEL.gate[2] + '; tier 3 needs level ' + LEVEL.gate[3] + ' and a boss kill.</li>' +
+      '<li><b>The Satchel</b> holds items (from chests, or bought as Provisions) and every page of the Lorebook you have found. Open it any time, even in a fight.</li>' +
+      '<li><b>Chests</b> hold Lore, or an item — or a trap. Mimics bite, moths eat Lore, alarms bring every creature nearby. <b>Pages</b> teach the math of the land they are hidden in.</li>' +
       '<li><b>Win streaks pay.</b> Every kill in a row adds 5% (up to +50%). A death resets it.</li>' +
       '<li><b>Answers must be in the form asked for.</b> A right value in the wrong form staggers the creature once; the second time it kills you.</li>' +
       '<li><b>Fleeing</b> a fight costs 10% of the Lore you carry.</li>' +
-      '<li><b>The clock.</b> Each question has a time limit (Beginning 45 s, Progressing 75 s, Mastery and bosses 120 s). Out of time counts as a wrong answer.</li>' +
-      '<li><b>In the Marches</b>, creatures roam in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again.</li>' +
+      '<li><b>The clock.</b> Each question has a time limit (Beginning ' + LEVELS.BEG.time + ' s, Progressing ' + LEVELS.PRG.time + ' s, Mastery and bosses ' + LEVELS.MAS.time + ' s, longer with levels and Patience gear). Out of time counts as a wrong answer.</li>' +
+      '<li><b>The lands are labyrinths.</b> Creatures roam them in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again. The boss door needs the Gate Key and every kind of creature slain once.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +
       '<li><b>Legend</b> is the total Lore you have ever earned. It never goes down. Compare Legends, not Lore.</li>' +
       '<li><b>Saving.</b> Progress saves itself in this browser. With a class code, it is also kept in your teacher\'s ledger, so you can continue on any device by entering the same name and class code. The save code in the Chronicle is a backup.</li>' +
@@ -902,7 +1072,7 @@
     try { if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start); else start(window.claude && window.claude.hot ? window.claude.hot.data : null); } catch (e) { start(null); }
   })();
   window.Lorebound = { encode: encode, decode: decode, state: function () { return S; } };
-  if (window.LOREBOUND_DEBUG === true) { window.Lorebound.battle = function () { return UI.battle; };
+  if (window.LOREBOUND_DEBUG === true) { window.Lorebound.battle = function () { return UI.battle; }; window.Lorebound.go = go;
     window.Lorebound.fight = function (i) { var L = landById(UI.land || S.lastLand); startBattle(L, L.creatures[i], false); };
     window.Lorebound.fightBoss = function () { var L = landById(UI.land || S.lastLand); startBattle(L, L.boss, true); }; }
 })();

@@ -21,7 +21,7 @@ var LANDS = [
     boss: { id: 'boss1', name: 'Vessarion, Archlich of the Marches', level: 'BOSS', sigil: 'boss', gens: ['AN1_PRG', 'AN2_PRG', 'AN1_MAS', 'AN2_MAS'], title: 'Numberbane',
       flavor: 'The gate is sealed until every creature of the Marches has fallen at least once. Behind it: four questions, no mercy, four hundred Lore.' }
   },
-  { id: 'L2', unit: 2, name: 'The Ember Peaks', subject: 'Exponents', open: true, banner: 'banner-l2',
+  { id: 'L2', unit: 2, name: 'The Ember Peaks', subject: 'Exponents', open: true, explore: 2, banner: 'banner-l2',
     blurb: 'A volcanic ridge where the forge-born multiply themselves by their own fire. Every law of exponents is written in the lava here.',
     outcomes: { AN3L: 'AN3 · Exponent laws and integral exponents', AN3R: 'AN3 · Rational exponents, radicals and scientific notation' },
     creatures: [
@@ -35,7 +35,7 @@ var LANDS = [
     boss: { id: 'boss2', name: 'Ignathar, the Furnace King', level: 'BOSS', sigil: 'boss2', gens: ['AN3L_PRG', 'AN3R_PRG', 'AN3L_MAS', 'AN3R_MAS'], title: 'Ashwalker',
       flavor: 'The forge at the heart of the Peaks. Four questions in the heat, no mercy, four hundred Lore.' }
   },
-  { id: 'L3', unit: 3, name: 'The Whispering Weald', subject: 'Polynomial Operations', open: true, banner: 'banner-l3',
+  { id: 'L3', unit: 3, name: 'The Whispering Weald', subject: 'Polynomial Operations', open: true, explore: 2, banner: 'banner-l3',
     blurb: 'An ancient forest where every tree is a sum of terms and the roots braid together underground. Walk carefully: the Weald multiplies what you say.',
     outcomes: { AN4A: 'AN4 · Terms, degree, adding, subtracting and multiplying by a monomial', AN4B: 'AN4 · Binomial products, special products and trinomials' },
     creatures: [
@@ -71,8 +71,20 @@ var LANDS = [
   { id: 'L10', unit: 10, name: 'The Frozen Reach', subject: 'Measurement' }
 ];
 
-/* Gear: three branches, three tiers. Tier 2 needs tier 1; tier 3 needs tier 2 and a boss kill. */
+/* Gear: five branches, three tiers. Tier 2 needs tier 1 and level 3; tier 3 needs tier 2, level 6 and a boss kill. */
 var GEAR = [
+  { id: 'boots', branch: 'Swiftness', tier: 1, name: 'Marsh-strider Boots', cost: 120,
+    desc: 'You walk 12% faster in every land. Creatures do not.' },
+  { id: 'cloak', branch: 'Swiftness', tier: 2, name: 'Cloak of Reeds', cost: 280, needs: 'boots',
+    desc: 'Creatures only notice you from five tiles away instead of six and a half. Sneak past the ones you are not ready for.' },
+  { id: 'ghost', branch: 'Swiftness', tier: 3, name: 'Ghost Step', cost: 550, needs: 'cloak', boss: true,
+    desc: 'Another 8% of speed, and anything chasing you gives up after one second out of sight instead of two and a half.' },
+  { id: 'sundial', branch: 'Patience', tier: 1, name: 'Pocket Sundial', cost: 100,
+    desc: 'Every question clock runs 20% longer.' },
+  { id: 'lichglass', branch: 'Patience', tier: 2, name: "Lich's Hourglass", cost: 260, needs: 'sundial',
+    desc: 'Every question clock runs 40% longer (replaces the sundial\'s 20%).' },
+  { id: 'stillness', branch: 'Patience', tier: 3, name: 'Stillness', cost: 520, needs: 'lichglass', boss: true,
+    desc: 'Every question clock runs 75% longer. Time is a suggestion.' },
   { id: 'shield', branch: 'Ward', tier: 1, name: 'Bone Shield', cost: 120, charges: 1, recharge: 60,
     desc: 'Absorbs one death. When a wrong answer would kill you, the shield shatters instead: no Lore lost, but the creature stands.', use: 'Recharge at any bonfire.' },
   { id: 'satchel', branch: 'Ward', tier: 2, name: "Lorekeeper's Satchel", cost: 300, needs: 'shield',
@@ -100,9 +112,42 @@ var GEAR = [
     desc: 'Gold and bone, torn from the throne of a slain boss. Needs a boss kill.' }
 ];
 
+/* Character level: bought with Lore at a bonfire. Every level adds +3% Lore from kills, +3% question time and a little speed. */
+var LEVEL = {
+  max: 30,
+  cost: function (lv) { return 60 * lv + 15 * lv * lv; },          // Lore to go from level lv to lv + 1
+  lorePct: 3, timePct: 3, speed: 1,
+  titles: [[1, 'Wanderer'], [5, 'Delver'], [10, 'Pathfinder'], [15, 'Lorekeeper'], [20, 'Warden of the Lands'], [25, 'Mythic']],
+  gate: { 2: 3, 3: 6 }                                             // gear tier -> level required
+};
+
+/* Consumables: found in chests, bought at the bonfire (Provisions), carried in the Satchel. */
+var ITEMS = [
+  { id: 'hourglass', name: 'Hourglass Shard', cost: 60, where: 'battle', weight: 25, art: 'item-hourglass',
+    desc: 'Turn it over during a fight: +60 seconds on the clock.', flavor: 'Sand from a lich\'s hourglass. It runs slower than it should.' },
+  { id: 'lens', name: "Scholar's Lens", cost: 90, where: 'battle', weight: 20, art: 'item-lens',
+    desc: 'Hold it to the question in front of you: a hint, with no cost to the Lore you earn.', flavor: 'Ground from the spectacles of a scholar who read the whole Lorebook and understood a third of it.' },
+  { id: 'smoke', name: 'Smoke Pellet', cost: 70, where: 'world', weight: 20, art: 'item-smoke',
+    desc: 'Crush it in a land: everything chasing you loses you at once and stays blind for a few seconds.', flavor: 'Marsh-gas and ash, wrapped in a dead leaf.' },
+  { id: 'draught', name: 'Ember Draught', cost: 150, where: 'auto', weight: 15, art: 'item-draught',
+    desc: 'Carried into a fight, it is drunk the instant a wrong answer would kill you: you survive, keep your Lore, and the creature stands. One use.', flavor: 'It tastes like a forge. It is drunk whether you want it or not.' },
+  { id: 'wisp', name: 'Wisp in a Jar', cost: 120, where: 'world', weight: 12, art: 'item-wisp',
+    desc: 'Open it in a land: the wisp flies the whole labyrinth and draws every path on your minimap.', flavor: 'It is not happy in there. It will be happier out.' },
+  { id: 'feather', name: 'Phoenix Feather', cost: 200, where: 'auto', weight: 8, art: 'item-feather',
+    desc: 'If you die while Lore already lies on the ground, the feather burns instead of that Lore: it joins your new pile. One use.', flavor: 'Still warm.' }
+];
+
+/* What a chest holds is fixed per chest (same for every student) but unknown until opened. */
+var CHEST_ODDS = { lore: 50, item: 32, trap: 18 };
+var TRAPS = [
+  { id: 'mimic', weight: 40, name: 'Mimic', desc: 'The chest has teeth.' },
+  { id: 'leech', weight: 35, name: 'Lore-leech', desc: 'Black moths pour out and eat part of your Lore.' },
+  { id: 'alarm', weight: 25, name: 'Alarm', desc: 'A shriek. Everything nearby knows where you are.' }
+];
+
 /* Hero classes. Portraits: hero-<class>-<stage>.jpg. Stage 1 at the start; stage 2 once any tier-2 gear is owned; stage 3 once tier-3 gear is owned and a boss is slain. */
 var CLASSES = [
   { id: 'knight', name: 'Knight', blurb: 'Steel, patience and a chipped sword. Starts in battered armour; ends in black and gold with a blade of Lore-light.', stages: ['Hollow Knight', 'Ashen Knight', 'Champion of the Marches'] },
   { id: 'sorcerer', name: 'Sorcerer', blurb: 'A hood, a crooked staff and a single spark. Starts in threadbare robes; ends as an archmage in a circle of burning numbers.', stages: ['Apprentice', 'Adept of the Barrows', 'Archmage of Lore'] }
 ];
-if (typeof module !== 'undefined') module.exports = { LEVELS: LEVELS, LANDS: LANDS, GEAR: GEAR, CLASSES: CLASSES };
+if (typeof module !== 'undefined') module.exports = { LEVELS: LEVELS, LANDS: LANDS, GEAR: GEAR, CLASSES: CLASSES, LEVEL: LEVEL, ITEMS: ITEMS, CHEST_ODDS: CHEST_ODDS, TRAPS: TRAPS };

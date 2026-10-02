@@ -54,3 +54,10 @@ name from `world.js` as the file name.
 
 | sheet-dt.png | 0x72 16x16 DungeonTileset II v1.7 (CC0) — overworld characters, chests, crypt tiles | https://0x72.itch.io/dungeontileset-ii |
 | sheet-kenney.png | Kenney Roguelike/RPG pack (CC0) — overworld terrain and props | https://kenney.nl/assets/roguelike-rpg-pack |
+
+| item-hourglass.jpg | Hourglass Shard (item) | https://www.canva.com/M/MAHW5YWTxCc |
+| item-lens.jpg | Scholar's Lens (item) | https://www.canva.com/M/MAHW5UyW82U |
+| item-smoke.jpg | Smoke Pellet (item) | https://www.canva.com/M/MAHW5SM08x0 |
+| item-draught.jpg | Ember Draught (item) | https://www.canva.com/M/MAHW5b5tJ4s |
+| item-wisp.jpg | Wisp in a Jar (item) | https://www.canva.com/M/MAHW5S8vbjo |
+| item-feather.jpg | Phoenix Feather (item) | https://www.canva.com/M/MAHW5fOmEzk |
