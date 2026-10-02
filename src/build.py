@@ -30,7 +30,7 @@ art_js='var ART_IMG = '+json.dumps(ART)+';'
 html=src('index.html')
 html=html.replace('/*KATEX_CSS*/',css).replace('/*GAME_CSS*/',src('style.css'))
 html=html.replace('/*KATEX_JS*/',open(K+'/katex.min.js').read()).replace('/*AUTORENDER_JS*/',open(K+'/contrib/auto-render.min.js').read())
-for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('SPRITES_JS','sprites.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
+for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('SPRITES_JS','sprites.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
     html=html.replace('/*%s*/'%tag, js(f))
 html=html.replace('/*ART_IMG_JS*/', art_js)
 os.makedirs('dist',exist_ok=True)

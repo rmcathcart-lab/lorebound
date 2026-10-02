@@ -102,131 +102,136 @@ var Overworld = (function () {
   }
 
 
-  /* ---------- map generation v2: a labyrinth — clearings (rooms) joined by a winding maze of 2-wide corridors ----------
-   * Rooms-and-mazes: rooms are placed on a 3-tile cell grid, every leftover cell is filled with a perfect maze,
-   * the regions are joined by a spanning set of openings (plus a few extra loops), and most dead ends are
-   * filled back in so what remains is a tangle of branching paths with hiding spots. Everything else is solid. */
+  /* ---------- map generation v2: a designed land, built the way "cyclic dungeon generation" builds levels ----------
+   * (after Unexplored / Joris Dormans, and the Dark Souls habit of loops and shortcuts):
+   *   1. One big cycle: bonfire -> goal (boss gate), split into two arcs. The LONG SAFE WAY runs across the top through
+   *      five clearings (Beginning creatures, then Progressing); the SHORT DANGEROUS WAY runs along the bottom through
+   *      three clearings guarded by Mastery creatures. Both arrive at the antechamber in front of the boss door.
+   *   2. A landmark in the middle, the Crossing (a big clearing with water), links the two arcs: the shortcut home.
+   *   3. Minor cycles: short detour loops hung off the arcs, and a few cross-links.
+   *   4. Lock and key: the Gate Key lies at the end of a guarded dead end off the far end of the land.
+   *   5. Dead ends: winding treasure lanes off the clearings, with a chest or a page at the end.
+   * Corridors are 2-wide winding paths; everything else is solid. Same seed per land, so every student gets the same land. */
   function generateV2(L) {
-    var r = rng(hash('lorebound:' + L.id + ':v3')), th = themeFor(L);
-    var W = 83, H = 56, P = 3;                                   // tile size of the map, cell pitch (2 floor + 1 wall)
-    var CW = Math.floor((W - 2) / P), CH = Math.floor((H - 2) / P); // cells
-    var tiles = new Uint8Array(W * H), x, y, i, j;
-    var idx = function (x, y) { return y * W + x; };
-    var cx0 = function (ci) { return 1 + ci * P; }, cy0 = function (cj) { return 1 + cj * P; }; // top-left tile of a cell
+    var r = rng(hash('lorebound:' + L.id + ':v4')), th = themeFor(L);
+    var W = 84, H = 56, tiles = new Uint8Array(W * H), x, y, i;
+    var idx = function (x, y) { return y * W + x; }, inb = function (x, y) { return x > 1 && y > 1 && x < W - 2 && y < H - 2; };
     for (i = 0; i < tiles.length; i++) tiles[i] = G.WALL;
     for (x = 0; x < W; x++) { tiles[idx(x, 0)] = G.EDGE; tiles[idx(x, H - 1)] = G.EDGE; } for (y = 0; y < H; y++) { tiles[idx(0, y)] = G.EDGE; tiles[idx(W - 1, y)] = G.EDGE; }
-    var region = new Int16Array(CW * CH).fill(-1), nReg = 0, cidx = function (ci, cj) { return cj * CW + ci; };
-    function carveCell(ci, cj, floor) { for (y = cy0(cj); y < cy0(cj) + 2; y++) for (x = cx0(ci); x < cx0(ci) + 2; x++) tiles[idx(x, y)] = floor; }
-    function carveBetween(a, b, floor) { // the wall strip between two adjacent cells
-      var ci = Math.min(a[0], b[0]), cj = Math.min(a[1], b[1]);
-      if (a[0] !== b[0]) { x = cx0(ci) + 2; for (y = cy0(cj); y < cy0(cj) + 2; y++) tiles[idx(x, y)] = floor; }
-      else { y = cy0(cj) + 2; for (x = cx0(ci); x < cx0(ci) + 2; x++) tiles[idx(x, y)] = floor; }
-    }
-    // rooms (in cells)
     var rooms = [];
-    function fits(rm) { if (rm.ci < 0 || rm.cj < 0 || rm.ci + rm.cw > CW || rm.cj + rm.ch > CH) return false; return !rooms.some(function (b) { return rm.ci < b.ci + b.cw + 1 && rm.ci + rm.cw + 1 > b.ci && rm.cj < b.cj + b.ch + 1 && rm.cj + rm.ch + 1 > b.cj; }); }
-    function addRoom(rm) { rm.id = rooms.length; rooms.push(rm); rm.region = nReg++; for (j = rm.cj; j < rm.cj + rm.ch; j++) for (i = rm.ci; i < rm.ci + rm.cw; i++) region[cidx(i, j)] = rm.region; }
-    var startRm = { ci: 0 + Math.floor(r() * 2), cj: 2 + Math.floor(r() * (CH - 6)), cw: 2, ch: 2, kind: 'start' }; addRoom(startRm);
-    var bossRm = { ci: CW - 3, cj: 2 + Math.floor(r() * (CH - 6)), cw: 3, ch: 2, kind: 'boss' }; addRoom(bossRm);
-    for (var tries = 0; tries < 260 && rooms.length < 18; tries++) {
-      var rm = { ci: Math.floor(r() * CW), cj: Math.floor(r() * CH), cw: 2 + Math.floor(r() * 3), ch: 1 + Math.floor(r() * 3) };
-      if (rm.ci >= CW - 4 && rm.cw > 2) continue; // keep the far-right column for the boss
-      if (fits(rm)) addRoom(rm);
+    function room(cx, cy, w, h, tag) {
+      var rm = { w: w, h: h, tag: tag }; rm.x = Math.max(2, Math.min(W - w - 3, Math.round(cx - w / 2))); rm.y = Math.max(2, Math.min(H - h - 3, Math.round(cy - h / 2)));
+      for (var t = 0; t < 30; t++) { var clash = rooms.some(function (b) { return rm.x < b.x + b.w + 2 && rm.x + rm.w + 2 > b.x && rm.y < b.y + b.h + 2 && rm.y + rm.h + 2 > b.y; }); if (!clash) break; rm.y += (t % 2 ? -1 : 1) * (t + 1); rm.y = Math.max(2, Math.min(H - h - 3, rm.y)); }
+      rm.cx = rm.x + Math.floor(rm.w / 2); rm.cy = rm.y + Math.floor(rm.h / 2); rm.id = rooms.length; rooms.push(rm); return rm;
     }
-    rooms.forEach(function (rm) { // carve rooms (the whole block, walls between their cells included)
-      rm.x = cx0(rm.ci); rm.y = cy0(rm.cj); rm.w = rm.cw * P - 1; rm.h = rm.ch * P - 1; rm.cx = rm.x + Math.floor(rm.w / 2); rm.cy = rm.y + Math.floor(rm.h / 2);
-      for (y = rm.y; y < rm.y + rm.h; y++) for (x = rm.x; x < rm.x + rm.w; x++) tiles[idx(x, y)] = r() < 0.2 ? G.GROUND2 : G.GROUND;
-    });
-    // maze in every leftover cell: backtracker with a bias to keep going straight (long twisting passages)
-    var open = {}; // "ci,cj|ci2,cj2" openings between cells
-    function key2(a, b) { return a[0] + ',' + a[1] + '|' + b[0] + ',' + b[1]; }
-    function link(a, b) { open[key2(a, b)] = 1; open[key2(b, a)] = 1; }
-    var DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) {
-      if (region[cidx(i, j)] >= 0) continue;
-      var reg = nReg++, stack = [[i, j]], lastDir = null; region[cidx(i, j)] = reg; carveCell(i, j, G.PATH);
-      while (stack.length) {
-        var c = stack[stack.length - 1], opts = [];
-        DIRS.forEach(function (d) { var ni = c[0] + d[0], nj = c[1] + d[1]; if (ni < 0 || nj < 0 || ni >= CW || nj >= CH) return; if (region[cidx(ni, nj)] >= 0) return; opts.push(d); });
-        if (!opts.length) { stack.pop(); continue; }
-        var d = (lastDir && r() < 0.6 && opts.some(function (o) { return o[0] === lastDir[0] && o[1] === lastDir[1]; })) ? lastDir : opts[Math.floor(r() * opts.length)];
-        var n = [c[0] + d[0], c[1] + d[1]]; region[cidx(n[0], n[1])] = reg; carveCell(n[0], n[1], G.PATH); carveBetween(c, n, G.PATH); link(c, n); lastDir = d; stack.push(n);
+    var jit = function (n) { return Math.floor((r() - 0.5) * 2 * n); };
+    var midY = Math.floor(H / 2);
+    var start = room(8, midY + jit(4), 9, 7, 'start');
+    var boss = room(W - 7, midY + jit(3), 8, 6, 'boss');
+    var ante = room(W - 18, boss.cy + jit(2), 7, 6, 'ante');
+    var safe = [], danger = [], nSafe = 5, nDanger = 3;
+    for (i = 0; i < nSafe; i++) safe.push(room(20 + (W - 44) * i / (nSafe - 1) + jit(2), 13 + jit(3), 5 + Math.floor(r() * 5), 4 + Math.floor(r() * 3), 'safe'));
+    for (i = 0; i < nDanger; i++) danger.push(room(24 + (W - 48) * i / (nDanger - 1) + jit(3), H - 13 + jit(2), 6 + Math.floor(r() * 4), 4 + Math.floor(r() * 3), 'danger'));
+    var cross = room(Math.floor(W / 2) + jit(3), midY + jit(3), 10, 7, 'cross');
+    var loops = [];
+    loops.push(room((safe[1].cx + safe[2].cx) / 2, 3, 5, 3, 'loop'));          // minor cycle above the safe arc
+    loops.push(room((safe[3].cx + safe[4].cx) / 2, 3, 5, 3, 'loop'));
+    loops.push(room((danger[0].cx + danger[1].cx) / 2, H - 4, 6, 3, 'loop')); // minor cycle below the dangerous arc
+    rooms.forEach(function (rm) { for (y = rm.y; y < rm.y + rm.h; y++) for (x = rm.x; x < rm.x + rm.w; x++) if (inb(x, y)) tiles[idx(x, y)] = r() < 0.2 ? G.GROUND2 : G.GROUND; });
+    // winding 2-wide corridors
+    function corridor(a, b) {
+      var cx = a.x, cy = a.y, steps = 0;
+      function put(px, py) { if (inb(px, py) && tiles[idx(px, py)] === G.WALL) tiles[idx(px, py)] = G.PATH; }
+      while ((cx !== b.x || cy !== b.y) && steps++ < 900) {
+        put(cx, cy); put(cx + 1, cy); put(cx, cy + 1); put(cx + 1, cy + 1);
+        var dx = b.x - cx, dy = b.y - cy, rr = r();
+        if (rr < 0.6) { if (Math.abs(dx) > Math.abs(dy) || dy === 0) cx += dx > 0 ? 1 : -1; else cy += dy > 0 ? 1 : -1; }
+        else if (rr < 0.92) { if (dx !== 0) cx += dx > 0 ? 1 : -1; else cy += dy > 0 ? 1 : -1; }
+        else { var sd = Math.floor(r() * 4), nx = cx + (sd === 0 ? 1 : sd === 1 ? -1 : 0), ny = cy + (sd === 2 ? 1 : sd === 3 ? -1 : 0); if (inb(nx, ny) && inb(nx + 1, ny + 1)) { cx = nx; cy = ny; } }
       }
+      put(cx, cy); put(cx + 1, cy); put(cx, cy + 1); put(cx + 1, cy + 1);
     }
-    // connectors between regions (room<->maze, room<->room), spanning merge with a few extra loops
-    var conns = [];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) {
-      var ra = region[cidx(i, j)];
-      if (i + 1 < CW) { var rb = region[cidx(i + 1, j)]; if (ra !== rb) conns.push({ a: [i, j], b: [i + 1, j], ra: ra, rb: rb }); }
-      if (j + 1 < CH) { var rc = region[cidx(i, j + 1)]; if (ra !== rc) conns.push({ a: [i, j], b: [i, j + 1], ra: ra, rb: rc }); }
-    }
-    var bossReg = bossRm.region, merged = []; for (i = 0; i < nReg; i++) merged[i] = i;
-    function find(a) { while (merged[a] !== a) a = merged[a]; return a; }
-    var pool = conns.filter(function (c) { return c.ra !== bossReg && c.rb !== bossReg; });
-    // shuffle
-    for (i = pool.length - 1; i > 0; i--) { j = Math.floor(r() * (i + 1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
-    var roomOpen = {}; // room id -> number of openings
-    pool.forEach(function (c) {
-      var fa = find(c.ra), fb = find(c.rb), isRoom = rooms.some(function (rm) { return rm.region === c.ra || rm.region === c.rb; });
-      if (fa !== fb) { merged[fa] = fb; carveBetween(c.a, c.b, G.PATH); link(c.a, c.b); }
-      else if (r() < (isRoom ? 0.06 : 0.025)) { carveBetween(c.a, c.b, G.PATH); link(c.a, c.b); } // extra loop
-    });
-    // the boss room gets exactly one opening on its left: the gate
-    var bconns = conns.filter(function (c) { return (c.ra === bossReg || c.rb === bossReg) && c.a[1] === c.b[1]; });
-    var bc = bconns[Math.floor(r() * bconns.length)]; var gcell = bc.ra === bossReg ? bc.b : bc.a;
-    var gate = { x: cx0(bossRm.ci) - 1, y: cy0(gcell[1]) + Math.floor(r() * 2) };
-    tiles[idx(gate.x, gate.y)] = G.GATE; tiles[idx(gate.x, gate.y === cy0(gcell[1]) ? gate.y + 1 : gate.y - 1)] = G.WALL;
-    link(bc.a, bc.b);
-    var keepGate = gcell[0] + ',' + gcell[1];
-    // dead-end pruning on the cell graph: fill most dead-end chains, keep some as hiding spots
-    function degree(ci, cj) { var n = 0; DIRS.forEach(function (d) { if (open[key2([ci, cj], [ci + d[0], cj + d[1]])]) n++; }); return n; }
-    function isRoomCell(ci, cj) { var rg = region[cidx(ci, cj)]; return rooms.some(function (rm) { return rm.region === rg; }); }
-    var keep = {}; var deadNow = [];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) if (!isRoomCell(i, j) && degree(i, j) === 1) deadNow.push([i, j]);
-    deadNow.forEach(function (c) { if (r() < 0.3) keep[c[0] + ',' + c[1]] = 1; }); keep[keepGate] = 1;
-    for (var pass = 0; pass < 10; pass++) {
-      var filled = 0;
-      for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) {
-        if (isRoomCell(i, j) || keep[i + ',' + j] || region[cidx(i, j)] < 0) continue;
-        if (degree(i, j) !== 1) continue;
-        // fill the cell and its one opening
-        DIRS.forEach(function (d) { var k = key2([i, j], [i + d[0], j + d[1]]); if (open[k]) { delete open[k]; delete open[key2([i + d[0], j + d[1]], [i, j])]; carveBetween([i, j], [i + d[0], j + d[1]], G.WALL); } });
-        carveCell(i, j, G.WALL); region[cidx(i, j)] = -2; filled++;
+    var C = function (rm) { return { x: rm.cx, y: rm.cy }; };
+    var chain = [start].concat(safe, [ante]); for (i = 0; i < chain.length - 1; i++) corridor(C(chain[i]), C(chain[i + 1]));
+    chain = [start].concat(danger, [ante]); for (i = 0; i < chain.length - 1; i++) corridor(C(chain[i]), C(chain[i + 1]));
+    corridor(C(safe[2]), C(cross)); corridor(C(cross), C(danger[1]));                     // the Crossing: shortcut between the arcs
+    corridor(C(safe[1]), C(loops[0])); corridor(C(loops[0]), C(safe[2]));                 // minor cycles
+    corridor(C(safe[3]), C(loops[1])); corridor(C(loops[1]), C(safe[4]));
+    corridor(C(danger[0]), C(loops[2])); corridor(C(loops[2]), C(danger[1]));
+    if (r() < 0.7) corridor(C(safe[0]), C(cross));                                          // an extra cross-link
+    // boss door: the ante joins the boss room through a single gate in a wall
+    var gate = { x: boss.x - 1, y: boss.cy };
+    for (y = boss.y - 1; y <= boss.y + boss.h; y++) if (inb(boss.x - 1, y)) tiles[idx(boss.x - 1, y)] = G.WALL;
+    corridor(C(ante), { x: gate.x - 2, y: gate.y }); tiles[idx(gate.x - 1, gate.y)] = G.PATH; tiles[idx(gate.x - 2, gate.y)] = G.PATH; tiles[idx(gate.x, gate.y)] = G.GATE;
+    // water in the landmarks and decoration
+    [cross, start].forEach(function (rm) { if (rm === start) return; var wx = rm.x + 1, wy = rm.y + rm.h - 3; for (y = wy; y < wy + 2; y++) for (x = wx; x < wx + 3; x++) tiles[idx(x, y)] = G.WATER; });
+    safe.concat(danger).forEach(function (rm) { if (rm.w >= 7 && rm.h >= 5 && r() < 0.5) { var wx = rm.x + (r() < 0.5 ? 0 : rm.w - 2), wy = rm.y + (r() < 0.5 ? 0 : rm.h - 2); for (y = wy; y < wy + 2; y++) for (x = wx; x < wx + 2; x++) tiles[idx(x, y)] = G.WATER; } });
+    // dead ends: winding treasure lanes off the clearings (never breaking into another open area)
+    var lanes = [];
+    function lane(from, len, prefer) { for (var attempt = 0; attempt < 8; attempt++) { var got = laneTry(from, len, attempt === 0 ? prefer : null); if (got) return got; } return null; }
+    function laneTry(from, len, prefer) {
+      var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]], d = prefer || dirs[Math.floor(r() * 4)];
+      var px, py; // first 2x2 block just outside the room edge
+      if (d[0] === 1) { px = from.x + from.w; py = from.y + Math.floor(r() * (from.h - 1)); }
+      else if (d[0] === -1) { px = from.x - 2; py = from.y + Math.floor(r() * (from.h - 1)); }
+      else if (d[1] === 1) { px = from.x + Math.floor(r() * (from.w - 1)); py = from.y + from.h; }
+      else { px = from.x + Math.floor(r() * (from.w - 1)); py = from.y - 2; }
+      var blocks = [], mine = {}, turns = 0;
+      // the room tiles the first block leans on must be walkable (not a pool)
+      var rx = d[0] === 1 ? px - 1 : px + 2, ry = d[1] === 1 ? py - 1 : py + 2, e1 = d[0] ? [rx, py] : [px, ry], e2 = d[0] ? [rx, py + 1] : [px + 1, ry];
+      if (tiles[idx(e1[0], e1[1])] === G.WATER && tiles[idx(e2[0], e2[1])] === G.WATER) return null;
+      function inRoom(tx, ty) { return tx >= from.x && tx < from.x + from.w && ty >= from.y && ty < from.y + from.h; }
+      function ok(bx, by) { // the block is solid, and nothing open touches it except the room (at the start) and the last few blocks of this lane
+        for (var oy = -1; oy <= 2; oy++) for (var ox = -1; ox <= 2; ox++) {
+          var tx = bx + ox, ty = by + oy, inner = ox >= 0 && ox <= 1 && oy >= 0 && oy <= 1;
+          if (inner && !inb(tx, ty)) return false; if (!inb(tx, ty)) continue;
+          var t = tiles[idx(tx, ty)]; if (t === G.WALL) continue;
+          if (inner) { if (mine[tx + ',' + ty] != null) continue; return false; }
+          if (blocks.length < 2 && inRoom(tx, ty)) continue;
+          var m = mine[tx + ',' + ty]; if (m != null && m >= blocks.length - 3) continue;
+          return false;
+        }
+        return true;
       }
-      if (!filled) break;
+      function perp(dd) { return dd[0] ? [0, r() < 0.5 ? 1 : -1] : [r() < 0.5 ? 1 : -1, 0]; }
+      while (blocks.length < len && turns < 8) {
+        if (ok(px, py)) {
+          var bi = blocks.length; blocks.push({ x: px, y: py });
+          [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (o) { tiles[idx(px + o[0], py + o[1])] = G.PATH; mine[(px + o[0]) + ',' + (py + o[1])] = bi; });
+          if (r() < 0.18) d = perp(d);
+          px += d[0]; py += d[1];
+        } else {
+          turns++; if (!blocks.length) return null;
+          d = perp(d); var lb = blocks[blocks.length - 1]; px = lb.x + d[0]; py = lb.y + d[1];
+        }
+      }
+      if (blocks.length < 4) { blocks.forEach(function (bk) { [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (o) { tiles[idx(bk.x + o[0], bk.y + o[1])] = G.WALL; }); }); return null; }
+      var lb2 = blocks[blocks.length - 1], end = { x: lb2.x + Math.floor(r() * 2), y: lb2.y + Math.floor(r() * 2), from: from.tag }; lanes.push(end); return end;
     }
-    // remaining dead-end cells (hiding spots) and a BFS distance map from the spawn
-    var start = startRm, spawn = { x: start.cx, y: start.cy }; tiles[idx(spawn.x, spawn.y)] = G.FIRE;
-    var dist = new Int32Array(W * H).fill(-1), q = [spawn.x, spawn.y]; dist[idx(spawn.x, spawn.y)] = 0;
-    while (q.length) { var qx = q.shift(), qy = q.shift(), dq = dist[idx(qx, qy)]; DIRS.forEach(function (d) { var nx = qx + d[0], ny = qy + d[1]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) return; var t2 = tiles[idx(nx, ny)]; if (SOLID[t2] && t2 !== G.GATE) return; if (dist[idx(nx, ny)] >= 0) return; dist[idx(nx, ny)] = dq + 1; q.push(nx, ny); }); }
-    var deads = [];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) if (region[cidx(i, j)] >= 0 && !isRoomCell(i, j) && degree(i, j) === 1) { var dx0 = cx0(i), dy0 = cy0(j); deads.push({ x: dx0 + Math.floor(r() * 2), y: dy0 + Math.floor(r() * 2), d: dist[idx(dx0, dy0)] }); }
-    deads = deads.filter(function (d) { return d.d > 0; });
-    // water pools in a few bigger rooms (corners only) and decoration
-    rooms.forEach(function (rm) { if (rm.kind || rm.w < 7 || rm.h < 4 || r() > 0.5) return; var wx = rm.x + (r() < 0.5 ? 0 : rm.w - 2), wy = rm.y + (r() < 0.5 ? 0 : rm.h - 2); for (y = wy; y < wy + 2; y++) for (x = wx; x < wx + 2; x++) tiles[idx(x, y)] = G.WATER; });
+    [safe[0], safe[1], safe[3], safe[4], danger[0], danger[2], cross, ante].forEach(function (rm) { lane(rm, 8 + Math.floor(r() * 9)); });
+    var keyEnd = lane(danger[2], 12 + Math.floor(r() * 6), [0, -1]) || lane(ante, 10, [0, 1]) || lane(safe[4], 10, [0, 1]);
     for (i = 0; i < tiles.length; i++) if (tiles[i] === G.GROUND && r() < 0.07) tiles[i] = G.DECO;
-    var bossP = { x: bossRm.cx, y: bossRm.cy, kind: 'boss', ref: L.boss };
-    // placement helpers
+    var spawn = { x: start.cx, y: start.cy }; tiles[idx(spawn.x, spawn.y)] = G.FIRE;
+    // walking distance from the fire (also proves everything is reachable)
+    var DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]], dist = new Int32Array(W * H).fill(-1), q = [spawn.x, spawn.y]; dist[idx(spawn.x, spawn.y)] = 0;
+    while (q.length) { var qx = q.shift(), qy = q.shift(), dq = dist[idx(qx, qy)]; DIRS.forEach(function (d) { var nx = qx + d[0], ny = qy + d[1]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) return; var t2 = tiles[idx(nx, ny)]; if (SOLID[t2] && t2 !== G.GATE) return; if (dist[idx(nx, ny)] >= 0) return; dist[idx(nx, ny)] = dq + 1; q.push(nx, ny); }); }
+    var bossP = { x: boss.cx + 1, y: boss.cy, kind: 'boss', ref: L.boss };
     function freeIn(rm, avoid) { for (var t = 0; t < 80; t++) { var fx = rm.x + Math.floor(r() * rm.w), fy = rm.y + Math.floor(r() * rm.h), ti = idx(fx, fy); if (SOLID[tiles[ti]] || tiles[ti] === G.FIRE || tiles[ti] === G.WATER || dist[ti] < 0) continue; if (avoid.some(function (p) { return Math.abs(p.x - fx) < 2 && Math.abs(p.y - fy) < 2; })) continue; return { x: fx, y: fy }; } return { x: rm.cx, y: rm.cy }; }
-    var used = [spawn];
-    // creature lairs: rooms ordered by walking distance from the fire; BEG nearest, MAS farthest (never within 18 tiles of the fire)
-    var mid = rooms.filter(function (rm) { return !rm.kind; }).map(function (rm) { rm.d = dist[idx(rm.cx, rm.cy)]; return rm; }).filter(function (rm) { return rm.d >= 18; }).sort(function (a, b) { return a.d - b.d; });
-    var lairs = [], byLevel = { BEG: [], PRG: [], MAS: [] };
+    var used = [spawn], lairs = [], byLevel = { BEG: [], PRG: [], MAS: [] };
     L.creatures.forEach(function (c) { byLevel[c.level].push(c); });
-    var third = Math.max(1, Math.floor(mid.length / 3));
-    function place(list, copies, roomsFor) { list.forEach(function (c) { for (var n = 0; n < copies; n++) { var rm = roomsFor[(n * 2 + lairs.length) % roomsFor.length]; var p = freeIn(rm, used); p.kind = 'creature'; p.ref = c; p.n = n; used.push(p); lairs.push(p); } }); }
-    place(byLevel.BEG, 3, mid.slice(0, third + 1)); place(byLevel.PRG, 3, mid.slice(third, 2 * third + 1)); place(byLevel.MAS, 2, mid.slice(2 * third));
-    // a few extra creatures standing in corridor dead ends (ambushes), lowest tier
-    deads.sort(function (a, b) { return a.d - b.d; });
-    var farDeads = deads.filter(function (d) { return d.d >= 24; });
-    // key: a far dead end; pages and chests spread over dead ends and rooms by distance
-    var keyP = farDeads.length ? farDeads[Math.floor(farDeads.length * 0.75)] : freeIn(mid[mid.length - 1], used); keyP = { x: keyP.x, y: keyP.y, kind: 'key' }; used.push(keyP);
-    var dpool = deads.filter(function (d) { return (d.x !== keyP.x || d.y !== keyP.y) && d.d >= 8; });
-    function takeDead() { if (!dpool.length) return null; var k = Math.floor(r() * dpool.length); return dpool.splice(k, 1)[0]; }
+    function put(c, rm, n) { var p = freeIn(rm, used); p.kind = 'creature'; p.ref = c; p.n = n; used.push(p); lairs.push(p); }
+    // the long safe way: Beginning creatures first, Progressing later; the Crossing is guarded; the short dangerous way is Mastery
+    byLevel.BEG.forEach(function (c, k) { put(c, safe[0], 0); put(c, safe[1], 1); put(c, k === 0 ? loops[0] : safe[2], 2); });
+    byLevel.PRG.forEach(function (c, k) { put(c, safe[3], 0); put(c, k === 0 ? safe[4] : loops[1], 1); put(c, k === 0 ? cross : ante, 2); });
+    byLevel.MAS.forEach(function (c, k) { put(c, danger[k === 0 ? 0 : 1], 0); put(c, k === 0 ? danger[2] : loops[2], 1); });
+    // key, chests, pages: lane ends first, then clearings
+    var keyP = keyEnd ? { x: keyEnd.x, y: keyEnd.y, kind: 'key' } : (function () { var p = freeIn(danger[2], used); return { x: p.x, y: p.y, kind: 'key' }; })(); used.push(keyP);
+    var ends = lanes.filter(function (e) { return e !== keyEnd; }).sort(function () { return r() - 0.5; });
+    var fill = safe.concat(danger, loops, [cross]);
     var chests = [], pages = [];
-    for (i = 0; i < 9; i++) { var cp = (r() < 0.6 ? takeDead() : null) || freeIn(mid[Math.floor(r() * mid.length)], used); cp = { x: cp.x, y: cp.y, kind: 'chest', n: i }; used.push(cp); chests.push(cp); }
-    for (i = 0; i < 5; i++) { var pp = (r() < 0.5 ? takeDead() : null) || freeIn(mid[Math.floor(r() * mid.length)], used); pp = { x: pp.x, y: pp.y, kind: 'page', n: i }; used.push(pp); pages.push(pp); }
-    return { v2: true, w: W, h: H, tiles: tiles, spawn: spawn, lairs: lairs, gate: gate, boss: bossP, key: keyP, chests: chests, pages: pages, theme: th, rooms: rooms, dist: dist };
+    for (i = 0; i < 9; i++) { var cp = ends.length ? ends.shift() : freeIn(fill[Math.floor(r() * fill.length)], used); cp = { x: cp.x, y: cp.y, kind: 'chest', n: i }; used.push(cp); chests.push(cp); }
+    for (i = 0; i < 5; i++) { var pp = ends.length ? ends.shift() : freeIn(fill[(i * 3 + 1) % fill.length], used); pp = { x: pp.x, y: pp.y, kind: 'page', n: i }; used.push(pp); pages.push(pp); }
+    return { v2: true, w: W, h: H, tiles: tiles, spawn: spawn, lairs: lairs, gate: gate, boss: bossP, key: keyP, chests: chests, pages: pages, theme: th, rooms: rooms, dist: dist, lanes: lanes };
   }
 
   /* ---------- sprites (filled in by Overworld.useSprites once a sheet is loaded) ---------- */
@@ -368,7 +373,7 @@ var Overworld = (function () {
       if (Math.abs(dx) > 0.2) p.dir = dx < 0 ? -1 : 1;
       var nx = p.x + dx * speed * dt, ny = p.y + dy * speed * dt;
       if (!blocked(nx, p.y)) p.x = nx; if (!blocked(p.x, ny)) p.y = ny;
-      p.anim += dt * 8;
+      p.anim += dt * 8; if (window.Sfx) Sfx.play('step');
     } else p.anim += dt * 4;
     if (Math.floor(p.x / T) !== p.tx || Math.floor(p.y / T) !== p.ty) { p.tx = Math.floor(p.x / T); p.ty = Math.floor(p.y / T); reveal(); }
     // creatures: wander, see, chase (slower than the hero), give up
@@ -382,7 +387,7 @@ var Overworld = (function () {
         if (e.blind > 0) e.blind -= dt; if (e.alert > 0) e.alert -= dt;
         var pdx = p.x - e.x, pdy = p.y - e.y, pd = Math.hypot(pdx, pdy), nearFire = Math.hypot(p.x - (R.map.spawn.x * T + T / 2), p.y - (R.map.spawn.y * T + T / 2)) < 6 * T;
         var sees = !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
-        if (sees) { e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
+        if (sees) { if (e.state !== 'chase' && window.Sfx) Sfx.play('alert'); e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
         if (e.state === 'chase') {
           if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); return; }
           var cs = (e.level === 'MAS' ? 46 : e.level === 'PRG' ? 44 : 40) * dt, mx = e.x + pdx / (pd || 1) * cs, my = e.y + pdy / (pd || 1) * cs;
@@ -400,7 +405,7 @@ var Overworld = (function () {
     R.near = null;
     for (var i = R.ents.length - 1; i >= 0; i--) {
       var e = R.ents[i], dd = Math.hypot(e.x - p.x, e.y - p.y);
-      if (e.kind === 'key' && dd < 10) { R.w.key = true; R.ents.splice(i, 1); say('You found the Gate Key. The boss door will open once every creature here has been slain.'); persist(); continue; }
+      if (e.kind === 'key' && dd < 10) { R.w.key = true; R.ents.splice(i, 1); if (window.Sfx) Sfx.play('pickup'); say('You found the Gate Key. The boss door will open once every creature here has been slain.'); persist(); continue; }
       if (e.kind === 'page' && dd < 10) { R.w.pages.push(e.n); R.ents.splice(i, 1); persist(); if (R.opts.onPage) R.opts.onPage(e.n); if (!R) return; continue; }
       if (e.kind === 'chest' && dd < 12) { R.w.chests.push(e.n); R.ents.splice(i, 1); persist(); var msg = R.opts.onChest ? R.opts.onChest(e.n) : null; if (!R) return; if (msg) say(msg); continue; }
       if ((e.kind === 'creature' || e.kind === 'boss') && dd < 22 && (!R.near || dd < R.near.d)) R.near = { e: e, d: dd };

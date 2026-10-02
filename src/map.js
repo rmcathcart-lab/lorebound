@@ -198,7 +198,7 @@ var WorldMap = (function () {
         '<text x="' + (p[0] + 24) + '" y="' + (p[1] - 22) + '" class="mp-num">' + L.unit + '</text></g>';
     });
     if (S.dropped) { var dp = NODES[S.dropped.land]; if (dp) svg += '<g pointer-events="none"><circle cx="' + (dp[0] - 26) + '" cy="' + (dp[1] - 26) + '" r="9" fill="#8fd3ff" filter="url(#lb-glow)"/><text x="' + (dp[0] - 26) + '" y="' + (dp[1] - 40) + '" text-anchor="middle" class="mp-sub" style="fill:#8fd3ff">Lore</text></g>'; }
-    svg += '<g transform="translate(720,58)"><text class="mp-title" text-anchor="middle" x="120" y="0">The Lands of Lorebound</text><text class="mp-sub" text-anchor="middle" x="120" y="20">Math 10C · ten units · ten lands</text></g>' +
+    svg += '<g transform="translate(680,58)"><text class="mp-title" text-anchor="middle" x="120" y="0">The Lands of Lorebound</text><text class="mp-sub" text-anchor="middle" x="120" y="20">Math 10C · ten units · ten lands</text></g>' +
       '<g transform="translate(940,585)" fill="none" stroke="#e8d9b0" stroke-width="1.5" opacity=".85"><circle r="22"/><path d="M0 -22 L6 0 L0 22 L-6 0z" fill="#e8d9b0"/><path d="M-22 0h44M0 -22v44" opacity=".5"/><text y="-28" text-anchor="middle" class="mp-sub" stroke="none">N</text></g></svg>';
     var ov = document.createElement('div'); ov.className = 'map-overlay'; ov.innerHTML = svg; wrap.appendChild(ov);
     return wrap;

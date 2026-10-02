@@ -37,6 +37,8 @@ a { color: var(--lore); }
 h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: .02em; text-wrap: balance; margin: 0; }
 .hud { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(12,10,16,.92); backdrop-filter: blur(6px); border-bottom: 1px solid var(--edge); }
 .hud-in { max-width: 860px; margin: 0 auto; padding: 8px 16px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.hud .nav .mute { padding: 6px 9px; font-size: 15px; line-height: 1; }
+.hud .nav .mute.off { opacity: .55; }
 .hud .brand { font-family: var(--font-display); font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--bone-dim); }
 .hud .who { font-family: var(--font-ui); font-size: 14px; color: var(--bone); }
 .hud .spacer { flex: 1; }
@@ -201,7 +203,7 @@ table.oc td.w { color: var(--good); } table.oc td.l { color: var(--bad); }
 .map-wrap { position: relative; width: 100%; aspect-ratio: 1000 / 640; max-width: 100%; }
 .map-canvas { display: block; width: 100%; height: 100%; }
 .map-overlay { position: absolute; inset: 0; }
-.worldmap { display: block; width: 100%; height: 100%; }
+.worldmap { display: block; width: 100%; height: 100%; overflow: visible; }
 .worldmap .mp-name, .worldmap .mp-sub, .worldmap .mp-num, .worldmap .mp-title { paint-order: stroke fill; stroke: #120f0c; stroke-width: 3px; stroke-linejoin: round; }
 .worldmap .mnode.open { cursor: pointer; }
 .worldmap .mnode.open:hover circle:nth-child(2), .worldmap .mnode.open:focus-visible circle:nth-child(2) { stroke-width: 5; }
@@ -353,6 +355,24 @@ body.in-world #app { padding: 0; max-width: none; }
 .page-card .lore { font-style: italic; color: var(--bone); font-size: 17px; line-height: 1.55; border-left: 3px solid var(--edge); padding-left: 12px; margin: 8px 0 14px; }
 .page-card .math { background: var(--ash); border: 1px solid var(--edge); border-radius: 6px; padding: 12px 14px; line-height: 1.6; font-size: 16px; }
 .page-card .math .katex { font-size: 1.05em; }
+.modal.page { width: min(860px, 100%); }
+.pg-h { font-family: var(--font-ui); font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--ember); margin: 14px 0 6px; }
+.pg-h:first-child { margin-top: 0; }
+.pg-p { margin: 6px 0; }
+.pg-eq { margin: 8px 0; overflow-x: auto; }
+.pg-eq .katex-display { margin: 6px 0; }
+.pg-rule { margin: 10px 0; padding: 8px 14px; border: 1px solid var(--ember); border-radius: 6px; background: rgba(217,120,46,.08); overflow-x: auto; }
+.pg-rule .katex-display { margin: 4px 0; }
+.pg-steps { margin: 8px 0; display: grid; gap: 4px; }
+.pg-step { display: flex; gap: 12px; align-items: baseline; }
+.pg-step .n { font-family: var(--font-ui); font-size: 12px; color: var(--bone-dim); width: 18px; text-align: right; flex: none; }
+.pg-step .m { font-size: 1.08em; overflow-x: auto; }
+.pg-fig { margin: 10px 0; text-align: center; overflow-x: auto; }
+.pg-fig .fig { max-width: 100%; height: auto; }
+.pg-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 8px 0; }
+.pg-col { border: 1px solid var(--edge); border-radius: 6px; padding: 8px 10px; background: rgba(0,0,0,.2); }
+.pg-col .k { font-family: var(--font-ui); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--lore); margin-bottom: 4px; }
+.pg-col .v { font-size: 15px; line-height: 1.5; }
 .item-card { display: flex; gap: 16px; align-items: flex-start; margin: 10px 0; }
 .item-card .item-img { width: 120px; height: 120px; object-fit: cover; border-radius: 6px; border: 1px solid var(--edge); flex: none; background: var(--ash); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
 .item-card .item-img.ph { background: radial-gradient(circle at 40% 35%, rgba(214,168,96,.35), rgba(20,16,24,1) 70%); }
@@ -794,6 +814,78 @@ var Ledger = (function () {
   setInterval(function () { if (ident && status !== 'ok' && document.visibilityState === 'visible') ping(function (st) { if (st === 'ok') { flush(); try { window.dispatchEvent(new CustomEvent('ledger-online')); } catch (e) {} } }); }, 60000);
   try { window.addEventListener('pagehide', function () { flush(true); }); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); }); } catch (e) {}
   return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active };
+})();
+
+/* ===================== SOUND =====================
+ * Every sound is synthesised with the Web Audio API (no audio files, so the single-file build stays small).
+ * Sfx.play(name) for effects, Sfx.ambient(themeName | null) for the wind/fire bed in a land, Sfx.toggle() to mute.
+ * The audio context is created on the first key press or tap, as browsers require. */
+var Sfx = (function () {
+  var ctx = null, master = null, muted = false, amb = null, lastStep = 0, lastAlert = 0;
+  try { muted = localStorage.getItem('lorebound:mute') === '1'; } catch (e) {}
+  function ensure() {
+    if (ctx) { if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} } return ctx; }
+    try { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ctx = new AC(); master = ctx.createGain(); master.gain.value = muted ? 0 : 0.5; master.connect(ctx.destination); } catch (e) { ctx = null; }
+    return ctx;
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) { try { window.addEventListener(ev, function () { ensure(); }, { passive: true }); } catch (e) {} });
+  function now() { return ctx.currentTime; }
+  function noiseBuffer(sec) { var b = ctx.createBuffer(1, Math.floor(ctx.sampleRate * sec), ctx.sampleRate), d = b.getChannelData(0); for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; return b; }
+  /* a tone: type, freq (or [f0, f1] glide), duration, gain, optional attack/filter */
+  function tone(type, f, dur, g, o) {
+    o = o || {}; var t = now() + (o.delay || 0), osc = ctx.createOscillator(), amp = ctx.createGain(); osc.type = type;
+    var f0 = Array.isArray(f) ? f[0] : f, f1 = Array.isArray(f) ? f[1] : f; osc.frequency.setValueAtTime(f0, t); if (f1 !== f0) osc.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    amp.gain.setValueAtTime(0.0001, t); amp.gain.exponentialRampToValueAtTime(g, t + (o.attack || 0.01)); amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    var node = osc; if (o.filter) { var fl = ctx.createBiquadFilter(); fl.type = o.filter; fl.frequency.value = o.cutoff || 1200; fl.Q.value = o.q || 1; osc.connect(fl); node = fl; }
+    node.connect(amp); amp.connect(master); osc.start(t); osc.stop(t + dur + 0.05);
+  }
+  function noise(dur, g, o) {
+    o = o || {}; var t = now() + (o.delay || 0), src = ctx.createBufferSource(), amp = ctx.createGain(), fl = ctx.createBiquadFilter();
+    src.buffer = noiseBuffer(dur + 0.1); fl.type = o.filter || 'bandpass'; fl.frequency.setValueAtTime(o.cutoff || 1500, t); if (o.cutoffEnd) fl.frequency.exponentialRampToValueAtTime(o.cutoffEnd, t + dur); fl.Q.value = o.q || 0.8;
+    amp.gain.setValueAtTime(0.0001, t); amp.gain.exponentialRampToValueAtTime(g, t + (o.attack || 0.005)); amp.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(fl); fl.connect(amp); amp.connect(master); src.start(t); src.stop(t + dur + 0.1);
+  }
+  var FX = {
+    step: function () { noise(0.07, 0.08, { filter: 'lowpass', cutoff: 700, q: 0.5 }); },
+    pickup: function () { [660, 880, 1320].forEach(function (f, i) { tone('sine', f, 0.35, 0.18, { delay: i * 0.09 }); }); },
+    page: function () { noise(0.25, 0.12, { filter: 'highpass', cutoff: 2500 }); [880, 1175, 1760].forEach(function (f, i) { tone('triangle', f, 0.5, 0.12, { delay: 0.1 + i * 0.1 }); }); },
+    chest: function () { noise(0.3, 0.2, { filter: 'lowpass', cutoff: 400, cutoffEnd: 120 }); [1568, 2093, 2637, 3136].forEach(function (f, i) { tone('sine', f, 0.3, 0.08, { delay: 0.25 + i * 0.06 }); }); },
+    trap: function () { tone('sawtooth', [220, 60], 0.6, 0.25, { filter: 'lowpass', cutoff: 900 }); noise(0.4, 0.2, { filter: 'bandpass', cutoff: 300, q: 2 }); },
+    strike: function () { noise(0.22, 0.35, { filter: 'bandpass', cutoff: 2800, cutoffEnd: 500, q: 0.7 }); tone('square', [180, 60], 0.12, 0.12); },
+    correct: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone('triangle', f, 0.45, 0.16, { delay: i * 0.08 }); }); noise(0.5, 0.06, { filter: 'highpass', cutoff: 5000, delay: 0.25 }); },
+    wrong: function () { tone('sawtooth', [160, 90], 0.5, 0.22, { filter: 'lowpass', cutoff: 700 }); tone('square', [166, 95], 0.5, 0.1, { filter: 'lowpass', cutoff: 500 }); },
+    shield: function () { noise(0.35, 0.3, { filter: 'bandpass', cutoff: 1800, cutoffEnd: 300, q: 1.5 }); tone('triangle', [1200, 300], 0.35, 0.15); },
+    death: function () { tone('sawtooth', [110, 35], 1.8, 0.3, { filter: 'lowpass', cutoff: 500, attack: 0.05 }); tone('sine', [220, 55], 1.8, 0.2, { attack: 0.05 }); noise(1.2, 0.12, { filter: 'lowpass', cutoff: 250, attack: 0.3 }); },
+    flee: function () { noise(0.35, 0.2, { filter: 'bandpass', cutoff: 600, cutoffEnd: 2400, q: 0.6 }); },
+    alert: function () { tone('sawtooth', [90, 140], 0.25, 0.2, { filter: 'lowpass', cutoff: 600 }); noise(0.3, 0.18, { filter: 'bandpass', cutoff: 500, q: 1.2 }); },
+    levelup: function () { [392, 523, 659, 784, 1047, 1319].forEach(function (f, i) { tone('triangle', f, 0.6, 0.14, { delay: i * 0.07 }); }); tone('sine', 1568, 1.2, 0.08, { delay: 0.45, attack: 0.1 }); },
+    buy: function () { [2093, 2637].forEach(function (f, i) { tone('sine', f, 0.25, 0.14, { delay: i * 0.07 }); }); noise(0.12, 0.08, { filter: 'highpass', cutoff: 4000 }); },
+    bonfire: function () { for (var i = 0; i < 8; i++) noise(0.05, 0.1, { filter: 'bandpass', cutoff: 1800 + Math.random() * 2500, q: 3, delay: Math.random() * 0.9 }); tone('sine', [330, 440], 0.9, 0.08, { attack: 0.2 }); },
+    gate: function () { tone('sawtooth', [70, 45], 1.2, 0.25, { filter: 'lowpass', cutoff: 300, attack: 0.05 }); noise(1, 0.2, { filter: 'lowpass', cutoff: 400, cutoffEnd: 120, attack: 0.1 }); noise(0.15, 0.25, { filter: 'bandpass', cutoff: 900, delay: 1.0 }); },
+    boss: function () { [55, 55, 82].forEach(function (f, i) { tone('sawtooth', f, 0.5, 0.25, { delay: i * 0.4, filter: 'lowpass', cutoff: 400 }); noise(0.25, 0.25, { filter: 'lowpass', cutoff: 200, delay: i * 0.4 }); }); },
+    click: function () { noise(0.04, 0.08, { filter: 'highpass', cutoff: 3000 }); },
+    timer: function () { tone('square', 1200, 0.05, 0.08); }
+  };
+  function play(name) {
+    if (muted) return; try { if (!ensure() || ctx.state !== 'running') return; } catch (e) { return; }
+    if (name === 'step') { var t = ctx.currentTime; if (t - lastStep < 0.28) return; lastStep = t; }
+    if (name === 'alert') { var t2 = ctx.currentTime; if (t2 - lastAlert < 1.5) return; lastAlert = t2; }
+    try { if (FX[name]) FX[name](); } catch (e) {}
+  }
+  /* ambient bed: filtered wind, plus a slow fire crackle; one per land theme */
+  function ambient(theme) {
+    if (amb) { try { amb.gain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.4); var old = amb; setTimeout(function () { try { old.src.stop(); old.lfo.stop(); } catch (e) {} }, 1500); } catch (e) {} amb = null; }
+    if (!theme || muted) return; try { if (!ensure() || ctx.state !== 'running') return; } catch (e) { return; }
+    var src = ctx.createBufferSource(); src.buffer = noiseBuffer(4); src.loop = true;
+    var fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = theme === 'volcano' ? 220 : theme === 'crypt' ? 160 : 380; fl.Q.value = 0.7;
+    var lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.08; lg.gain.value = theme === 'volcano' ? 90 : 160; lfo.connect(lg); lg.connect(fl.frequency);
+    var g = ctx.createGain(); g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.exponentialRampToValueAtTime(theme === 'crypt' ? 0.05 : 0.09, ctx.currentTime + 2);
+    src.connect(fl); fl.connect(g); g.connect(master); src.start(); lfo.start();
+    amb = { src: src, gain: g, lfo: lfo };
+  }
+  function setMuted(m) { muted = !!m; try { localStorage.setItem('lorebound:mute', muted ? '1' : '0'); } catch (e) {} if (master) master.gain.setTargetAtTime(muted ? 0 : 0.5, ctx.currentTime, 0.05); if (muted) ambient(null); }
+  function toggle() { setMuted(!muted); return muted; }
+  return { play: play, ambient: ambient, toggle: toggle, isMuted: function () { return muted; }, ensure: ensure };
 })();
 
 /* ===================== FIGURES =====================
@@ -2384,57 +2476,312 @@ if (typeof module !== 'undefined') module.exports = { LEVELS: LEVELS, LANDS: LAN
 
 /* ===================== LOREBOOK =====================
  * The five lost pages of each land. Every page is a scrap of the land's story stitched to a piece of real,
- * usable math for the creatures that live there. Pages are stored in the hero's Satchel once found. */
-var LOREBOOK = {
+ * usable math for the creatures that live there, laid out as a worked page: headings, display equations,
+ * step lists and diagrams. Pages are stored in the hero's Satchel once found.
+ *
+ * A page is { title, lore, math: [block, ...] } where a block is one of
+ *   { h: 'heading' }  { p: 'html with \\(inline\\) math' }  { eq: 'display latex' }  { steps: ['latex', ...] }
+ *   { rule: 'display latex' } (boxed key formula)  { fig: '<svg…>' }  { cols: [['head', 'html'], ...] }
+ */
+var LOREBOOK = (function () {
+  /* ---------- tiny SVG kit, in the game palette ---------- */
+  var GOLD = '#d6a860', BONE = '#e8dcc0', DIM = '#a89f8c', LORE = '#8fd3ff', INK = '#0d0b0a';
+  var F = 'font-family="Helvetica, Arial, sans-serif"';
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function svg(w, h, inner, label) { return '<svg class="fig" viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" role="img" aria-label="' + esc(label || 'diagram') + '">' + inner + '</svg>'; }
+  function txt(x, y, s, o) { o = o || {}; return '<text x="' + x + '" y="' + y + '" ' + F + ' font-size="' + (o.size || 15) + '" fill="' + (o.color || BONE) + '" text-anchor="' + (o.anchor || 'middle') + '"' + (o.bold ? ' font-weight="700"' : '') + (o.italic ? ' font-style="italic"' : '') + '>' + esc(s) + '</text>'; }
+  function line(x1, y1, x2, y2, o) { o = o || {}; return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + (o.color || GOLD) + '" stroke-width="' + (o.w || 1.5) + '"' + (o.dash ? ' stroke-dasharray="5 4"' : '') + (o.arrow ? ' marker-end="url(#lb-arrow)"' : '') + '/>'; }
+  function rect(x, y, w, h, o) { o = o || {}; return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + (o.fill || 'rgba(214,168,96,.08)') + '" stroke="' + (o.stroke || GOLD) + '" stroke-width="' + (o.w || 1.5) + '"' + (o.rx ? ' rx="' + o.rx + '"' : '') + '/>'; }
+  function circ(x, y, r, o) { o = o || {}; return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="' + (o.fill || 'none') + '" stroke="' + (o.stroke || GOLD) + '" stroke-width="' + (o.w || 1.5) + '"/>'; }
+  var ARROW = '<defs><marker id="lb-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="' + GOLD + '"/></marker></defs>';
+
+  /* factor tree: splits = [[360, 2, 180], [180, 2, 90], ...] drawn as a left-leaning tree */
+  function factorTree(root, splits) {
+    var s = ARROW, x = 60, y = 24, dy = 42; s += txt(x, y, root, { size: 17, bold: true });
+    splits.forEach(function (sp, i) {
+      var nx = x + 70, ny = y + dy;
+      s += line(x, y + 6, x - 4, ny - 14) + line(x, y + 6, nx - 4, ny - 14);
+      s += circ(x - 8, ny - 4, 13, { stroke: LORE }) + txt(x - 8, ny + 1, sp[1], { color: LORE, bold: true });
+      s += txt(nx, ny + 1, sp[2], { size: 16, bold: i === splits.length - 1 });
+      if (i === splits.length - 1) s += circ(nx, ny - 4, 13, { stroke: LORE });
+      x = nx; y = ny;
+    });
+    return svg(x + 60, y + 30, s, 'factor tree');
+  }
+  /* two-circle Venn of prime factors */
+  function venn(aLabel, bLabel, onlyA, shared, onlyB, note) {
+    var s = circ(110, 90, 72, { fill: 'rgba(143,211,255,.08)' }) + circ(200, 90, 72, { fill: 'rgba(214,168,96,.08)' });
+    s += txt(90, 18, aLabel, { size: 14, color: DIM }) + txt(220, 18, bLabel, { size: 14, color: DIM });
+    s += txt(72, 95, onlyA.join('  '), { size: 18 }) + txt(155, 95, shared.join('  '), { size: 18, color: LORE, bold: true }) + txt(238, 95, onlyB.join('  '), { size: 18 });
+    s += txt(155, 184, note, { size: 13, color: DIM });
+    return svg(310, 196, s, 'shared and unshared prime factors');
+  }
+  /* isometric cube with an edge label and a volume label */
+  function cube(edgeLabel, volLabel) {
+    var x0 = 50, y0 = 60, a = 80, d = 34, s = '';
+    var front = [[x0, y0], [x0 + a, y0], [x0 + a, y0 + a], [x0, y0 + a]], top = [[x0, y0], [x0 + d, y0 - d * 0.6], [x0 + a + d, y0 - d * 0.6], [x0 + a, y0]], side = [[x0 + a, y0], [x0 + a + d, y0 - d * 0.6], [x0 + a + d, y0 + a - d * 0.6], [x0 + a, y0 + a]];
+    [top, side, front].forEach(function (p) { s += '<polygon points="' + p.map(function (q) { return q.join(','); }).join(' ') + '" fill="rgba(214,168,96,.08)" stroke="' + GOLD + '" stroke-width="1.5"/>'; });
+    s += txt(x0 + a / 2, y0 + a + 20, edgeLabel) + txt(x0 + a / 2, y0 + a / 2 + 5, volLabel, { size: 15, italic: true, color: LORE });
+    return svg(220, 170, s, 'cube');
+  }
+  /* number line with labelled points: pts = [[value, label, highlight?], ...] */
+  function numberLine(lo, hi, ticks, pts) {
+    var W = 420, x0 = 30, x1 = W - 30, s = ARROW, map = function (v) { return x0 + (v - lo) / (hi - lo) * (x1 - x0); };
+    s += line(x0 - 10, 60, x1 + 10, 60, { arrow: true, w: 2 });
+    ticks.forEach(function (t) { s += line(map(t), 54, map(t), 66, { w: 1.5 }) + txt(map(t), 84, t, { size: 13, color: DIM }); });
+    pts.forEach(function (p, i) { var x = map(p[0]); s += circ(x, 60, 4.5, { fill: p[2] ? LORE : GOLD, stroke: p[2] ? LORE : GOLD }) + txt(x, i % 2 ? 42 : 26, p[1], { size: 14, color: p[2] ? LORE : BONE }); });
+    return svg(W, 96, s, 'number line');
+  }
+  /* decimal-point shift: digits with an arrow over n places */
+  function shift(numStr, places, dir, result) {
+    var s = ARROW, x = 20, w = 22, y = 56; var chars = numStr.split('');
+    chars.forEach(function (c, i) { s += txt(x + i * w, y, c, { size: 22, bold: c === '.' }); });
+    var dot = numStr.indexOf('.'), start = x + dot * w, end = x + (dir === 'left' ? dot - places - 0.5 : dot + places + 0.5) * w;
+    s += '<path d="M' + start + ' 30 Q ' + ((start + end) / 2) + ' 0 ' + end + ' 30" fill="none" stroke="' + LORE + '" stroke-width="2" marker-end="url(#lb-arrow)"/>';
+    s += txt((start + end) / 2, 14, places + ' places', { size: 13, color: LORE }) + txt(x + (chars.length - 1) * w / 2, 92, result, { size: 16, color: GOLD });
+    return svg(Math.max(300, x * 2 + chars.length * w), 104, s, 'moving the decimal point');
+  }
+  /* anatomy of a polynomial: callouts on terms */
+  function anatomy() {
+    var s = ARROW, y = 70;
+    s += txt(60, y, '3x²', { size: 30, bold: true }) + txt(118, y, '−', { size: 28 }) + txt(165, y, '7x', { size: 30, bold: true }) + txt(222, y, '+', { size: 28 }) + txt(262, y, '2', { size: 30, bold: true });
+    s += rect(30, 40, 262, 44, { stroke: DIM, w: 1, rx: 6, fill: 'none' });
+    s += line(48, 42, 48, 20, { color: LORE, arrow: true }) + txt(48, 14, 'coefficient 3', { size: 12, color: LORE });
+    s += line(82, 42, 82, 20, { color: LORE, arrow: true }) + txt(96, 14, 'exponent 2', { size: 12, color: LORE });
+    s += line(60, 86, 60, 108, { arrow: true }) + txt(60, 124, 'term', { size: 12, color: DIM });
+    s += line(165, 86, 165, 108, { arrow: true }) + txt(165, 124, 'term', { size: 12, color: DIM });
+    s += line(262, 86, 262, 108, { arrow: true }) + txt(262, 124, 'constant term', { size: 12, color: DIM });
+    s += txt(330, 50, '3 terms → trinomial', { size: 13, anchor: 'start', color: BONE }) + txt(330, 70, 'highest exponent 2', { size: 13, anchor: 'start', color: BONE }) + txt(330, 90, '→ degree 2', { size: 13, anchor: 'start', color: GOLD });
+    return svg(470, 136, s, 'parts of a polynomial');
+  }
+  /* area model for a product of two binomials: rows = ['x','+3'], cols = ['2x','−5'], cells = [['2x²','−5x'],['6x','−15']] */
+  function areaModel(rows, cols, cells, total) {
+    var cw = 110, ch = 70, x0 = 70, y0 = 40, s = '';
+    cols.forEach(function (c, j) { s += txt(x0 + cw * j + cw / 2, y0 - 12, c, { size: 17, color: LORE }); });
+    rows.forEach(function (r, i) { s += txt(x0 - 22, y0 + ch * i + ch / 2 + 6, r, { size: 17, color: LORE }); });
+    rows.forEach(function (r, i) { cols.forEach(function (c, j) { s += rect(x0 + cw * j, y0 + ch * i, cw, ch) + txt(x0 + cw * j + cw / 2, y0 + ch * i + ch / 2 + 6, cells[i][j], { size: 18 }); }); });
+    if (total) s += txt(x0 + cw * cols.length / 2, y0 + ch * rows.length + 28, total, { size: 15, color: GOLD });
+    return svg(x0 + cw * cols.length + 30, y0 + ch * rows.length + 44, s, 'area model');
+  }
+  /* diamond (x-method): product on top, sum below, the two numbers left and right */
+  function diamond(product, sum, a, b) {
+    var cx = 120, cy = 80, s = '<polygon points="' + cx + ',' + (cy - 60) + ' ' + (cx + 90) + ',' + cy + ' ' + cx + ',' + (cy + 60) + ' ' + (cx - 90) + ',' + cy + '" fill="rgba(214,168,96,.06)" stroke="' + GOLD + '" stroke-width="1.5"/>';
+    s += line(cx - 90, cy, cx + 90, cy, { dash: true, w: 1 }) + line(cx, cy - 60, cx, cy + 60, { dash: true, w: 1 });
+    s += txt(cx, cy - 28, product, { size: 20, bold: true }) + txt(cx, cy - 46, 'multiply to', { size: 11, color: DIM });
+    s += txt(cx, cy + 36, sum, { size: 20, bold: true }) + txt(cx, cy + 52, 'add to', { size: 11, color: DIM });
+    s += txt(cx - 46, cy + 6, a, { size: 20, color: LORE, bold: true }) + txt(cx + 46, cy + 6, b, { size: 20, color: LORE, bold: true });
+    return svg(240, 160, s, 'the two numbers');
+  }
+  /* a² − b² as a square with a corner removed, rearranged into a rectangle */
+  function diffSquares() {
+    var s = ARROW, x0 = 20, y0 = 20, a = 110, b = 40;
+    s += rect(x0, y0, a, a) + rect(x0 + a - b, y0, b, b, { fill: INK, stroke: DIM, w: 1 });
+    s += txt(x0 + a / 2, y0 + a + 18, 'a', { size: 16, italic: true }) + txt(x0 - 10, y0 + a / 2 + 5, 'a', { size: 16, italic: true }) + txt(x0 + a - b / 2, y0 + b / 2 + 5, 'b²', { size: 14, color: DIM });
+    s += txt(x0 + a / 2 - 10, y0 + a / 2 + 10, 'a² − b²', { size: 16, color: LORE });
+    s += line(x0 + a + 16, y0 + a / 2, x0 + a + 56, y0 + a / 2, { arrow: true, w: 2 });
+    var X = x0 + a + 80; s += rect(X, y0 + 20, a + b, a - b) + line(X + a, y0 + 20, X + a, y0 + a, { dash: true, w: 1 });
+    s += txt(X + (a + b) / 2, y0 + a + 18, 'a + b', { size: 16, italic: true }) + txt(X - 14, y0 + a / 2 + 10, 'a − b', { size: 16, italic: true, anchor: 'end' });
+    s += txt(X + (a + b) / 2, y0 + a / 2 + 12, '(a + b)(a − b)', { size: 15, color: LORE });
+    return svg(X + a + b + 20, y0 + a + 32, s, 'difference of squares');
+  }
+  /* zero product flow chart */
+  function zeroFlow(eq, f1, f2, s1, s2) {
+    var s = ARROW; s += rect(20, 14, 260, 40, { rx: 6 }) + txt(150, 40, eq, { size: 17 });
+    s += line(150, 56, 150, 84, { arrow: true, w: 2 }) + txt(168, 74, 'factor', { size: 12, color: DIM, anchor: 'start' });
+    s += rect(20, 90, 260, 40, { rx: 6 }) + txt(150, 116, f1, { size: 17 });
+    s += line(90, 132, 70, 162, { arrow: true, w: 2 }) + line(210, 132, 230, 162, { arrow: true, w: 2 });
+    s += rect(10, 168, 130, 40, { rx: 6, stroke: LORE }) + txt(75, 194, f2[0], { size: 16, color: LORE }) + rect(160, 168, 130, 40, { rx: 6, stroke: LORE }) + txt(225, 194, f2[1], { size: 16, color: LORE });
+    s += line(75, 210, 75, 236, { arrow: true, w: 2 }) + line(225, 210, 225, 236, { arrow: true, w: 2 });
+    s += txt(75, 258, s1, { size: 18, bold: true, color: GOLD }) + txt(225, 258, s2, { size: 18, bold: true, color: GOLD });
+    return svg(300, 272, s, 'zero product rule');
+  }
+  /* flip card for negative exponents */
+  function flip() {
+    var s = ARROW; s += rect(20, 30, 90, 60, { rx: 6 }) + txt(65, 68, 'x⁻ⁿ', { size: 26, bold: true });
+    s += '<path d="M118 60 Q 160 10 202 60" fill="none" stroke="' + LORE + '" stroke-width="2" marker-end="url(#lb-arrow)"/>' + txt(160, 20, 'flip', { size: 13, color: LORE });
+    s += rect(210, 30, 90, 60, { rx: 6 }) + txt(255, 54, '1', { size: 20 }) + line(232, 60, 278, 60, { color: BONE, w: 1.5 }) + txt(255, 82, 'xⁿ', { size: 20, bold: true });
+    s += txt(160, 118, 'the exponent turns positive when the power changes floors', { size: 12, color: DIM });
+    return svg(320, 130, s, 'negative exponent');
+  }
+  /* exponent-law reference as columns */
+  var LAWS = [['Product', '\\(x^a \\cdot x^b = x^{a+b}\\)', '\\(x^3 \\cdot x^5 = x^8\\)'], ['Quotient', '\\(\\dfrac{x^a}{x^b} = x^{a-b}\\)', '\\(\\dfrac{x^7}{x^2} = x^5\\)'], ['Power of a power', '\\((x^a)^b = x^{ab}\\)', '\\((x^3)^4 = x^{12}\\)'], ['Power of a product', '\\((xy)^a = x^a y^a\\)', '\\((2x^2y)^3 = 8x^6y^3\\)'], ['Power of a quotient', '\\(\\left(\\dfrac{x}{y}\\right)^a = \\dfrac{x^a}{y^a}\\)', '\\(\\left(\\dfrac{a}{b}\\right)^2 = \\dfrac{a^2}{b^2}\\)'], ['Zero exponent', '\\(x^0 = 1\\)', '\\((-5x)^0 = 1\\)']];
+
+  return {
   L1: [
     { title: 'The First Grave', lore: 'Before the fog there was a town here, and the town kept a ledger of its dead. The ledger counted in primes, because primes cannot be divided and neither, the gravediggers said, can the dead.',
-      math: '<b>Prime factorisation</b> is the skeleton of a number. Divide by the smallest prime that works, then keep going: \\(360 = 2 \\cdot 180 = 2^2 \\cdot 90 = 2^3 \\cdot 45 = 2^3 \\cdot 3^2 \\cdot 5\\). A number is a <b>perfect square</b> when every exponent in its factorisation is even, and a <b>perfect cube</b> when every exponent is a multiple of 3. \\(360\\) is neither; \\(3600 = 2^4 \\cdot 3^2 \\cdot 5^2\\) is a square.' },
+      math: [
+        { h: 'Prime factorisation' },
+        { p: 'Every whole number is built from primes. Divide by the <b>smallest prime that works</b>, and keep going until only primes are left.' },
+        { fig: factorTree('360', [['360', '2', '180'], ['180', '2', '90'], ['90', '2', '45'], ['45', '3', '15'], ['15', '3', '5']]) },
+        { eq: '360 = 2 \\cdot 2 \\cdot 2 \\cdot 3 \\cdot 3 \\cdot 5 = 2^3 \\cdot 3^2 \\cdot 5' },
+        { h: 'Squares and cubes' },
+        { cols: [['Perfect square', 'every exponent is <b>even</b>: \\(3600 = 2^4 \\cdot 3^2 \\cdot 5^2\\) ✓'], ['Perfect cube', 'every exponent is a <b>multiple of 3</b>: \\(216 = 2^3 \\cdot 3^3\\) ✓'], ['Neither', '\\(360 = 2^3 \\cdot 3^2 \\cdot 5\\) — a 2 and a 1 spoil it']] }
+      ] },
     { title: 'What the Rats Share', lore: 'The bone rats were not always many. One rat, cut by a careless shovel, became two, and the two shared everything: the same ribs, the same hunger. Whatever they share, the Gravedigger says, is the greatest of it that matters.',
-      math: '<b>GCF</b> (greatest common factor): take the primes the numbers <i>share</i>, with the <i>smaller</i> exponent. <b>LCM</b> (least common multiple): take <i>every</i> prime that appears, with the <i>larger</i> exponent. For \\(24 = 2^3 \\cdot 3\\) and \\(36 = 2^2 \\cdot 3^2\\): \\(\\text{GCF} = 2^2 \\cdot 3 = 12\\) and \\(\\text{LCM} = 2^3 \\cdot 3^2 = 72\\). Check: \\(\\text{GCF} \\times \\text{LCM} = 24 \\times 36\\).' },
+      math: [
+        { h: 'GCF and LCM from prime factors' },
+        { p: 'Write both numbers in primes, then sort the factors into what they <b>share</b> and what they do not.' },
+        { eq: '24 = 2^3 \\cdot 3 \\qquad 36 = 2^2 \\cdot 3^2' },
+        { fig: venn('24', '36', ['2'], ['2', '2', '3'], ['3'], 'shared factors in the middle: 2 · 2 · 3') },
+        { cols: [['GCF (greatest common factor)', 'the <b>shared</b> primes only — the smaller exponent of each: \\(2^2 \\cdot 3 = 12\\)'], ['LCM (least common multiple)', '<b>every</b> prime that appears — the larger exponent of each: \\(2^3 \\cdot 3^2 = 72\\)']] },
+        { rule: '\\text{GCF} \\times \\text{LCM} = 12 \\times 72 = 864 = 24 \\times 36' }
+      ] },
     { title: 'The Lich\'s Cube', lore: 'Vessarion keeps his life in a cube of marsh-iron buried under the eighth barrow. The cube\'s volume is written on the lid. The edge is not. He assumes nobody can take a root.',
-      math: '<b>Roots undo powers.</b> \\(\\sqrt{n}\\) asks “what number squared gives \\(n\\)?”, \\(\\sqrt[3]{n}\\) asks “what number cubed?”. Use the prime factorisation: \\(\\sqrt[3]{1728} = \\sqrt[3]{2^6 \\cdot 3^3} = 2^2 \\cdot 3 = 12\\), because you take one third of every exponent. For a square root, halve the exponents: \\(\\sqrt{3600} = 2^2 \\cdot 3 \\cdot 5 = 60\\).' },
+      math: [
+        { h: 'Roots undo powers' },
+        { p: '\\(\\sqrt{n}\\) asks “what number squared gives \\(n\\)?” and \\(\\sqrt[3]{n}\\) asks “what number cubed?” — so a cube root is exactly the <b>edge</b> of a cube whose volume you know.' },
+        { fig: cube('edge = ∛1728 = 12', 'volume 1728') },
+        { steps: ['1728 = 2^6 \\cdot 3^3', '\\sqrt[3]{1728} = 2^{6 \\div 3} \\cdot 3^{3 \\div 3} = 2^2 \\cdot 3 = 12'] },
+        { p: 'Divide every exponent by the index of the root: by 2 for a square root, by 3 for a cube root.' },
+        { eq: '\\sqrt{3600} = \\sqrt{2^4 \\cdot 3^2 \\cdot 5^2} = 2^2 \\cdot 3 \\cdot 5 = 60' }
+      ] },
     { title: 'A Wisp Is Not Rational', lore: 'Follow a wisp and you will walk forever: its path never repeats and never ends. The townsfolk called such things irrational, and they were right, though not in the way they meant.',
-      math: 'A <b>rational</b> number can be written as a fraction of integers, so its decimal ends or repeats: \\(\\tfrac{3}{8} = 0.375\\), \\(\\tfrac{2}{3} = 0.\\overline{6}\\). An <b>irrational</b> number cannot: \\(\\sqrt{2}\\), \\(\\sqrt[3]{10}\\), \\(\\pi\\). Quick test for a root: \\(\\sqrt{n}\\) is rational only when \\(n\\) is a perfect square (\\(\\sqrt{49} = 7\\)), \\(\\sqrt[3]{n}\\) only when \\(n\\) is a perfect cube. To <b>order</b> radicals, estimate: \\(\\sqrt{50}\\) sits just above \\(\\sqrt{49} = 7\\).' },
+      math: [
+        { h: 'Rational or irrational?' },
+        { cols: [['Rational', 'can be written as a fraction of integers, so the decimal <b>ends or repeats</b>: \\(\\tfrac{3}{8} = 0.375\\), \\(\\tfrac{2}{3} = 0.\\overline{6}\\), \\(\\sqrt{49} = 7\\)'], ['Irrational', 'cannot: \\(\\sqrt{2}\\), \\(\\sqrt[3]{10}\\), \\(\\pi\\). A root is rational only when the number under it is a perfect square (or cube).']] },
+        { h: 'Placing radicals on a number line' },
+        { p: 'Estimate from the nearest perfect squares: \\(\\sqrt{49} = 7 < \\sqrt{50} < \\sqrt{64} = 8\\), and just barely above 7.' },
+        { fig: numberLine(5, 9, [5, 6, 7, 8, 9], [[5.74, '√33'], [6.32, '√40'], [7.07, '√50', true], [8.49, '√72']]) },
+        { p: 'To order a mixed list, turn everything into a decimal estimate first: \\(2\\sqrt{3} \\approx 3.46\\), \\(\\sqrt[3]{30} \\approx 3.11\\), \\(\\tfrac{7}{2} = 3.5\\).' }
+      ] },
     { title: 'The Hollow Knight\'s Armour', lore: 'The knight\'s armour was forged entire, one piece of marsh-steel. Only later was it broken and mended with a number sewn outside and a number sewn in. Make it whole again and it falls apart.',
-      math: '<b>Mixed ↔ entire radicals.</b> To simplify, pull out the largest perfect square (or cube) factor: \\(\\sqrt{72} = \\sqrt{36 \\cdot 2} = 6\\sqrt{2}\\); \\(\\sqrt[3]{54} = \\sqrt[3]{27 \\cdot 2} = 3\\sqrt[3]{2}\\). To go back to an entire radical, push the coefficient under the root as a power: \\(5\\sqrt{3} = \\sqrt{25 \\cdot 3} = \\sqrt{75}\\); \\(2\\sqrt[3]{7} = \\sqrt[3]{8 \\cdot 7} = \\sqrt[3]{56}\\).' }
+      math: [
+        { h: 'Entire → mixed: pull out the largest perfect square' },
+        { fig: factorTree('72', [['72', '36', '2']]) },
+        { steps: ['\\sqrt{72} = \\sqrt{36 \\cdot 2} = \\sqrt{36} \\cdot \\sqrt{2} = 6\\sqrt{2}', '\\sqrt[3]{54} = \\sqrt[3]{27 \\cdot 2} = 3\\sqrt[3]{2}'] },
+        { h: 'Mixed → entire: push the coefficient back under the root as a power' },
+        { steps: ['5\\sqrt{3} = \\sqrt{5^2} \\cdot \\sqrt{3} = \\sqrt{25 \\cdot 3} = \\sqrt{75}', '2\\sqrt[3]{7} = \\sqrt[3]{2^3 \\cdot 7} = \\sqrt[3]{56}'] },
+        { rule: 'a\\sqrt[n]{b} = \\sqrt[n]{a^n \\cdot b}' }
+      ] }
   ],
   L2: [
     { title: 'The Forge-Born', lore: 'Nothing in the Peaks is born once. A cinder imp is born of a cinder imp, which is born of a cinder imp, and the mountain counts the generations as a small number written above a larger one.',
-      math: '<b>Exponent laws</b> (same base): multiply → add exponents, \\(x^3 \\cdot x^5 = x^8\\); divide → subtract, \\(\\dfrac{x^7}{x^2} = x^5\\); power of a power → multiply, \\((x^3)^4 = x^{12}\\). A power of a product or quotient reaches every factor: \\((2x^2y)^3 = 8x^6y^3\\), \\(\\left(\\dfrac{a}{b}\\right)^2 = \\dfrac{a^2}{b^2}\\). The exponent only applies to what it touches: \\(-3^2 = -9\\) but \\((-3)^2 = 9\\).' },
+      math: [
+        { h: 'The exponent laws (same base)' },
+        { cols: LAWS.map(function (l) { return [l[0], l[1] + ' &nbsp; e.g. ' + l[2]]; }) },
+        { p: 'The exponent only applies to what it <b>touches</b>:' },
+        { eq: '-3^2 = -9 \\qquad\\text{but}\\qquad (-3)^2 = 9' }
+      ] },
     { title: 'Below the Fire-Line', lore: 'Dig under the lava and you find the mountain upside down: every chamber a mirror of the one above, every power turned on its head. The hounds hunt there by flipping.',
-      math: '<b>Negative exponents</b> mean “flip it”: \\(x^{-n} = \\dfrac{1}{x^n}\\) and \\(\\dfrac{1}{x^{-n}} = x^n\\). So \\(2^{-3} = \\dfrac{1}{8}\\) and \\(\\left(\\dfrac{2}{3}\\right)^{-2} = \\left(\\dfrac{3}{2}\\right)^2 = \\dfrac{9}{4}\\). Anything (except 0) to the power 0 is 1: \\(7^0 = 1\\), \\((-5x)^0 = 1\\). Move a factor across the fraction bar by changing the sign of its exponent: \\(\\dfrac{a^{-2}b}{c^{-1}} = \\dfrac{bc}{a^2}\\).' },
+      math: [
+        { h: 'Negative exponents mean “flip it”' },
+        { fig: flip() },
+        { rule: 'x^{-n} = \\dfrac{1}{x^n} \\qquad \\dfrac{1}{x^{-n}} = x^n \\qquad \\left(\\dfrac{a}{b}\\right)^{-n} = \\left(\\dfrac{b}{a}\\right)^{n}' },
+        { steps: ['2^{-3} = \\dfrac{1}{2^3} = \\dfrac{1}{8}', '\\left(\\dfrac{2}{3}\\right)^{-2} = \\left(\\dfrac{3}{2}\\right)^{2} = \\dfrac{9}{4}', '\\dfrac{a^{-2}\\,b}{c^{-1}} = \\dfrac{b\\,c}{a^{2}}'] },
+        { p: 'Anything (except 0) to the power 0 is 1: \\(7^0 = 1\\), \\((-5x)^0 = 1\\). A factor moves across the fraction bar by changing the sign of its exponent.' }
+      ] },
     { title: 'The Golem\'s Fraction', lore: 'The obsidian golem was quarried from a single block and then split, and split again. Each split left a root. A root, the Ember Sprites sing, is just a power that has not made up its mind.',
-      math: '<b>Rational exponents are roots.</b> \\(x^{\\frac{1}{n}} = \\sqrt[n]{x}\\), and \\(x^{\\frac{m}{n}} = \\left(\\sqrt[n]{x}\\right)^m = \\sqrt[n]{x^m}\\). Take the root first, it keeps the numbers small: \\(8^{\\frac{2}{3}} = \\left(\\sqrt[3]{8}\\right)^2 = 2^2 = 4\\); \\(16^{-\\frac{3}{4}} = \\dfrac{1}{\\left(\\sqrt[4]{16}\\right)^3} = \\dfrac{1}{8}\\). Going the other way: \\(\\sqrt[5]{x^2} = x^{\\frac{2}{5}}\\) and \\(\\sqrt{x^3} = x^{\\frac{3}{2}}\\).' },
+      math: [
+        { h: 'Rational exponents are roots' },
+        { rule: 'x^{\\frac{1}{n}} = \\sqrt[n]{x} \\qquad x^{\\frac{m}{n}} = \\left(\\sqrt[n]{x}\\right)^{m} = \\sqrt[n]{x^{m}}' },
+        { p: '<b>Root first, then power</b> — it keeps the numbers small. The denominator is the root; the numerator is the power.' },
+        { steps: ['8^{\\frac{2}{3}} = \\left(\\sqrt[3]{8}\\right)^{2} = 2^{2} = 4', '16^{-\\frac{3}{4}} = \\dfrac{1}{\\left(\\sqrt[4]{16}\\right)^{3}} = \\dfrac{1}{2^{3}} = \\dfrac{1}{8}', '\\sqrt[5]{x^{2}} = x^{\\frac{2}{5}} \\qquad \\sqrt{x^{3}} = x^{\\frac{3}{2}}'] }
+      ] },
     { title: 'Counting Ash', lore: 'When the Furnace King wakes, the ash of a thousand eruptions falls on the Peaks. Nobody can count the grains. The Pyroclast Drake does not count them; it writes how many zeros they would need.',
-      math: '<b>Scientific notation</b>: \\(a \\times 10^n\\) with \\(1 \\le a < 10\\). Big numbers have a positive exponent, small ones negative: \\(4\\,250\\,000 = 4.25 \\times 10^6\\), \\(0.00031 = 3.1 \\times 10^{-4}\\). Count how many places the decimal point moves. To multiply, multiply the fronts and add the exponents: \\((3 \\times 10^4)(2 \\times 10^{-7}) = 6 \\times 10^{-3}\\). If the front leaves \\([1, 10)\\), fix it: \\(12 \\times 10^5 = 1.2 \\times 10^6\\).' },
+      math: [
+        { h: 'Scientific notation' },
+        { rule: 'a \\times 10^{n} \\quad\\text{with}\\quad 1 \\le a < 10' },
+        { p: 'Count how far the decimal point moves. Big numbers get a <b>positive</b> exponent, small ones <b>negative</b>.' },
+        { fig: shift('4250000.', 6, 'left', '4.25 × 10⁶') },
+        { fig: shift('0.00031', 4, 'right', '3.1 × 10⁻⁴') },
+        { h: 'Multiplying' },
+        { steps: ['(3 \\times 10^{4})(2 \\times 10^{-7}) = 6 \\times 10^{-3}', '(4 \\times 10^{5})(3 \\times 10^{2}) = 12 \\times 10^{7} = 1.2 \\times 10^{8}'] },
+        { p: 'Multiply the fronts, add the exponents, and if the front leaves \\([1, 10)\\), fix it.' }
+      ] },
     { title: 'The Unknown Scale', lore: 'The Ash Wyrm has one scale that does not match the others. It is the scale it hides. Find the law the rest obey and the hidden one has nowhere left to be.',
-      math: '<b>Solving for a missing exponent</b>: write both sides with the same base, then set the exponents equal. \\(2^x \\cdot 2^3 = 2^{11} \\Rightarrow x + 3 = 11 \\Rightarrow x = 8\\). \\(\\dfrac{3^{x}}{3^{4}} = 3^{2} \\Rightarrow x = 6\\). \\(\\left(5^x\\right)^2 = 5^{10} \\Rightarrow 2x = 10\\). If the bases differ, rewrite them: \\(4^x = 2^{10} \\Rightarrow (2^2)^x = 2^{10} \\Rightarrow 2x = 10 \\Rightarrow x = 5\\).' }
+      math: [
+        { h: 'Solving for a missing exponent' },
+        { p: 'Write both sides with the <b>same base</b>; then the exponents must be equal.' },
+        { steps: ['2^{x} \\cdot 2^{3} = 2^{11} \;\\Rightarrow\; x + 3 = 11 \;\\Rightarrow\; x = 8', '\\dfrac{3^{x}}{3^{4}} = 3^{2} \;\\Rightarrow\; x - 4 = 2 \;\\Rightarrow\; x = 6', '\\left(5^{x}\\right)^{2} = 5^{10} \;\\Rightarrow\; 2x = 10 \;\\Rightarrow\; x = 5'] },
+        { p: 'If the bases differ, rewrite one as a power of the other:' },
+        { eq: '4^{x} = 2^{10} \;\\Rightarrow\; (2^{2})^{x} = 2^{10} \;\\Rightarrow\; 2x = 10 \;\\Rightarrow\; x = 5' }
+      ] }
   ],
   L3: [
     { title: 'Reading the Rings', lore: 'Cut a Weald tree and you can read it: every ring a term, the thickest ring its degree. The Thornling has three rings and dares you to name them. The Elder Treant has a thousand and will not stand still.',
-      math: 'A <b>polynomial</b> is a sum of <b>terms</b>; each term is a number (the <b>coefficient</b>) times variables with whole-number exponents. The <b>degree</b> of a term is the sum of its exponents (\\(5x^2y^3\\) has degree 5); the degree of the polynomial is the largest term degree. Count terms for the name: 1 = monomial, 2 = binomial, 3 = trinomial. Write in <b>descending order</b> of degree: \\(3x^2 - 7x + 2\\).' },
+      math: [
+        { h: 'The parts of a polynomial' },
+        { fig: anatomy() },
+        { cols: [['Degree of a term', 'the <b>sum</b> of its exponents: \\(5x^{2}y^{3}\\) has degree 5'], ['Degree of a polynomial', 'the largest term degree'], ['Name by terms', '1 term monomial · 2 binomial · 3 trinomial'], ['Descending order', 'highest degree first: \\(3x^{2} - 7x + 2\\)']] }
+      ] },
     { title: 'What the Moss Keeps', lore: 'Moss remembers what the tree forgets. Put two fallen trunks side by side and the moss will tell you which rings they had in common and which they did not, and it never, ever drops a sign.',
-      math: '<b>Adding and subtracting polynomials</b>: combine <b>like terms</b> (same variables, same exponents). Subtraction means subtracting <i>every</i> term in the second bracket, so flip all its signs first: \\((4x^2 - 3x + 1) - (x^2 - 5x - 6) = 4x^2 - 3x + 1 - x^2 + 5x + 6 = 3x^2 + 2x + 7\\). Line the terms up by degree and check that nothing was dropped.' },
+      math: [
+        { h: 'Adding and subtracting: combine like terms' },
+        { p: 'Like terms have the same variables with the same exponents. Subtracting a bracket means subtracting <b>every</b> term in it, so flip all its signs first.' },
+        { steps: ['(4x^{2} - 3x + 1) - (x^{2} - 5x - 6)', '= 4x^{2} - 3x + 1 - x^{2} + 5x + 6', '= 3x^{2} + 2x + 7'] },
+        { cols: [['\\(x^{2}\\) terms', '\\(4x^{2} - x^{2} = 3x^{2}\\)'], ['\\(x\\) terms', '\\(-3x + 5x = 2x\\)'], ['constants', '\\(1 + 6 = 7\\)']] }
+      ] },
     { title: 'The Weald Multiplies', lore: 'Say a thing once beneath the canopy and the Weald says it back from every branch. Say it to a single sprite and it reaches each of the sprite\'s wings in turn.',
-      math: '<b>Distributing</b> a monomial: multiply it into <i>every</i> term, adding exponents on matching variables: \\(-2x^2(3x^2 - 4x + 5) = -6x^4 + 8x^3 - 10x^2\\). <b>Binomial × binomial</b> (FOIL: First, Outer, Inner, Last): \\((x + 3)(2x - 5) = 2x^2 - 5x + 6x - 15 = 2x^2 + x - 15\\). The middle terms are the ones people lose: there are always two of them before they combine.' },
+      math: [
+        { h: 'A monomial reaches every term' },
+        { eq: '-2x^{2}\\,(3x^{2} - 4x + 5) = -6x^{4} + 8x^{3} - 10x^{2}' },
+        { h: 'Binomial × binomial: the area model' },
+        { fig: areaModel(['x', '+3'], ['2x', '−5'], [['2x²', '−5x'], ['6x', '−15']], '2x² − 5x + 6x − 15 = 2x² + x − 15') },
+        { p: 'Every cell is one product (First, Outer, Inner, Last). The two middle cells are the ones people lose — there are always two before they combine.' }
+      ] },
     { title: 'The Shade\'s Cloak', lore: 'The Weald Shade squares itself in the dark and comes back with a cloak it did not have before, woven from the twice-counted middle. Look for the cloak; it is always there.',
-      math: '<b>Special products</b> (learn these by heart): \\((a + b)^2 = a^2 + 2ab + b^2\\), \\((a - b)^2 = a^2 - 2ab + b^2\\), \\((a + b)(a - b) = a^2 - b^2\\). So \\((3x - 4)^2 = 9x^2 - 24x + 16\\), never \\(9x^2 + 16\\). And \\((2x + 5)(2x - 5) = 4x^2 - 25\\): the middle terms cancel. The cube: \\((x + a)^3 = x^3 + 3ax^2 + 3a^2x + a^3\\).' },
+      math: [
+        { h: 'Special products' },
+        { fig: areaModel(['a', '+b'], ['a', '+b'], [['a²', 'ab'], ['ab', 'b²']], '(a + b)² = a² + 2ab + b²') },
+        { rule: '(a + b)^{2} = a^{2} + 2ab + b^{2} \\qquad (a - b)^{2} = a^{2} - 2ab + b^{2} \\qquad (a + b)(a - b) = a^{2} - b^{2}' },
+        { steps: ['(3x - 4)^{2} = 9x^{2} - 24x + 16 \\quad (\\text{never } 9x^{2} + 16)', '(2x + 5)(2x - 5) = 4x^{2} - 25 \\quad (\\text{the middle cancels})', '(x + a)^{3} = x^{3} + 3ax^{2} + 3a^{2}x + a^{3}'] }
+      ] },
     { title: 'The Oak\'s Floor', lore: 'Under the Hollow Oak the roots have paved a floor in rectangles that are not rectangles, with corners cut away and gardens let in. Measure it by pieces, and multiply each piece out before you add.',
-      math: '<b>Area and perimeter with polynomials</b>: perimeter adds all the sides (combine like terms); area multiplies length by width (expand). An L-shape or a cut-out is two rectangles: find each area and add or subtract. Example: a \\((2x + 3)\\) by \\((x + 4)\\) floor with an \\(x\\) by \\(x\\) square removed has area \\((2x + 3)(x + 4) - x^2 = 2x^2 + 11x + 12 - x^2 = x^2 + 11x + 12\\). Volume of a box: length × width × height, multiply two factors first, then the third.' }
+      math: [
+        { h: 'Area and perimeter with polynomials' },
+        { fig: (typeof Fig !== 'undefined' ? Fig.cutout('2x + 3', 'x + 4', 7, 5, 'x', 2, 'corner') : '') },
+        { p: '<b>Perimeter</b> adds all the sides (combine like terms). <b>Area</b> multiplies length by width (expand). A cut-out is a subtraction of areas.' },
+        { steps: ['A = (2x + 3)(x + 4) - x^{2}', '= 2x^{2} + 8x + 3x + 12 - x^{2}', '= x^{2} + 11x + 12'] },
+        { p: 'Volume of a box: length × width × height — multiply two factors first, then the third.' }
+      ] }
   ],
   L4: [
     { title: 'Pulling the Bricks Apart', lore: 'Everything the Weald multiplied, the Crypts pull apart again. The scarabs begin at the mortar: whatever every brick has in common comes out first, and the wall remembers what is left.',
-      math: '<b>Common factor first, always.</b> Find the GCF of the coefficients and the lowest power of each variable, then divide every term by it: \\(12x^3y - 18x^2y^2 = 6x^2y(2x - 3y)\\). Check by distributing back. Sometimes the common factor is a bracket: \\(x(x + 2) - 5(x + 2) = (x + 2)(x - 5)\\). That is also <b>factoring by grouping</b>: group four terms in pairs, factor each pair, then factor out the shared bracket.' },
+      math: [
+        { h: 'Common factor first, always' },
+        { p: 'Find the GCF of the coefficients and the <b>lowest power</b> of each variable, then divide every term by it.' },
+        { steps: ['12x^{3}y - 18x^{2}y^{2}', '\\text{GCF} = 6x^{2}y', '= 6x^{2}y\\,(2x - 3y)'] },
+        { h: 'Factoring by grouping' },
+        { steps: ['x^{2} + 2x - 5x - 10', '= x(x + 2) - 5(x + 2)', '= (x + 2)(x - 5)'] },
+        { p: 'Group four terms in pairs, factor each pair, and the shared bracket comes out as a common factor. Check by distributing back.' }
+      ] },
     { title: 'The Two Numbers', lore: 'Each ghoul guards a door that opens to two numbers: the pair that multiply to the last and add to the middle. The ghoul remembers them. It is betting you will not.',
-      math: '<b>\\(x^2 + bx + c\\)</b>: find two numbers that <b>multiply to \\(c\\)</b> and <b>add to \\(b\\)</b>. \\(x^2 + 7x + 12 = (x + 3)(x + 4)\\); \\(x^2 - 2x - 15 = (x - 5)(x + 3)\\) (product \\(-15\\) means opposite signs; sum \\(-2\\) means the bigger one is negative). List the factor pairs of \\(c\\) if you are stuck. If nothing works, the trinomial does not factor over the integers.' },
+      math: [
+        { h: 'Factoring \\(x^{2} + bx + c\\)' },
+        { p: 'Find two numbers that <b>multiply to \\(c\\)</b> and <b>add to \\(b\\)</b>.' },
+        { fig: diamond('12', '7', '3', '4') },
+        { steps: ['x^{2} + 7x + 12 = (x + 3)(x + 4)', 'x^{2} - 2x - 15 = (x - 5)(x + 3)'] },
+        { p: 'Signs: a negative product means the numbers have opposite signs; a negative sum means the bigger one is negative. List the factor pairs of \\(c\\) when stuck. If no pair works, it does not factor over the integers.' }
+      ] },
     { title: 'The Reliquary\'s Two Locks', lore: 'The Living Reliquary is a casket with a lock on the lid and a lock inside the lock. The difference between two squares opens the first. Most who open it stop there. Those who do not are the ones who leave.',
-      math: '<b>Difference of squares</b>: \\(a^2 - b^2 = (a - b)(a + b)\\). Spot it: two terms, both perfect squares, a minus between. \\(9x^2 - 25 = (3x - 5)(3x + 5)\\); \\(x^4 - 16 = (x^2 - 4)(x^2 + 4) = (x - 2)(x + 2)(x^2 + 4)\\): keep factoring until nothing else will. A <i>sum</i> of squares, \\(x^2 + 9\\), does not factor. Common factor first: \\(2x^2 - 50 = 2(x^2 - 25) = 2(x - 5)(x + 5)\\).' },
+      math: [
+        { h: 'Difference of squares' },
+        { rule: 'a^{2} - b^{2} = (a - b)(a + b)' },
+        { fig: diffSquares() },
+        { steps: ['9x^{2} - 25 = (3x - 5)(3x + 5)', 'x^{4} - 16 = (x^{2} - 4)(x^{2} + 4) = (x - 2)(x + 2)(x^{2} + 4)', '2x^{2} - 50 = 2(x^{2} - 25) = 2(x - 5)(x + 5)'] },
+        { p: 'Spot it: two terms, both perfect squares, a minus between. Keep factoring until nothing else will. A <b>sum</b> of squares, \\(x^{2} + 9\\), does not factor.' }
+      ] },
     { title: 'The Knight\'s Decomposition', lore: 'The Crypt Knight\'s blade does not cut the middle term in half. It cuts it into two unequal pieces, chosen so that the whole falls into groups. The armour it wears is a perfect square; its blade was made for everything that is not.',
-      math: '<b>\\(ax^2 + bx + c\\)</b> by <b>decomposition</b>: find two numbers that multiply to \\(a \\cdot c\\) and add to \\(b\\), split the middle term with them, then factor by grouping. \\(6x^2 + 7x - 3\\): \\(a c = -18\\), the pair is \\(9\\) and \\(-2\\). So \\(6x^2 + 9x - 2x - 3 = 3x(2x + 3) - 1(2x + 3) = (2x + 3)(3x - 1)\\). <b>Perfect-square trinomials</b>: \\(a^2 \\pm 2ab + b^2 = (a \\pm b)^2\\), e.g. \\(4x^2 - 12x + 9 = (2x - 3)^2\\). Check the middle: \\(2 \\cdot 2x \\cdot 3 = 12x\\).' },
+      math: [
+        { h: 'Factoring \\(ax^{2} + bx + c\\) by decomposition' },
+        { p: 'Find two numbers that multiply to \\(a \\cdot c\\) and add to \\(b\\); split the middle term with them; then group.' },
+        { fig: diamond('−18', '7', '9', '−2') },
+        { steps: ['6x^{2} + 7x - 3 \\quad (a c = -18)', '= 6x^{2} + 9x - 2x - 3', '= 3x(2x + 3) - 1(2x + 3)', '= (2x + 3)(3x - 1)'] },
+        { h: 'Perfect-square trinomials' },
+        { rule: 'a^{2} \\pm 2ab + b^{2} = (a \\pm b)^{2}' },
+        { eq: '4x^{2} - 12x + 9 = (2x - 3)^{2} \\quad\\text{check the middle: } 2 \\cdot 2x \\cdot 3 = 12x' }
+      ] },
     { title: 'Ossirion\'s Rule', lore: 'The Vaultkeeper allows one law in the Crypts: a thing that is nothing has at least one part that is nothing. Bring him a product that equals nothing and he must tell you which factor died.',
-      math: '<b>Solving by factoring</b> uses the zero-product rule: if \\(A \\cdot B = 0\\) then \\(A = 0\\) or \\(B = 0\\). Get <b>everything on one side, zero on the other</b> first: \\(x^2 + 3x = 10 \\Rightarrow x^2 + 3x - 10 = 0 \\Rightarrow (x + 5)(x - 2) = 0 \\Rightarrow x = -5\\) or \\(x = 2\\). For \\((x + 1)(x + 4) = 10\\) you must expand and rearrange first; the factors are not zero. With a leading coefficient, \\(2x - 3 = 0\\) gives \\(x = \\tfrac{3}{2}\\). Always give every solution.' }
+      math: [
+        { h: 'Solving by factoring: the zero-product rule' },
+        { rule: '\\text{If } A \\cdot B = 0 \\text{ then } A = 0 \\text{ or } B = 0' },
+        { p: 'Get <b>everything on one side, zero on the other</b> first. Then factor, set each factor to zero, and give <b>every</b> solution.' },
+        { fig: zeroFlow('x² + 3x = 10  →  x² + 3x − 10 = 0', '(x + 5)(x − 2) = 0', ['x + 5 = 0', 'x − 2 = 0'], 'x = −5', 'x = 2') },
+        { p: 'For \\((x + 1)(x + 4) = 10\\) you must expand and rearrange first — the factors are not equal to zero. With a leading coefficient, \\(2x - 3 = 0\\) gives \\(x = \\tfrac{3}{2}\\).' }
+      ] }
   ]
-};
+  };
+})();
 if (typeof module !== 'undefined') module.exports = LOREBOOK;
 
 /* ===================== WORLD MAP =====================
@@ -2637,7 +2984,7 @@ var WorldMap = (function () {
         '<text x="' + (p[0] + 24) + '" y="' + (p[1] - 22) + '" class="mp-num">' + L.unit + '</text></g>';
     });
     if (S.dropped) { var dp = NODES[S.dropped.land]; if (dp) svg += '<g pointer-events="none"><circle cx="' + (dp[0] - 26) + '" cy="' + (dp[1] - 26) + '" r="9" fill="#8fd3ff" filter="url(#lb-glow)"/><text x="' + (dp[0] - 26) + '" y="' + (dp[1] - 40) + '" text-anchor="middle" class="mp-sub" style="fill:#8fd3ff">Lore</text></g>'; }
-    svg += '<g transform="translate(720,58)"><text class="mp-title" text-anchor="middle" x="120" y="0">The Lands of Lorebound</text><text class="mp-sub" text-anchor="middle" x="120" y="20">Math 10C · ten units · ten lands</text></g>' +
+    svg += '<g transform="translate(680,58)"><text class="mp-title" text-anchor="middle" x="120" y="0">The Lands of Lorebound</text><text class="mp-sub" text-anchor="middle" x="120" y="20">Math 10C · ten units · ten lands</text></g>' +
       '<g transform="translate(940,585)" fill="none" stroke="#e8d9b0" stroke-width="1.5" opacity=".85"><circle r="22"/><path d="M0 -22 L6 0 L0 22 L-6 0z" fill="#e8d9b0"/><path d="M-22 0h44M0 -22v44" opacity=".5"/><text y="-28" text-anchor="middle" class="mp-sub" stroke="none">N</text></g></svg>';
     var ov = document.createElement('div'); ov.className = 'map-overlay'; ov.innerHTML = svg; wrap.appendChild(ov);
     return wrap;
@@ -2753,131 +3100,136 @@ var Overworld = (function () {
   }
 
 
-  /* ---------- map generation v2: a labyrinth — clearings (rooms) joined by a winding maze of 2-wide corridors ----------
-   * Rooms-and-mazes: rooms are placed on a 3-tile cell grid, every leftover cell is filled with a perfect maze,
-   * the regions are joined by a spanning set of openings (plus a few extra loops), and most dead ends are
-   * filled back in so what remains is a tangle of branching paths with hiding spots. Everything else is solid. */
+  /* ---------- map generation v2: a designed land, built the way "cyclic dungeon generation" builds levels ----------
+   * (after Unexplored / Joris Dormans, and the Dark Souls habit of loops and shortcuts):
+   *   1. One big cycle: bonfire -> goal (boss gate), split into two arcs. The LONG SAFE WAY runs across the top through
+   *      five clearings (Beginning creatures, then Progressing); the SHORT DANGEROUS WAY runs along the bottom through
+   *      three clearings guarded by Mastery creatures. Both arrive at the antechamber in front of the boss door.
+   *   2. A landmark in the middle, the Crossing (a big clearing with water), links the two arcs: the shortcut home.
+   *   3. Minor cycles: short detour loops hung off the arcs, and a few cross-links.
+   *   4. Lock and key: the Gate Key lies at the end of a guarded dead end off the far end of the land.
+   *   5. Dead ends: winding treasure lanes off the clearings, with a chest or a page at the end.
+   * Corridors are 2-wide winding paths; everything else is solid. Same seed per land, so every student gets the same land. */
   function generateV2(L) {
-    var r = rng(hash('lorebound:' + L.id + ':v3')), th = themeFor(L);
-    var W = 83, H = 56, P = 3;                                   // tile size of the map, cell pitch (2 floor + 1 wall)
-    var CW = Math.floor((W - 2) / P), CH = Math.floor((H - 2) / P); // cells
-    var tiles = new Uint8Array(W * H), x, y, i, j;
-    var idx = function (x, y) { return y * W + x; };
-    var cx0 = function (ci) { return 1 + ci * P; }, cy0 = function (cj) { return 1 + cj * P; }; // top-left tile of a cell
+    var r = rng(hash('lorebound:' + L.id + ':v4')), th = themeFor(L);
+    var W = 84, H = 56, tiles = new Uint8Array(W * H), x, y, i;
+    var idx = function (x, y) { return y * W + x; }, inb = function (x, y) { return x > 1 && y > 1 && x < W - 2 && y < H - 2; };
     for (i = 0; i < tiles.length; i++) tiles[i] = G.WALL;
     for (x = 0; x < W; x++) { tiles[idx(x, 0)] = G.EDGE; tiles[idx(x, H - 1)] = G.EDGE; } for (y = 0; y < H; y++) { tiles[idx(0, y)] = G.EDGE; tiles[idx(W - 1, y)] = G.EDGE; }
-    var region = new Int16Array(CW * CH).fill(-1), nReg = 0, cidx = function (ci, cj) { return cj * CW + ci; };
-    function carveCell(ci, cj, floor) { for (y = cy0(cj); y < cy0(cj) + 2; y++) for (x = cx0(ci); x < cx0(ci) + 2; x++) tiles[idx(x, y)] = floor; }
-    function carveBetween(a, b, floor) { // the wall strip between two adjacent cells
-      var ci = Math.min(a[0], b[0]), cj = Math.min(a[1], b[1]);
-      if (a[0] !== b[0]) { x = cx0(ci) + 2; for (y = cy0(cj); y < cy0(cj) + 2; y++) tiles[idx(x, y)] = floor; }
-      else { y = cy0(cj) + 2; for (x = cx0(ci); x < cx0(ci) + 2; x++) tiles[idx(x, y)] = floor; }
-    }
-    // rooms (in cells)
     var rooms = [];
-    function fits(rm) { if (rm.ci < 0 || rm.cj < 0 || rm.ci + rm.cw > CW || rm.cj + rm.ch > CH) return false; return !rooms.some(function (b) { return rm.ci < b.ci + b.cw + 1 && rm.ci + rm.cw + 1 > b.ci && rm.cj < b.cj + b.ch + 1 && rm.cj + rm.ch + 1 > b.cj; }); }
-    function addRoom(rm) { rm.id = rooms.length; rooms.push(rm); rm.region = nReg++; for (j = rm.cj; j < rm.cj + rm.ch; j++) for (i = rm.ci; i < rm.ci + rm.cw; i++) region[cidx(i, j)] = rm.region; }
-    var startRm = { ci: 0 + Math.floor(r() * 2), cj: 2 + Math.floor(r() * (CH - 6)), cw: 2, ch: 2, kind: 'start' }; addRoom(startRm);
-    var bossRm = { ci: CW - 3, cj: 2 + Math.floor(r() * (CH - 6)), cw: 3, ch: 2, kind: 'boss' }; addRoom(bossRm);
-    for (var tries = 0; tries < 260 && rooms.length < 18; tries++) {
-      var rm = { ci: Math.floor(r() * CW), cj: Math.floor(r() * CH), cw: 2 + Math.floor(r() * 3), ch: 1 + Math.floor(r() * 3) };
-      if (rm.ci >= CW - 4 && rm.cw > 2) continue; // keep the far-right column for the boss
-      if (fits(rm)) addRoom(rm);
+    function room(cx, cy, w, h, tag) {
+      var rm = { w: w, h: h, tag: tag }; rm.x = Math.max(2, Math.min(W - w - 3, Math.round(cx - w / 2))); rm.y = Math.max(2, Math.min(H - h - 3, Math.round(cy - h / 2)));
+      for (var t = 0; t < 30; t++) { var clash = rooms.some(function (b) { return rm.x < b.x + b.w + 2 && rm.x + rm.w + 2 > b.x && rm.y < b.y + b.h + 2 && rm.y + rm.h + 2 > b.y; }); if (!clash) break; rm.y += (t % 2 ? -1 : 1) * (t + 1); rm.y = Math.max(2, Math.min(H - h - 3, rm.y)); }
+      rm.cx = rm.x + Math.floor(rm.w / 2); rm.cy = rm.y + Math.floor(rm.h / 2); rm.id = rooms.length; rooms.push(rm); return rm;
     }
-    rooms.forEach(function (rm) { // carve rooms (the whole block, walls between their cells included)
-      rm.x = cx0(rm.ci); rm.y = cy0(rm.cj); rm.w = rm.cw * P - 1; rm.h = rm.ch * P - 1; rm.cx = rm.x + Math.floor(rm.w / 2); rm.cy = rm.y + Math.floor(rm.h / 2);
-      for (y = rm.y; y < rm.y + rm.h; y++) for (x = rm.x; x < rm.x + rm.w; x++) tiles[idx(x, y)] = r() < 0.2 ? G.GROUND2 : G.GROUND;
-    });
-    // maze in every leftover cell: backtracker with a bias to keep going straight (long twisting passages)
-    var open = {}; // "ci,cj|ci2,cj2" openings between cells
-    function key2(a, b) { return a[0] + ',' + a[1] + '|' + b[0] + ',' + b[1]; }
-    function link(a, b) { open[key2(a, b)] = 1; open[key2(b, a)] = 1; }
-    var DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) {
-      if (region[cidx(i, j)] >= 0) continue;
-      var reg = nReg++, stack = [[i, j]], lastDir = null; region[cidx(i, j)] = reg; carveCell(i, j, G.PATH);
-      while (stack.length) {
-        var c = stack[stack.length - 1], opts = [];
-        DIRS.forEach(function (d) { var ni = c[0] + d[0], nj = c[1] + d[1]; if (ni < 0 || nj < 0 || ni >= CW || nj >= CH) return; if (region[cidx(ni, nj)] >= 0) return; opts.push(d); });
-        if (!opts.length) { stack.pop(); continue; }
-        var d = (lastDir && r() < 0.6 && opts.some(function (o) { return o[0] === lastDir[0] && o[1] === lastDir[1]; })) ? lastDir : opts[Math.floor(r() * opts.length)];
-        var n = [c[0] + d[0], c[1] + d[1]]; region[cidx(n[0], n[1])] = reg; carveCell(n[0], n[1], G.PATH); carveBetween(c, n, G.PATH); link(c, n); lastDir = d; stack.push(n);
+    var jit = function (n) { return Math.floor((r() - 0.5) * 2 * n); };
+    var midY = Math.floor(H / 2);
+    var start = room(8, midY + jit(4), 9, 7, 'start');
+    var boss = room(W - 7, midY + jit(3), 8, 6, 'boss');
+    var ante = room(W - 18, boss.cy + jit(2), 7, 6, 'ante');
+    var safe = [], danger = [], nSafe = 5, nDanger = 3;
+    for (i = 0; i < nSafe; i++) safe.push(room(20 + (W - 44) * i / (nSafe - 1) + jit(2), 13 + jit(3), 5 + Math.floor(r() * 5), 4 + Math.floor(r() * 3), 'safe'));
+    for (i = 0; i < nDanger; i++) danger.push(room(24 + (W - 48) * i / (nDanger - 1) + jit(3), H - 13 + jit(2), 6 + Math.floor(r() * 4), 4 + Math.floor(r() * 3), 'danger'));
+    var cross = room(Math.floor(W / 2) + jit(3), midY + jit(3), 10, 7, 'cross');
+    var loops = [];
+    loops.push(room((safe[1].cx + safe[2].cx) / 2, 3, 5, 3, 'loop'));          // minor cycle above the safe arc
+    loops.push(room((safe[3].cx + safe[4].cx) / 2, 3, 5, 3, 'loop'));
+    loops.push(room((danger[0].cx + danger[1].cx) / 2, H - 4, 6, 3, 'loop')); // minor cycle below the dangerous arc
+    rooms.forEach(function (rm) { for (y = rm.y; y < rm.y + rm.h; y++) for (x = rm.x; x < rm.x + rm.w; x++) if (inb(x, y)) tiles[idx(x, y)] = r() < 0.2 ? G.GROUND2 : G.GROUND; });
+    // winding 2-wide corridors
+    function corridor(a, b) {
+      var cx = a.x, cy = a.y, steps = 0;
+      function put(px, py) { if (inb(px, py) && tiles[idx(px, py)] === G.WALL) tiles[idx(px, py)] = G.PATH; }
+      while ((cx !== b.x || cy !== b.y) && steps++ < 900) {
+        put(cx, cy); put(cx + 1, cy); put(cx, cy + 1); put(cx + 1, cy + 1);
+        var dx = b.x - cx, dy = b.y - cy, rr = r();
+        if (rr < 0.6) { if (Math.abs(dx) > Math.abs(dy) || dy === 0) cx += dx > 0 ? 1 : -1; else cy += dy > 0 ? 1 : -1; }
+        else if (rr < 0.92) { if (dx !== 0) cx += dx > 0 ? 1 : -1; else cy += dy > 0 ? 1 : -1; }
+        else { var sd = Math.floor(r() * 4), nx = cx + (sd === 0 ? 1 : sd === 1 ? -1 : 0), ny = cy + (sd === 2 ? 1 : sd === 3 ? -1 : 0); if (inb(nx, ny) && inb(nx + 1, ny + 1)) { cx = nx; cy = ny; } }
       }
+      put(cx, cy); put(cx + 1, cy); put(cx, cy + 1); put(cx + 1, cy + 1);
     }
-    // connectors between regions (room<->maze, room<->room), spanning merge with a few extra loops
-    var conns = [];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) {
-      var ra = region[cidx(i, j)];
-      if (i + 1 < CW) { var rb = region[cidx(i + 1, j)]; if (ra !== rb) conns.push({ a: [i, j], b: [i + 1, j], ra: ra, rb: rb }); }
-      if (j + 1 < CH) { var rc = region[cidx(i, j + 1)]; if (ra !== rc) conns.push({ a: [i, j], b: [i, j + 1], ra: ra, rb: rc }); }
-    }
-    var bossReg = bossRm.region, merged = []; for (i = 0; i < nReg; i++) merged[i] = i;
-    function find(a) { while (merged[a] !== a) a = merged[a]; return a; }
-    var pool = conns.filter(function (c) { return c.ra !== bossReg && c.rb !== bossReg; });
-    // shuffle
-    for (i = pool.length - 1; i > 0; i--) { j = Math.floor(r() * (i + 1)); var t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
-    var roomOpen = {}; // room id -> number of openings
-    pool.forEach(function (c) {
-      var fa = find(c.ra), fb = find(c.rb), isRoom = rooms.some(function (rm) { return rm.region === c.ra || rm.region === c.rb; });
-      if (fa !== fb) { merged[fa] = fb; carveBetween(c.a, c.b, G.PATH); link(c.a, c.b); }
-      else if (r() < (isRoom ? 0.06 : 0.025)) { carveBetween(c.a, c.b, G.PATH); link(c.a, c.b); } // extra loop
-    });
-    // the boss room gets exactly one opening on its left: the gate
-    var bconns = conns.filter(function (c) { return (c.ra === bossReg || c.rb === bossReg) && c.a[1] === c.b[1]; });
-    var bc = bconns[Math.floor(r() * bconns.length)]; var gcell = bc.ra === bossReg ? bc.b : bc.a;
-    var gate = { x: cx0(bossRm.ci) - 1, y: cy0(gcell[1]) + Math.floor(r() * 2) };
-    tiles[idx(gate.x, gate.y)] = G.GATE; tiles[idx(gate.x, gate.y === cy0(gcell[1]) ? gate.y + 1 : gate.y - 1)] = G.WALL;
-    link(bc.a, bc.b);
-    var keepGate = gcell[0] + ',' + gcell[1];
-    // dead-end pruning on the cell graph: fill most dead-end chains, keep some as hiding spots
-    function degree(ci, cj) { var n = 0; DIRS.forEach(function (d) { if (open[key2([ci, cj], [ci + d[0], cj + d[1]])]) n++; }); return n; }
-    function isRoomCell(ci, cj) { var rg = region[cidx(ci, cj)]; return rooms.some(function (rm) { return rm.region === rg; }); }
-    var keep = {}; var deadNow = [];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) if (!isRoomCell(i, j) && degree(i, j) === 1) deadNow.push([i, j]);
-    deadNow.forEach(function (c) { if (r() < 0.3) keep[c[0] + ',' + c[1]] = 1; }); keep[keepGate] = 1;
-    for (var pass = 0; pass < 10; pass++) {
-      var filled = 0;
-      for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) {
-        if (isRoomCell(i, j) || keep[i + ',' + j] || region[cidx(i, j)] < 0) continue;
-        if (degree(i, j) !== 1) continue;
-        // fill the cell and its one opening
-        DIRS.forEach(function (d) { var k = key2([i, j], [i + d[0], j + d[1]]); if (open[k]) { delete open[k]; delete open[key2([i + d[0], j + d[1]], [i, j])]; carveBetween([i, j], [i + d[0], j + d[1]], G.WALL); } });
-        carveCell(i, j, G.WALL); region[cidx(i, j)] = -2; filled++;
+    var C = function (rm) { return { x: rm.cx, y: rm.cy }; };
+    var chain = [start].concat(safe, [ante]); for (i = 0; i < chain.length - 1; i++) corridor(C(chain[i]), C(chain[i + 1]));
+    chain = [start].concat(danger, [ante]); for (i = 0; i < chain.length - 1; i++) corridor(C(chain[i]), C(chain[i + 1]));
+    corridor(C(safe[2]), C(cross)); corridor(C(cross), C(danger[1]));                     // the Crossing: shortcut between the arcs
+    corridor(C(safe[1]), C(loops[0])); corridor(C(loops[0]), C(safe[2]));                 // minor cycles
+    corridor(C(safe[3]), C(loops[1])); corridor(C(loops[1]), C(safe[4]));
+    corridor(C(danger[0]), C(loops[2])); corridor(C(loops[2]), C(danger[1]));
+    if (r() < 0.7) corridor(C(safe[0]), C(cross));                                          // an extra cross-link
+    // boss door: the ante joins the boss room through a single gate in a wall
+    var gate = { x: boss.x - 1, y: boss.cy };
+    for (y = boss.y - 1; y <= boss.y + boss.h; y++) if (inb(boss.x - 1, y)) tiles[idx(boss.x - 1, y)] = G.WALL;
+    corridor(C(ante), { x: gate.x - 2, y: gate.y }); tiles[idx(gate.x - 1, gate.y)] = G.PATH; tiles[idx(gate.x - 2, gate.y)] = G.PATH; tiles[idx(gate.x, gate.y)] = G.GATE;
+    // water in the landmarks and decoration
+    [cross, start].forEach(function (rm) { if (rm === start) return; var wx = rm.x + 1, wy = rm.y + rm.h - 3; for (y = wy; y < wy + 2; y++) for (x = wx; x < wx + 3; x++) tiles[idx(x, y)] = G.WATER; });
+    safe.concat(danger).forEach(function (rm) { if (rm.w >= 7 && rm.h >= 5 && r() < 0.5) { var wx = rm.x + (r() < 0.5 ? 0 : rm.w - 2), wy = rm.y + (r() < 0.5 ? 0 : rm.h - 2); for (y = wy; y < wy + 2; y++) for (x = wx; x < wx + 2; x++) tiles[idx(x, y)] = G.WATER; } });
+    // dead ends: winding treasure lanes off the clearings (never breaking into another open area)
+    var lanes = [];
+    function lane(from, len, prefer) { for (var attempt = 0; attempt < 8; attempt++) { var got = laneTry(from, len, attempt === 0 ? prefer : null); if (got) return got; } return null; }
+    function laneTry(from, len, prefer) {
+      var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]], d = prefer || dirs[Math.floor(r() * 4)];
+      var px, py; // first 2x2 block just outside the room edge
+      if (d[0] === 1) { px = from.x + from.w; py = from.y + Math.floor(r() * (from.h - 1)); }
+      else if (d[0] === -1) { px = from.x - 2; py = from.y + Math.floor(r() * (from.h - 1)); }
+      else if (d[1] === 1) { px = from.x + Math.floor(r() * (from.w - 1)); py = from.y + from.h; }
+      else { px = from.x + Math.floor(r() * (from.w - 1)); py = from.y - 2; }
+      var blocks = [], mine = {}, turns = 0;
+      // the room tiles the first block leans on must be walkable (not a pool)
+      var rx = d[0] === 1 ? px - 1 : px + 2, ry = d[1] === 1 ? py - 1 : py + 2, e1 = d[0] ? [rx, py] : [px, ry], e2 = d[0] ? [rx, py + 1] : [px + 1, ry];
+      if (tiles[idx(e1[0], e1[1])] === G.WATER && tiles[idx(e2[0], e2[1])] === G.WATER) return null;
+      function inRoom(tx, ty) { return tx >= from.x && tx < from.x + from.w && ty >= from.y && ty < from.y + from.h; }
+      function ok(bx, by) { // the block is solid, and nothing open touches it except the room (at the start) and the last few blocks of this lane
+        for (var oy = -1; oy <= 2; oy++) for (var ox = -1; ox <= 2; ox++) {
+          var tx = bx + ox, ty = by + oy, inner = ox >= 0 && ox <= 1 && oy >= 0 && oy <= 1;
+          if (inner && !inb(tx, ty)) return false; if (!inb(tx, ty)) continue;
+          var t = tiles[idx(tx, ty)]; if (t === G.WALL) continue;
+          if (inner) { if (mine[tx + ',' + ty] != null) continue; return false; }
+          if (blocks.length < 2 && inRoom(tx, ty)) continue;
+          var m = mine[tx + ',' + ty]; if (m != null && m >= blocks.length - 3) continue;
+          return false;
+        }
+        return true;
       }
-      if (!filled) break;
+      function perp(dd) { return dd[0] ? [0, r() < 0.5 ? 1 : -1] : [r() < 0.5 ? 1 : -1, 0]; }
+      while (blocks.length < len && turns < 8) {
+        if (ok(px, py)) {
+          var bi = blocks.length; blocks.push({ x: px, y: py });
+          [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (o) { tiles[idx(px + o[0], py + o[1])] = G.PATH; mine[(px + o[0]) + ',' + (py + o[1])] = bi; });
+          if (r() < 0.18) d = perp(d);
+          px += d[0]; py += d[1];
+        } else {
+          turns++; if (!blocks.length) return null;
+          d = perp(d); var lb = blocks[blocks.length - 1]; px = lb.x + d[0]; py = lb.y + d[1];
+        }
+      }
+      if (blocks.length < 4) { blocks.forEach(function (bk) { [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (o) { tiles[idx(bk.x + o[0], bk.y + o[1])] = G.WALL; }); }); return null; }
+      var lb2 = blocks[blocks.length - 1], end = { x: lb2.x + Math.floor(r() * 2), y: lb2.y + Math.floor(r() * 2), from: from.tag }; lanes.push(end); return end;
     }
-    // remaining dead-end cells (hiding spots) and a BFS distance map from the spawn
-    var start = startRm, spawn = { x: start.cx, y: start.cy }; tiles[idx(spawn.x, spawn.y)] = G.FIRE;
-    var dist = new Int32Array(W * H).fill(-1), q = [spawn.x, spawn.y]; dist[idx(spawn.x, spawn.y)] = 0;
-    while (q.length) { var qx = q.shift(), qy = q.shift(), dq = dist[idx(qx, qy)]; DIRS.forEach(function (d) { var nx = qx + d[0], ny = qy + d[1]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) return; var t2 = tiles[idx(nx, ny)]; if (SOLID[t2] && t2 !== G.GATE) return; if (dist[idx(nx, ny)] >= 0) return; dist[idx(nx, ny)] = dq + 1; q.push(nx, ny); }); }
-    var deads = [];
-    for (j = 0; j < CH; j++) for (i = 0; i < CW; i++) if (region[cidx(i, j)] >= 0 && !isRoomCell(i, j) && degree(i, j) === 1) { var dx0 = cx0(i), dy0 = cy0(j); deads.push({ x: dx0 + Math.floor(r() * 2), y: dy0 + Math.floor(r() * 2), d: dist[idx(dx0, dy0)] }); }
-    deads = deads.filter(function (d) { return d.d > 0; });
-    // water pools in a few bigger rooms (corners only) and decoration
-    rooms.forEach(function (rm) { if (rm.kind || rm.w < 7 || rm.h < 4 || r() > 0.5) return; var wx = rm.x + (r() < 0.5 ? 0 : rm.w - 2), wy = rm.y + (r() < 0.5 ? 0 : rm.h - 2); for (y = wy; y < wy + 2; y++) for (x = wx; x < wx + 2; x++) tiles[idx(x, y)] = G.WATER; });
+    [safe[0], safe[1], safe[3], safe[4], danger[0], danger[2], cross, ante].forEach(function (rm) { lane(rm, 8 + Math.floor(r() * 9)); });
+    var keyEnd = lane(danger[2], 12 + Math.floor(r() * 6), [0, -1]) || lane(ante, 10, [0, 1]) || lane(safe[4], 10, [0, 1]);
     for (i = 0; i < tiles.length; i++) if (tiles[i] === G.GROUND && r() < 0.07) tiles[i] = G.DECO;
-    var bossP = { x: bossRm.cx, y: bossRm.cy, kind: 'boss', ref: L.boss };
-    // placement helpers
+    var spawn = { x: start.cx, y: start.cy }; tiles[idx(spawn.x, spawn.y)] = G.FIRE;
+    // walking distance from the fire (also proves everything is reachable)
+    var DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]], dist = new Int32Array(W * H).fill(-1), q = [spawn.x, spawn.y]; dist[idx(spawn.x, spawn.y)] = 0;
+    while (q.length) { var qx = q.shift(), qy = q.shift(), dq = dist[idx(qx, qy)]; DIRS.forEach(function (d) { var nx = qx + d[0], ny = qy + d[1]; if (nx < 0 || ny < 0 || nx >= W || ny >= H) return; var t2 = tiles[idx(nx, ny)]; if (SOLID[t2] && t2 !== G.GATE) return; if (dist[idx(nx, ny)] >= 0) return; dist[idx(nx, ny)] = dq + 1; q.push(nx, ny); }); }
+    var bossP = { x: boss.cx + 1, y: boss.cy, kind: 'boss', ref: L.boss };
     function freeIn(rm, avoid) { for (var t = 0; t < 80; t++) { var fx = rm.x + Math.floor(r() * rm.w), fy = rm.y + Math.floor(r() * rm.h), ti = idx(fx, fy); if (SOLID[tiles[ti]] || tiles[ti] === G.FIRE || tiles[ti] === G.WATER || dist[ti] < 0) continue; if (avoid.some(function (p) { return Math.abs(p.x - fx) < 2 && Math.abs(p.y - fy) < 2; })) continue; return { x: fx, y: fy }; } return { x: rm.cx, y: rm.cy }; }
-    var used = [spawn];
-    // creature lairs: rooms ordered by walking distance from the fire; BEG nearest, MAS farthest (never within 18 tiles of the fire)
-    var mid = rooms.filter(function (rm) { return !rm.kind; }).map(function (rm) { rm.d = dist[idx(rm.cx, rm.cy)]; return rm; }).filter(function (rm) { return rm.d >= 18; }).sort(function (a, b) { return a.d - b.d; });
-    var lairs = [], byLevel = { BEG: [], PRG: [], MAS: [] };
+    var used = [spawn], lairs = [], byLevel = { BEG: [], PRG: [], MAS: [] };
     L.creatures.forEach(function (c) { byLevel[c.level].push(c); });
-    var third = Math.max(1, Math.floor(mid.length / 3));
-    function place(list, copies, roomsFor) { list.forEach(function (c) { for (var n = 0; n < copies; n++) { var rm = roomsFor[(n * 2 + lairs.length) % roomsFor.length]; var p = freeIn(rm, used); p.kind = 'creature'; p.ref = c; p.n = n; used.push(p); lairs.push(p); } }); }
-    place(byLevel.BEG, 3, mid.slice(0, third + 1)); place(byLevel.PRG, 3, mid.slice(third, 2 * third + 1)); place(byLevel.MAS, 2, mid.slice(2 * third));
-    // a few extra creatures standing in corridor dead ends (ambushes), lowest tier
-    deads.sort(function (a, b) { return a.d - b.d; });
-    var farDeads = deads.filter(function (d) { return d.d >= 24; });
-    // key: a far dead end; pages and chests spread over dead ends and rooms by distance
-    var keyP = farDeads.length ? farDeads[Math.floor(farDeads.length * 0.75)] : freeIn(mid[mid.length - 1], used); keyP = { x: keyP.x, y: keyP.y, kind: 'key' }; used.push(keyP);
-    var dpool = deads.filter(function (d) { return (d.x !== keyP.x || d.y !== keyP.y) && d.d >= 8; });
-    function takeDead() { if (!dpool.length) return null; var k = Math.floor(r() * dpool.length); return dpool.splice(k, 1)[0]; }
+    function put(c, rm, n) { var p = freeIn(rm, used); p.kind = 'creature'; p.ref = c; p.n = n; used.push(p); lairs.push(p); }
+    // the long safe way: Beginning creatures first, Progressing later; the Crossing is guarded; the short dangerous way is Mastery
+    byLevel.BEG.forEach(function (c, k) { put(c, safe[0], 0); put(c, safe[1], 1); put(c, k === 0 ? loops[0] : safe[2], 2); });
+    byLevel.PRG.forEach(function (c, k) { put(c, safe[3], 0); put(c, k === 0 ? safe[4] : loops[1], 1); put(c, k === 0 ? cross : ante, 2); });
+    byLevel.MAS.forEach(function (c, k) { put(c, danger[k === 0 ? 0 : 1], 0); put(c, k === 0 ? danger[2] : loops[2], 1); });
+    // key, chests, pages: lane ends first, then clearings
+    var keyP = keyEnd ? { x: keyEnd.x, y: keyEnd.y, kind: 'key' } : (function () { var p = freeIn(danger[2], used); return { x: p.x, y: p.y, kind: 'key' }; })(); used.push(keyP);
+    var ends = lanes.filter(function (e) { return e !== keyEnd; }).sort(function () { return r() - 0.5; });
+    var fill = safe.concat(danger, loops, [cross]);
     var chests = [], pages = [];
-    for (i = 0; i < 9; i++) { var cp = (r() < 0.6 ? takeDead() : null) || freeIn(mid[Math.floor(r() * mid.length)], used); cp = { x: cp.x, y: cp.y, kind: 'chest', n: i }; used.push(cp); chests.push(cp); }
-    for (i = 0; i < 5; i++) { var pp = (r() < 0.5 ? takeDead() : null) || freeIn(mid[Math.floor(r() * mid.length)], used); pp = { x: pp.x, y: pp.y, kind: 'page', n: i }; used.push(pp); pages.push(pp); }
-    return { v2: true, w: W, h: H, tiles: tiles, spawn: spawn, lairs: lairs, gate: gate, boss: bossP, key: keyP, chests: chests, pages: pages, theme: th, rooms: rooms, dist: dist };
+    for (i = 0; i < 9; i++) { var cp = ends.length ? ends.shift() : freeIn(fill[Math.floor(r() * fill.length)], used); cp = { x: cp.x, y: cp.y, kind: 'chest', n: i }; used.push(cp); chests.push(cp); }
+    for (i = 0; i < 5; i++) { var pp = ends.length ? ends.shift() : freeIn(fill[(i * 3 + 1) % fill.length], used); pp = { x: pp.x, y: pp.y, kind: 'page', n: i }; used.push(pp); pages.push(pp); }
+    return { v2: true, w: W, h: H, tiles: tiles, spawn: spawn, lairs: lairs, gate: gate, boss: bossP, key: keyP, chests: chests, pages: pages, theme: th, rooms: rooms, dist: dist, lanes: lanes };
   }
 
   /* ---------- sprites (filled in by Overworld.useSprites once a sheet is loaded) ---------- */
@@ -3019,7 +3371,7 @@ var Overworld = (function () {
       if (Math.abs(dx) > 0.2) p.dir = dx < 0 ? -1 : 1;
       var nx = p.x + dx * speed * dt, ny = p.y + dy * speed * dt;
       if (!blocked(nx, p.y)) p.x = nx; if (!blocked(p.x, ny)) p.y = ny;
-      p.anim += dt * 8;
+      p.anim += dt * 8; if (window.Sfx) Sfx.play('step');
     } else p.anim += dt * 4;
     if (Math.floor(p.x / T) !== p.tx || Math.floor(p.y / T) !== p.ty) { p.tx = Math.floor(p.x / T); p.ty = Math.floor(p.y / T); reveal(); }
     // creatures: wander, see, chase (slower than the hero), give up
@@ -3033,7 +3385,7 @@ var Overworld = (function () {
         if (e.blind > 0) e.blind -= dt; if (e.alert > 0) e.alert -= dt;
         var pdx = p.x - e.x, pdy = p.y - e.y, pd = Math.hypot(pdx, pdy), nearFire = Math.hypot(p.x - (R.map.spawn.x * T + T / 2), p.y - (R.map.spawn.y * T + T / 2)) < 6 * T;
         var sees = !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
-        if (sees) { e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
+        if (sees) { if (e.state !== 'chase' && window.Sfx) Sfx.play('alert'); e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
         if (e.state === 'chase') {
           if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); return; }
           var cs = (e.level === 'MAS' ? 46 : e.level === 'PRG' ? 44 : 40) * dt, mx = e.x + pdx / (pd || 1) * cs, my = e.y + pdy / (pd || 1) * cs;
@@ -3051,7 +3403,7 @@ var Overworld = (function () {
     R.near = null;
     for (var i = R.ents.length - 1; i >= 0; i--) {
       var e = R.ents[i], dd = Math.hypot(e.x - p.x, e.y - p.y);
-      if (e.kind === 'key' && dd < 10) { R.w.key = true; R.ents.splice(i, 1); say('You found the Gate Key. The boss door will open once every creature here has been slain.'); persist(); continue; }
+      if (e.kind === 'key' && dd < 10) { R.w.key = true; R.ents.splice(i, 1); if (window.Sfx) Sfx.play('pickup'); say('You found the Gate Key. The boss door will open once every creature here has been slain.'); persist(); continue; }
       if (e.kind === 'page' && dd < 10) { R.w.pages.push(e.n); R.ents.splice(i, 1); persist(); if (R.opts.onPage) R.opts.onPage(e.n); if (!R) return; continue; }
       if (e.kind === 'chest' && dd < 12) { R.w.chests.push(e.n); R.ents.splice(i, 1); persist(); var msg = R.opts.onChest ? R.opts.onChest(e.n) : null; if (!R) return; if (msg) say(msg); continue; }
       if ((e.kind === 'creature' || e.kind === 'boss') && dd < 22 && (!R.near || dd < R.near.d)) R.near = { e: e, d: dd };
@@ -3317,6 +3669,7 @@ var Overworld = (function () {
   function typeset(node) { try { if (window.renderMathInElement) renderMathInElement(node, { delimiters: [{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }], throwOnError: false }); } catch (e) {} }
   function tex(latex) { try { if (window.katex) return katex.renderToString(String(latex), { throwOnError: false }); } catch (e) {} return esc(latex); }
   function typedTex(raw) { if (/\\/.test(String(raw))) return tex(raw); try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
+  function sfx(name) { try { if (window.Sfx) Sfx.play(name); } catch (e) {} }
   function toast(msg) { if (UI.toast) UI.toast.remove(); var t = el('div', 'toast', msg); document.body.appendChild(t); UI.toast = t; setTimeout(function () { if (UI.toast === t) { t.remove(); UI.toast = null; } }, 2600); }
   function landById(id) { return LANDS.filter(function (l) { return l.id === id; })[0]; }
   function creatureById(land, id) { if (land.boss && land.boss.id === id) return land.boss; return land.creatures.filter(function (c) { return c.id === id; })[0]; }
@@ -3463,6 +3816,7 @@ var Overworld = (function () {
       });
     }
     var sb = el('button', UI.satchel ? 'on' : '', 'Satchel' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? ' ●' : '')); sb.type = 'button'; sb.onclick = function () { openSatchel(); }; nav.appendChild(sb);
+    var mb = el('button', 'mute' + (window.Sfx && Sfx.isMuted() ? ' off' : ''), window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'); mb.type = 'button'; mb.title = 'Sound on / off'; mb.onclick = function () { var m = Sfx.toggle(); mb.textContent = m ? '🔇' : '🔊'; mb.classList.toggle('off', m); if (!m && UI.screen === 'land') { var rn = Overworld.run(); Sfx.ambient(rn ? rn.map.theme.name : null); } }; nav.appendChild(mb);
     w.appendChild(nav); hudEl.appendChild(w);
   }
 
@@ -3471,7 +3825,7 @@ var Overworld = (function () {
   function render() {
     migrate();
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
-    Overworld.unmount(); document.body.classList.remove('in-world'); renderHud(); app.innerHTML = '';
+    Overworld.unmount(); document.body.classList.remove('in-world'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     fn(); typeset(app); saveLocal();
   }
@@ -3617,11 +3971,12 @@ var Overworld = (function () {
       returnFrom: UI.returnFrom,
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
-      onBonfire: function () { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
+      onBonfire: function () { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
     if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
+    try { var run = Overworld.run(); Sfx.ambient(run ? run.map.theme.name : null); } catch (e) {}
   }
   function screenLand() {
     var L = landById(UI.land || S.lastLand || 'L1'); if (!L || !L.open) { go('map'); return; }
@@ -3648,6 +4003,7 @@ var Overworld = (function () {
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
     if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
+    try { var run = Overworld.run(); Sfx.ambient(run ? run.map.theme.name : null); } catch (e) {}
     var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore on gear here. Lore you spend can never be lost; Lore you carry can.</span></div>');
     var bfb = el('button', 'btn', 'Rest at the bonfire'); bfb.type = 'button'; bfb.onclick = function () { go('bonfire'); }; bf.appendChild(bfb);
     app.appendChild(bf);
@@ -3692,8 +4048,9 @@ var Overworld = (function () {
   }
   function openChest(L, nn) {
     var roll = chestRoll(L, nn);
-    if (roll.kind === 'lore') { S.lore += roll.amt; S.legend += roll.amt; renderHud(); saveLocal(); return 'A chest! +' + roll.amt + ' Lore.'; }
-    if (roll.kind === 'item') { S.items[roll.id] = itemCount(roll.id) + 1; renderHud(); saveLocal(); var it = itemById(roll.id); showModal(itemCard(it, 'You found'), 'Take it'); return null; }
+    if (roll.kind === 'lore') { sfx('chest'); S.lore += roll.amt; S.legend += roll.amt; renderHud(); saveLocal(); return 'A chest! +' + roll.amt + ' Lore.'; }
+    if (roll.kind === 'item') { sfx('chest'); S.items[roll.id] = itemCount(roll.id) + 1; renderHud(); saveLocal(); var it = itemById(roll.id); showModal(itemCard(it, 'You found'), 'Take it'); return null; }
+    sfx('trap');
     if (roll.id === 'leech') { var lost = Math.floor(S.lore * 0.15); S.lore -= lost; renderHud(); saveLocal(); return lost ? 'A trap! Black moths pour out and eat ' + n(lost) + ' Lore.' : 'A trap! Black moths pour out — and find nothing to eat.'; }
     if (roll.id === 'alarm') { Overworld.alarm(14); return 'A trap! A shriek rings through the labyrinth. Everything nearby is coming.'; }
     // mimic: the chest fights back — a surprise battle (no corpse, no instance)
@@ -3703,8 +4060,22 @@ var Overworld = (function () {
   }
   function showPage(L, nn, fresh) {
     var pg = (LOREBOOK[L.id] || [])[nn]; if (!pg) { toast('A blank page. Nothing is written on it.'); return; }
-    var html = '<div class="page-card"><div class="eyebrow">' + (fresh ? 'A page of the Lorebook' : 'Lorebook') + ' · ' + esc(L.name) + ' · page ' + (nn + 1) + '</div><h2>' + esc(pg.title) + '</h2><p class="lore">' + pg.lore + '</p><div class="math"><div class="eyebrow">What it teaches</div>' + pg.math + '</div></div>';
-    showModal(html, fresh ? 'Keep the page' : 'Close');
+    if (fresh) sfx('page');
+    var html = '<div class="page-card"><div class="eyebrow">' + (fresh ? 'A page of the Lorebook' : 'Lorebook') + ' · ' + esc(L.name) + ' · page ' + (nn + 1) + '</div><h2>' + esc(pg.title) + '</h2><p class="lore">' + pg.lore + '</p><div class="math"><div class="eyebrow">What it teaches</div>' + pageBlocks(pg.math) + '</div></div>';
+    showModal(html, fresh ? 'Keep the page' : 'Close'); if (UI.modal) UI.modal.firstChild.classList.add('page');
+  }
+  function pageBlocks(blocks) { // a Lorebook page body: headings, prose, display math, step lists, boxed rules, diagrams, columns
+    if (typeof blocks === 'string') return blocks;
+    return blocks.map(function (b) {
+      if (b.h) return '<h3 class="pg-h">' + b.h + '</h3>';
+      if (b.p) return '<p class="pg-p">' + b.p + '</p>';
+      if (b.eq) return '<div class="pg-eq">\\[' + b.eq + '\\]</div>';
+      if (b.rule) return '<div class="pg-rule">\\[' + b.rule + '\\]</div>';
+      if (b.steps) return '<div class="pg-steps">' + b.steps.map(function (st, i) { return '<div class="pg-step"><span class="n">' + (i + 1) + '</span><span class="m">\\(' + st + '\\)</span></div>'; }).join('') + '</div>';
+      if (b.fig) return '<div class="pg-fig">' + b.fig + '</div>';
+      if (b.cols) return '<div class="pg-cols">' + b.cols.map(function (c) { return '<div class="pg-col"><div class="k">' + c[0] + '</div><div class="v">' + c[1] + '</div></div>'; }).join('') + '</div>';
+      return '';
+    }).join('');
   }
   function itemCard(it, eyebrow, extra) {
     var img = (window.ART_IMG && ART_IMG[it.art]) ? '<img class="item-img" src="' + ART_IMG[it.art] + '" alt="">' : '<div class="item-img ph"></div>';
@@ -3726,12 +4097,14 @@ var Overworld = (function () {
     if (it.where === 'world') {
       if (!inWorld) { toast('Use the ' + it.name + ' while you are out in a land.'); return; }
       S.items[id]--; closeSatchel();
+      sfx('flee');
       if (id === 'smoke') { Overworld.smoke(); Overworld.announce('Smoke. Whatever was chasing you has lost you.'); }
       if (id === 'wisp') { Overworld.revealAll(); Overworld.announce('The wisp flies the labyrinth. Every path is on your minimap.'); }
       renderHud(); saveLocal(); return;
     }
     if (!inFight) { toast('Use the ' + it.name + ' during a fight.'); return; }
     S.items[id]--; closeSatchel();
+    sfx('pickup');
     if (id === 'hourglass') { B.deadline = (B.deadline || Date.now()) + 60000; toast('The sand runs backwards. +60 seconds.'); }
     if (id === 'lens') { B.hintShown = true; B.freeHint = true; toast('The lens shows you the way in.'); render(); }
     renderHud(); saveLocal();
@@ -3775,7 +4148,7 @@ var Overworld = (function () {
     var qs = (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
     UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null };
     armTimer();
-    UI.land = L.id; go('battle');
+    UI.land = L.id; go('battle'); sfx(isBoss ? 'boss' : 'alert');
   }
   function questionTime(B) { var t = (B.isBoss ? LEVELS.BOSS : LEVELS[B.foe.level]).time || 0; return t ? Math.round(t * timeMult()) : 0; }
   function armTimer() { var B = UI.battle; if (!B) return; var t = questionTime(B); B.deadline = t ? Date.now() + t * 1000 : 0; }
@@ -3783,7 +4156,7 @@ var Overworld = (function () {
     var B = UI.battle; if (!B || B.done || !B.deadline || UI.screen !== 'battle') return;
     if (B.phase !== 'ask' && B.phase !== 'warn') return;
     var left = Math.max(0, B.deadline - Date.now()), bar = document.getElementById('qtimer');
-    if (bar) { var tot = questionTime(B) * 1000, fr = left / tot; bar.querySelector('.fill').style.width = (fr * 100) + '%'; bar.querySelector('.n').textContent = Math.ceil(left / 1000) + ' s'; bar.classList.toggle('low', left < 10000); }
+    if (bar) { var tot = questionTime(B) * 1000, fr = left / tot; bar.querySelector('.fill').style.width = (fr * 100) + '%'; var secs = Math.ceil(left / 1000); bar.querySelector('.n').textContent = secs + ' s'; bar.classList.toggle('low', left < 10000); if (left < 10000 && secs !== B.lastBeep) { B.lastBeep = secs; sfx('timer'); } }
     if (left <= 0) timeUp();
   }
   setInterval(tickTimer, 250);
@@ -3855,11 +4228,12 @@ var Overworld = (function () {
     var r = gradeAnswer(q, raw);
     B.lastRaw = raw;
     if (r.reason === 'blank') { toast('Write an answer first.'); return; }
+    sfx('strike');
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
     logAttempt(q, raw, r.ok ? 'correct' : r.reason);
     if (r.ok) { win(); return; }
-    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; render(); return; }
-    if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
+    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; sfx('wrong'); render(); return; }
+    if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; sfx('wrong'); render(); return; }
     if (charges('shield') > 0) { shieldBreak(); return; }
     if (itemCount('draught') > 0) { shieldBreak('draught'); return; }
     die();
@@ -3871,14 +4245,14 @@ var Overworld = (function () {
     var B = UI.battle, q = B.qs[B.i], foe = B.foe;
     if (B.isBoss && B.i < B.qs.length - 1) { // next boss question
       B.i++; B.hintShown = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; armTimer();
-      toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); render(); return;
+      toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); sfx('correct'); render(); return;
     }
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
     if (B.isBoss) { S.bossKills[B.land.id] = (S.bossKills[B.land.id] || 0) + 1; if (S.titles.indexOf(foe.title) < 0) S.titles.push(foe.title); }
     if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
-    B.done = true; B.phase = 'result'; B.outcome = 'won';
+    B.done = true; B.phase = 'result'; B.outcome = 'won'; sfx('correct');
     var html = '<h2>' + (B.isBoss ? esc(foe.name) + ' falls' : esc(foe.name) + ' is slain') + '</h2><div class="gain">+' + n(rw.amount) + ' Lore</div><div class="breakdown">' + rw.parts.map(function (p) { return p.k + ' ' + p.m; }).join(' · ') + '</div>' +
       (reclaimed ? '<p><b style="color:var(--lore)">You reclaim ' + n(reclaimed) + ' Lore</b> from where you fell.</p>' : '') +
       (B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
@@ -3890,7 +4264,7 @@ var Overworld = (function () {
   function shieldBreak(how) {
     var B = UI.battle, q = B.qs[B.i];
     if (how === 'draught') S.items.draught--; else S.gear.shield.charges--;
-    S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1;
+    S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1; sfx('shield');
     B.done = true; B.phase = 'result'; B.outcome = 'fled';
     var res = el('div', 'result warn', how === 'draught' ? '<h2>You drink the Ember Draught</h2><p>Fire in your throat, and the blow that should have killed you lands on nothing. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. The draught is gone.</p>' + youTyped(B) + solutionBlock(q)
       : '<h2>Your Bone Shield shatters</h2><p>The blow that should have killed you breaks on the shield. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Recharge the shield at a bonfire.</p>' + youTyped(B) + solutionBlock(q));
@@ -3898,7 +4272,7 @@ var Overworld = (function () {
   }
   function die() {
     var B = UI.battle, q = B.qs[B.i], foe = B.foe;
-    S.deaths++; S.streak = 0; S.losses[foe.id] = (S.losses[foe.id] || 0) + 1;
+    S.deaths++; S.streak = 0; S.losses[foe.id] = (S.losses[foe.id] || 0) + 1; sfx('death');
     var had = S.lore, keep = owns('satchel') ? Math.floor(had * 0.25) : 0, drop = had - keep, notes = [];
     if (keep) notes.push('Your Lorekeeper\'s Satchel holds on to ' + n(keep) + ' Lore.');
     if (S.dropped) {
@@ -3917,7 +4291,7 @@ var Overworld = (function () {
   }
   function flee() {
     var B = UI.battle, cost = Math.floor(S.lore * 0.10);
-    S.lore -= cost; B.done = true; B.outcome = 'fled';
+    S.lore -= cost; sfx('flee'); B.done = true; B.outcome = 'fled';
     toast(cost ? 'You escape, but ' + esc(B.foe.name) + ' claws ' + n(cost) + ' Lore from you.' : 'You slip away.');
     UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: 'fled' }; UI.battle = null; go('land');
   }
@@ -4103,7 +4477,7 @@ var Overworld = (function () {
           card.appendChild(el('div', 'cost', n(g.cost) + ' Lore'));
           if (lock) card.appendChild(el('div', 'why', lock));
           var b = el('button', 'btn', 'Buy'); b.type = 'button'; b.disabled = !!lock;
-          b.onclick = function () { S.lore -= g.cost; S.gear[g.id] = g.charges ? { charges: g.charges } : { on: true }; if (g.frame && S.hero) S.hero.frame = g.id; toast(g.name + ' is yours.'); render(); };
+          b.onclick = function () { sfx('buy'); S.lore -= g.cost; S.gear[g.id] = g.charges ? { charges: g.charges } : { on: true }; if (g.frame && S.hero) S.hero.frame = g.id; toast(g.name + ' is yours.'); render(); };
           card.appendChild(b);
         } else if (g.frame) {
           var wearing = S.hero && S.hero.frame === g.id;
@@ -4116,7 +4490,7 @@ var Overworld = (function () {
           card.appendChild(el('div', 'charges', 'Charges: ' + ch + ' / ' + g.charges));
           if (ch < g.charges) {
             var rb = el('button', 'btn', 'Recharge · ' + n(g.recharge) + ' Lore'); rb.type = 'button'; rb.disabled = S.lore < g.recharge;
-            rb.onclick = function () { S.lore -= g.recharge; S.gear[g.id].charges = g.charges; toast(g.name + ' recharged.'); render(); };
+            rb.onclick = function () { sfx('buy'); S.lore -= g.recharge; S.gear[g.id].charges = g.charges; toast(g.name + ' recharged.'); render(); };
             card.appendChild(rb);
           }
         }
@@ -4136,7 +4510,7 @@ var Overworld = (function () {
     if (maxed) row.appendChild(el('span', 'muted', 'You have reached the highest level.'));
     else {
       var b = el('button', 'btn big', 'Level up · ' + n(cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < cost;
-      b.onclick = function () { S.lore -= cost; S.level = lv + 1; toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
+      b.onclick = function () { S.lore -= cost; S.level = lv + 1; sfx('levelup'); toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
       row.appendChild(b);
       if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
     }
@@ -4151,7 +4525,7 @@ var Overworld = (function () {
     ITEMS.forEach(function (it) {
       var card = el('div', 'gear shop-item'); card.innerHTML = itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + ' · you carry ' + itemCount(it.id));
       var b = el('button', 'btn', 'Buy · ' + n(it.cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < it.cost;
-      b.onclick = function () { S.lore -= it.cost; S.items[it.id] = itemCount(it.id) + 1; toast(it.name + ' added to your Satchel.'); render(); };
+      b.onclick = function () { sfx('buy'); S.lore -= it.cost; S.items[it.id] = itemCount(it.id) + 1; toast(it.name + ' added to your Satchel.'); render(); };
       card.querySelector('.item-card > div').appendChild(b); grid.appendChild(card);
     });
     app.appendChild(grid);

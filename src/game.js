@@ -12,6 +12,7 @@
   function typeset(node) { try { if (window.renderMathInElement) renderMathInElement(node, { delimiters: [{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }], throwOnError: false }); } catch (e) {} }
   function tex(latex) { try { if (window.katex) return katex.renderToString(String(latex), { throwOnError: false }); } catch (e) {} return esc(latex); }
   function typedTex(raw) { if (/\\/.test(String(raw))) return tex(raw); try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
+  function sfx(name) { try { if (window.Sfx) Sfx.play(name); } catch (e) {} }
   function toast(msg) { if (UI.toast) UI.toast.remove(); var t = el('div', 'toast', msg); document.body.appendChild(t); UI.toast = t; setTimeout(function () { if (UI.toast === t) { t.remove(); UI.toast = null; } }, 2600); }
   function landById(id) { return LANDS.filter(function (l) { return l.id === id; })[0]; }
   function creatureById(land, id) { if (land.boss && land.boss.id === id) return land.boss; return land.creatures.filter(function (c) { return c.id === id; })[0]; }
@@ -158,6 +159,7 @@
       });
     }
     var sb = el('button', UI.satchel ? 'on' : '', 'Satchel' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? ' ●' : '')); sb.type = 'button'; sb.onclick = function () { openSatchel(); }; nav.appendChild(sb);
+    var mb = el('button', 'mute' + (window.Sfx && Sfx.isMuted() ? ' off' : ''), window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'); mb.type = 'button'; mb.title = 'Sound on / off'; mb.onclick = function () { var m = Sfx.toggle(); mb.textContent = m ? '🔇' : '🔊'; mb.classList.toggle('off', m); if (!m && UI.screen === 'land') { var rn = Overworld.run(); Sfx.ambient(rn ? rn.map.theme.name : null); } }; nav.appendChild(mb);
     w.appendChild(nav); hudEl.appendChild(w);
   }
 
@@ -166,7 +168,7 @@
   function render() {
     migrate();
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
-    Overworld.unmount(); document.body.classList.remove('in-world'); renderHud(); app.innerHTML = '';
+    Overworld.unmount(); document.body.classList.remove('in-world'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     fn(); typeset(app); saveLocal();
   }
@@ -312,11 +314,12 @@
       returnFrom: UI.returnFrom,
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
-      onBonfire: function () { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
+      onBonfire: function () { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
     if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
+    try { var run = Overworld.run(); Sfx.ambient(run ? run.map.theme.name : null); } catch (e) {}
   }
   function screenLand() {
     var L = landById(UI.land || S.lastLand || 'L1'); if (!L || !L.open) { go('map'); return; }
@@ -343,6 +346,7 @@
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
     if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
+    try { var run = Overworld.run(); Sfx.ambient(run ? run.map.theme.name : null); } catch (e) {}
     var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore on gear here. Lore you spend can never be lost; Lore you carry can.</span></div>');
     var bfb = el('button', 'btn', 'Rest at the bonfire'); bfb.type = 'button'; bfb.onclick = function () { go('bonfire'); }; bf.appendChild(bfb);
     app.appendChild(bf);
@@ -387,8 +391,9 @@
   }
   function openChest(L, nn) {
     var roll = chestRoll(L, nn);
-    if (roll.kind === 'lore') { S.lore += roll.amt; S.legend += roll.amt; renderHud(); saveLocal(); return 'A chest! +' + roll.amt + ' Lore.'; }
-    if (roll.kind === 'item') { S.items[roll.id] = itemCount(roll.id) + 1; renderHud(); saveLocal(); var it = itemById(roll.id); showModal(itemCard(it, 'You found'), 'Take it'); return null; }
+    if (roll.kind === 'lore') { sfx('chest'); S.lore += roll.amt; S.legend += roll.amt; renderHud(); saveLocal(); return 'A chest! +' + roll.amt + ' Lore.'; }
+    if (roll.kind === 'item') { sfx('chest'); S.items[roll.id] = itemCount(roll.id) + 1; renderHud(); saveLocal(); var it = itemById(roll.id); showModal(itemCard(it, 'You found'), 'Take it'); return null; }
+    sfx('trap');
     if (roll.id === 'leech') { var lost = Math.floor(S.lore * 0.15); S.lore -= lost; renderHud(); saveLocal(); return lost ? 'A trap! Black moths pour out and eat ' + n(lost) + ' Lore.' : 'A trap! Black moths pour out — and find nothing to eat.'; }
     if (roll.id === 'alarm') { Overworld.alarm(14); return 'A trap! A shriek rings through the labyrinth. Everything nearby is coming.'; }
     // mimic: the chest fights back — a surprise battle (no corpse, no instance)
@@ -398,8 +403,22 @@
   }
   function showPage(L, nn, fresh) {
     var pg = (LOREBOOK[L.id] || [])[nn]; if (!pg) { toast('A blank page. Nothing is written on it.'); return; }
-    var html = '<div class="page-card"><div class="eyebrow">' + (fresh ? 'A page of the Lorebook' : 'Lorebook') + ' · ' + esc(L.name) + ' · page ' + (nn + 1) + '</div><h2>' + esc(pg.title) + '</h2><p class="lore">' + pg.lore + '</p><div class="math"><div class="eyebrow">What it teaches</div>' + pg.math + '</div></div>';
-    showModal(html, fresh ? 'Keep the page' : 'Close');
+    if (fresh) sfx('page');
+    var html = '<div class="page-card"><div class="eyebrow">' + (fresh ? 'A page of the Lorebook' : 'Lorebook') + ' · ' + esc(L.name) + ' · page ' + (nn + 1) + '</div><h2>' + esc(pg.title) + '</h2><p class="lore">' + pg.lore + '</p><div class="math"><div class="eyebrow">What it teaches</div>' + pageBlocks(pg.math) + '</div></div>';
+    showModal(html, fresh ? 'Keep the page' : 'Close'); if (UI.modal) UI.modal.firstChild.classList.add('page');
+  }
+  function pageBlocks(blocks) { // a Lorebook page body: headings, prose, display math, step lists, boxed rules, diagrams, columns
+    if (typeof blocks === 'string') return blocks;
+    return blocks.map(function (b) {
+      if (b.h) return '<h3 class="pg-h">' + b.h + '</h3>';
+      if (b.p) return '<p class="pg-p">' + b.p + '</p>';
+      if (b.eq) return '<div class="pg-eq">\\[' + b.eq + '\\]</div>';
+      if (b.rule) return '<div class="pg-rule">\\[' + b.rule + '\\]</div>';
+      if (b.steps) return '<div class="pg-steps">' + b.steps.map(function (st, i) { return '<div class="pg-step"><span class="n">' + (i + 1) + '</span><span class="m">\\(' + st + '\\)</span></div>'; }).join('') + '</div>';
+      if (b.fig) return '<div class="pg-fig">' + b.fig + '</div>';
+      if (b.cols) return '<div class="pg-cols">' + b.cols.map(function (c) { return '<div class="pg-col"><div class="k">' + c[0] + '</div><div class="v">' + c[1] + '</div></div>'; }).join('') + '</div>';
+      return '';
+    }).join('');
   }
   function itemCard(it, eyebrow, extra) {
     var img = (window.ART_IMG && ART_IMG[it.art]) ? '<img class="item-img" src="' + ART_IMG[it.art] + '" alt="">' : '<div class="item-img ph"></div>';
@@ -421,12 +440,14 @@
     if (it.where === 'world') {
       if (!inWorld) { toast('Use the ' + it.name + ' while you are out in a land.'); return; }
       S.items[id]--; closeSatchel();
+      sfx('flee');
       if (id === 'smoke') { Overworld.smoke(); Overworld.announce('Smoke. Whatever was chasing you has lost you.'); }
       if (id === 'wisp') { Overworld.revealAll(); Overworld.announce('The wisp flies the labyrinth. Every path is on your minimap.'); }
       renderHud(); saveLocal(); return;
     }
     if (!inFight) { toast('Use the ' + it.name + ' during a fight.'); return; }
     S.items[id]--; closeSatchel();
+    sfx('pickup');
     if (id === 'hourglass') { B.deadline = (B.deadline || Date.now()) + 60000; toast('The sand runs backwards. +60 seconds.'); }
     if (id === 'lens') { B.hintShown = true; B.freeHint = true; toast('The lens shows you the way in.'); render(); }
     renderHud(); saveLocal();
@@ -470,7 +491,7 @@
     var qs = (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
     UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null };
     armTimer();
-    UI.land = L.id; go('battle');
+    UI.land = L.id; go('battle'); sfx(isBoss ? 'boss' : 'alert');
   }
   function questionTime(B) { var t = (B.isBoss ? LEVELS.BOSS : LEVELS[B.foe.level]).time || 0; return t ? Math.round(t * timeMult()) : 0; }
   function armTimer() { var B = UI.battle; if (!B) return; var t = questionTime(B); B.deadline = t ? Date.now() + t * 1000 : 0; }
@@ -478,7 +499,7 @@
     var B = UI.battle; if (!B || B.done || !B.deadline || UI.screen !== 'battle') return;
     if (B.phase !== 'ask' && B.phase !== 'warn') return;
     var left = Math.max(0, B.deadline - Date.now()), bar = document.getElementById('qtimer');
-    if (bar) { var tot = questionTime(B) * 1000, fr = left / tot; bar.querySelector('.fill').style.width = (fr * 100) + '%'; bar.querySelector('.n').textContent = Math.ceil(left / 1000) + ' s'; bar.classList.toggle('low', left < 10000); }
+    if (bar) { var tot = questionTime(B) * 1000, fr = left / tot; bar.querySelector('.fill').style.width = (fr * 100) + '%'; var secs = Math.ceil(left / 1000); bar.querySelector('.n').textContent = secs + ' s'; bar.classList.toggle('low', left < 10000); if (left < 10000 && secs !== B.lastBeep) { B.lastBeep = secs; sfx('timer'); } }
     if (left <= 0) timeUp();
   }
   setInterval(tickTimer, 250);
@@ -550,11 +571,12 @@
     var r = gradeAnswer(q, raw);
     B.lastRaw = raw;
     if (r.reason === 'blank') { toast('Write an answer first.'); return; }
+    sfx('strike');
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
     logAttempt(q, raw, r.ok ? 'correct' : r.reason);
     if (r.ok) { win(); return; }
-    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; render(); return; }
-    if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
+    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; sfx('wrong'); render(); return; }
+    if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; sfx('wrong'); render(); return; }
     if (charges('shield') > 0) { shieldBreak(); return; }
     if (itemCount('draught') > 0) { shieldBreak('draught'); return; }
     die();
@@ -566,14 +588,14 @@
     var B = UI.battle, q = B.qs[B.i], foe = B.foe;
     if (B.isBoss && B.i < B.qs.length - 1) { // next boss question
       B.i++; B.hintShown = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; armTimer();
-      toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); render(); return;
+      toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); sfx('correct'); render(); return;
     }
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
     if (B.isBoss) { S.bossKills[B.land.id] = (S.bossKills[B.land.id] || 0) + 1; if (S.titles.indexOf(foe.title) < 0) S.titles.push(foe.title); }
     if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
-    B.done = true; B.phase = 'result'; B.outcome = 'won';
+    B.done = true; B.phase = 'result'; B.outcome = 'won'; sfx('correct');
     var html = '<h2>' + (B.isBoss ? esc(foe.name) + ' falls' : esc(foe.name) + ' is slain') + '</h2><div class="gain">+' + n(rw.amount) + ' Lore</div><div class="breakdown">' + rw.parts.map(function (p) { return p.k + ' ' + p.m; }).join(' · ') + '</div>' +
       (reclaimed ? '<p><b style="color:var(--lore)">You reclaim ' + n(reclaimed) + ' Lore</b> from where you fell.</p>' : '') +
       (B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
@@ -585,7 +607,7 @@
   function shieldBreak(how) {
     var B = UI.battle, q = B.qs[B.i];
     if (how === 'draught') S.items.draught--; else S.gear.shield.charges--;
-    S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1;
+    S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1; sfx('shield');
     B.done = true; B.phase = 'result'; B.outcome = 'fled';
     var res = el('div', 'result warn', how === 'draught' ? '<h2>You drink the Ember Draught</h2><p>Fire in your throat, and the blow that should have killed you lands on nothing. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. The draught is gone.</p>' + youTyped(B) + solutionBlock(q)
       : '<h2>Your Bone Shield shatters</h2><p>The blow that should have killed you breaks on the shield. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Recharge the shield at a bonfire.</p>' + youTyped(B) + solutionBlock(q));
@@ -593,7 +615,7 @@
   }
   function die() {
     var B = UI.battle, q = B.qs[B.i], foe = B.foe;
-    S.deaths++; S.streak = 0; S.losses[foe.id] = (S.losses[foe.id] || 0) + 1;
+    S.deaths++; S.streak = 0; S.losses[foe.id] = (S.losses[foe.id] || 0) + 1; sfx('death');
     var had = S.lore, keep = owns('satchel') ? Math.floor(had * 0.25) : 0, drop = had - keep, notes = [];
     if (keep) notes.push('Your Lorekeeper\'s Satchel holds on to ' + n(keep) + ' Lore.');
     if (S.dropped) {
@@ -612,7 +634,7 @@
   }
   function flee() {
     var B = UI.battle, cost = Math.floor(S.lore * 0.10);
-    S.lore -= cost; B.done = true; B.outcome = 'fled';
+    S.lore -= cost; sfx('flee'); B.done = true; B.outcome = 'fled';
     toast(cost ? 'You escape, but ' + esc(B.foe.name) + ' claws ' + n(cost) + ' Lore from you.' : 'You slip away.');
     UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: 'fled' }; UI.battle = null; go('land');
   }
@@ -798,7 +820,7 @@
           card.appendChild(el('div', 'cost', n(g.cost) + ' Lore'));
           if (lock) card.appendChild(el('div', 'why', lock));
           var b = el('button', 'btn', 'Buy'); b.type = 'button'; b.disabled = !!lock;
-          b.onclick = function () { S.lore -= g.cost; S.gear[g.id] = g.charges ? { charges: g.charges } : { on: true }; if (g.frame && S.hero) S.hero.frame = g.id; toast(g.name + ' is yours.'); render(); };
+          b.onclick = function () { sfx('buy'); S.lore -= g.cost; S.gear[g.id] = g.charges ? { charges: g.charges } : { on: true }; if (g.frame && S.hero) S.hero.frame = g.id; toast(g.name + ' is yours.'); render(); };
           card.appendChild(b);
         } else if (g.frame) {
           var wearing = S.hero && S.hero.frame === g.id;
@@ -811,7 +833,7 @@
           card.appendChild(el('div', 'charges', 'Charges: ' + ch + ' / ' + g.charges));
           if (ch < g.charges) {
             var rb = el('button', 'btn', 'Recharge · ' + n(g.recharge) + ' Lore'); rb.type = 'button'; rb.disabled = S.lore < g.recharge;
-            rb.onclick = function () { S.lore -= g.recharge; S.gear[g.id].charges = g.charges; toast(g.name + ' recharged.'); render(); };
+            rb.onclick = function () { sfx('buy'); S.lore -= g.recharge; S.gear[g.id].charges = g.charges; toast(g.name + ' recharged.'); render(); };
             card.appendChild(rb);
           }
         }
@@ -831,7 +853,7 @@
     if (maxed) row.appendChild(el('span', 'muted', 'You have reached the highest level.'));
     else {
       var b = el('button', 'btn big', 'Level up · ' + n(cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < cost;
-      b.onclick = function () { S.lore -= cost; S.level = lv + 1; toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
+      b.onclick = function () { S.lore -= cost; S.level = lv + 1; sfx('levelup'); toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
       row.appendChild(b);
       if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
     }
@@ -846,7 +868,7 @@
     ITEMS.forEach(function (it) {
       var card = el('div', 'gear shop-item'); card.innerHTML = itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + ' · you carry ' + itemCount(it.id));
       var b = el('button', 'btn', 'Buy · ' + n(it.cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < it.cost;
-      b.onclick = function () { S.lore -= it.cost; S.items[it.id] = itemCount(it.id) + 1; toast(it.name + ' added to your Satchel.'); render(); };
+      b.onclick = function () { sfx('buy'); S.lore -= it.cost; S.items[it.id] = itemCount(it.id) + 1; toast(it.name + ' added to your Satchel.'); render(); };
       card.querySelector('.item-card > div').appendChild(b); grid.appendChild(card);
     });
     app.appendChild(grid);
