@@ -59,6 +59,7 @@ function doGet(e) {
     if (p.key !== teacherKey_() || !teacherKey_()) return json_({ ok: false, error: 'bad key' }, cb);
     if (action === 'ledger') return json_(ledger_(), cb);
     if (action === 'player') return json_(playerDetail_(p.id), cb);
+    if (action === 'purge') return json_(purge_(p['class']), cb);
     return json_({ ok: false, error: 'unknown action' }, cb);
   } catch (err) { return json_({ ok: false, error: String(err) }, cb); }
 }
@@ -151,6 +152,23 @@ function ledger_() {
   var txt = JSON.stringify(out);
   if (txt.length < 90000) cache.put('ledger', txt, 45);
   return out;
+}
+/* Teacher-only: delete every Players row and Attempts row for one class code (e.g. test data before launch). */
+function purge_(klass) {
+  var k = norm_(klass); if (!k) return { ok: false, error: 'no class' };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var counts = { players: 0, attempts: 0 };
+    [['Players', PLAYER_COLS, 1], ['Attempts', ATTEMPT_COLS, 1]].forEach(function (spec) {
+      var sh = sheet_(spec[0], spec[1]), last = sh.getLastRow(); if (last < 2) return;
+      var col = sh.getRange(2, spec[2] + 1, last - 1, 1).getValues(), rows = [];
+      for (var i = 0; i < col.length; i++) if (norm_(col[i][0]) === k) rows.push(i + 2);
+      for (var j = rows.length - 1; j >= 0; j--) sh.deleteRow(rows[j]);
+      counts[spec[0].toLowerCase()] = rows.length;
+    });
+    CacheService.getScriptCache().remove('ledger');
+    return { ok: true, players: counts.players, attempts: counts.attempts };
+  } finally { lock.releaseLock(); }
 }
 function playerDetail_(key) {
   var ash = sheet_('Attempts', ATTEMPT_COLS), rows = [];

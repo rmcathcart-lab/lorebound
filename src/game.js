@@ -700,6 +700,10 @@
     bar.appendChild(el('span', 'spacer'));
     var rf = el('button', 'btn ghost', 'Refresh'); rf.type = 'button'; rf.onclick = function () { ledgerLoad(); }; bar.appendChild(rf);
     var out = el('button', 'btn ghost', 'Forget key'); out.type = 'button'; out.onclick = function () { LG.key = ''; LG.data = null; try { localStorage.removeItem(SAVE_PREFIX + 'tkey'); } catch (e) {} go('ledger'); }; bar.appendChild(out);
+    if (LG.klass) { var pg = el('button', 'btn ghost danger', 'Delete class ' + esc(LG.klass) + '…'); pg.type = 'button'; var armed = false;
+      pg.onclick = function () { if (!armed) { armed = true; pg.textContent = 'Really delete every record for ' + LG.klass + '? Click again.'; setTimeout(function () { armed = false; pg.textContent = 'Delete class ' + LG.klass + '…'; }, 6000); return; }
+        pg.disabled = true; Ledger.purge(LG.key, LG.klass, function (res) { toast(res && res.ok ? 'Deleted ' + n(res.players || 0) + ' students and ' + n(res.attempts || 0) + ' answers.' : 'Could not delete: ' + ((res && res.error) || 'no reply')); LG.klass = ''; ledgerLoad(); }); };
+      bar.appendChild(pg); }
     bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
     app.appendChild(bar);
     // class summary
@@ -773,6 +777,8 @@
     }
     dp.appendChild(pn); typeset(dp);
   }
+
+  try { window.addEventListener('ledger-online', function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln) ln.remove(); toast('Connected to your teacher\'s ledger.'); }); } catch (e) {}
 
   /* ---------- boot ---------- */
   function boot(data) {

@@ -290,3 +290,4 @@ table.attempts tr.r-correct td:last-child { color: var(--good); } table.attempts
 .ledger-pill { font-family: var(--font-ui); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--edge); color: var(--bone-dim); }
 .ledger-pill.ok { color: var(--good); border-color: rgba(127,176,105,.4); } .ledger-pill.offline { color: var(--bad); border-color: rgba(216,67,58,.4); }
 .panel.ledger-warn { border-color: rgba(216,67,58,.5); } .panel.ledger-warn .btn { margin-top: 10px; }
+.btn.danger { border-color: rgba(216,67,58,.5); color: var(--bad); }

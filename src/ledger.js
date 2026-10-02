@@ -9,9 +9,10 @@ var Ledger = (function () {
   function enabled() { return !!url; }
   function identify(klass, name) { ident = { klass: String(klass || '').trim(), name: String(name || '').trim() }; }
   function identity() { return ident; }
-  function push(ev) { if (!enabled() || !ident || !ident.klass) return; ev.at = ev.at || Date.now(); queue.push(ev); if (queue.length >= 25) flush(); }
+  function push(ev) { if (!enabled() || !ident || !ident.klass) return; ev.at = ev.at || Date.now(); queue.push(ev); if (queue.length > 400) queue.splice(0, queue.length - 400); if (queue.length >= 25) flush(); }
   function flush(useBeacon) {
     if (!enabled() || !ident || !queue.length || (flushing && !useBeacon)) return;
+    if (status !== 'ok') return; // hold events until the ledger is reachable (sign-in), then send them all
     var body = JSON.stringify({ v: 1, 'class': ident.klass, name: ident.name, events: queue.splice(0, queue.length) });
     if (useBeacon && navigator.sendBeacon) { try { navigator.sendBeacon(url, body); return; } catch (e) {} }
     flushing = true;
@@ -35,9 +36,11 @@ var Ledger = (function () {
   function getStatus() { return status; }
   function ledger(key, cb) { jsonp({ action: 'ledger', key: key }, cb, 40000); }
   function player(key, id, cb) { jsonp({ action: 'player', key: key, id: id }, cb, 30000); }
+  function purge(key, klass, cb) { jsonp({ action: 'purge', key: key, 'class': klass }, cb, 40000); }
   function active() { return document.visibilityState === 'visible' && (Date.now() - lastInput) < 90000; }
   ['keydown', 'pointerdown', 'touchstart'].forEach(function (evn) { try { window.addEventListener(evn, function () { lastInput = Date.now(); }, { passive: true }); } catch (e) {} });
   setInterval(function () { flush(); }, 30000);
+  setInterval(function () { if (ident && status !== 'ok' && document.visibilityState === 'visible') ping(function (st) { if (st === 'ok') { flush(); try { window.dispatchEvent(new CustomEvent('ledger-online')); } catch (e) {} } }); }, 60000);
   try { window.addEventListener('pagehide', function () { flush(true); }); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); }); } catch (e) {}
-  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, ping: ping, status: getStatus, ledger: ledger, player: player, active: active };
+  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active };
 })();

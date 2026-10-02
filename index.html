@@ -296,6 +296,7 @@ table.attempts tr.r-correct td:last-child { color: var(--good); } table.attempts
 .ledger-pill { font-family: var(--font-ui); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--edge); color: var(--bone-dim); }
 .ledger-pill.ok { color: var(--good); border-color: rgba(127,176,105,.4); } .ledger-pill.offline { color: var(--bad); border-color: rgba(216,67,58,.4); }
 .panel.ledger-warn { border-color: rgba(216,67,58,.5); } .panel.ledger-warn .btn { margin-top: 10px; }
+.btn.danger { border-color: rgba(216,67,58,.5); color: var(--bad); }
 
 </style></head><body>
 <div id="artdefs"></div>
@@ -675,9 +676,10 @@ var Ledger = (function () {
   function enabled() { return !!url; }
   function identify(klass, name) { ident = { klass: String(klass || '').trim(), name: String(name || '').trim() }; }
   function identity() { return ident; }
-  function push(ev) { if (!enabled() || !ident || !ident.klass) return; ev.at = ev.at || Date.now(); queue.push(ev); if (queue.length >= 25) flush(); }
+  function push(ev) { if (!enabled() || !ident || !ident.klass) return; ev.at = ev.at || Date.now(); queue.push(ev); if (queue.length > 400) queue.splice(0, queue.length - 400); if (queue.length >= 25) flush(); }
   function flush(useBeacon) {
     if (!enabled() || !ident || !queue.length || (flushing && !useBeacon)) return;
+    if (status !== 'ok') return; // hold events until the ledger is reachable (sign-in), then send them all
     var body = JSON.stringify({ v: 1, 'class': ident.klass, name: ident.name, events: queue.splice(0, queue.length) });
     if (useBeacon && navigator.sendBeacon) { try { navigator.sendBeacon(url, body); return; } catch (e) {} }
     flushing = true;
@@ -701,11 +703,13 @@ var Ledger = (function () {
   function getStatus() { return status; }
   function ledger(key, cb) { jsonp({ action: 'ledger', key: key }, cb, 40000); }
   function player(key, id, cb) { jsonp({ action: 'player', key: key, id: id }, cb, 30000); }
+  function purge(key, klass, cb) { jsonp({ action: 'purge', key: key, 'class': klass }, cb, 40000); }
   function active() { return document.visibilityState === 'visible' && (Date.now() - lastInput) < 90000; }
   ['keydown', 'pointerdown', 'touchstart'].forEach(function (evn) { try { window.addEventListener(evn, function () { lastInput = Date.now(); }, { passive: true }); } catch (e) {} });
   setInterval(function () { flush(); }, 30000);
+  setInterval(function () { if (ident && status !== 'ok' && document.visibilityState === 'visible') ping(function (st) { if (st === 'ok') { flush(); try { window.dispatchEvent(new CustomEvent('ledger-online')); } catch (e) {} } }); }, 60000);
   try { window.addEventListener('pagehide', function () { flush(true); }); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); }); } catch (e) {}
-  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, ping: ping, status: getStatus, ledger: ledger, player: player, active: active };
+  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active };
 })();
 
 /* ===================== FIGURES =====================
@@ -3160,6 +3164,10 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     bar.appendChild(el('span', 'spacer'));
     var rf = el('button', 'btn ghost', 'Refresh'); rf.type = 'button'; rf.onclick = function () { ledgerLoad(); }; bar.appendChild(rf);
     var out = el('button', 'btn ghost', 'Forget key'); out.type = 'button'; out.onclick = function () { LG.key = ''; LG.data = null; try { localStorage.removeItem(SAVE_PREFIX + 'tkey'); } catch (e) {} go('ledger'); }; bar.appendChild(out);
+    if (LG.klass) { var pg = el('button', 'btn ghost danger', 'Delete class ' + esc(LG.klass) + '…'); pg.type = 'button'; var armed = false;
+      pg.onclick = function () { if (!armed) { armed = true; pg.textContent = 'Really delete every record for ' + LG.klass + '? Click again.'; setTimeout(function () { armed = false; pg.textContent = 'Delete class ' + LG.klass + '…'; }, 6000); return; }
+        pg.disabled = true; Ledger.purge(LG.key, LG.klass, function (res) { toast(res && res.ok ? 'Deleted ' + n(res.players || 0) + ' students and ' + n(res.attempts || 0) + ' answers.' : 'Could not delete: ' + ((res && res.error) || 'no reply')); LG.klass = ''; ledgerLoad(); }); };
+      bar.appendChild(pg); }
     bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
     app.appendChild(bar);
     // class summary
@@ -3233,6 +3241,8 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     }
     dp.appendChild(pn); typeset(dp);
   }
+
+  try { window.addEventListener('ledger-online', function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln) ln.remove(); toast('Connected to your teacher\'s ledger.'); }); } catch (e) {}
 
   /* ---------- boot ---------- */
   function boot(data) {
