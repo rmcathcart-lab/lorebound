@@ -280,7 +280,8 @@ input[type=password], input[type=search], select { width: 100%; font-family: var
 .ledger-bar .ledger-stamp { width: 100%; font-size: 13px; }
 .ledger-bar a { color: var(--lore); }
 table.heat td { text-align: center; } table.heat td:first-child { text-align: left; } table.heat td.empty { color: var(--bone-dim); }
-table.students th { cursor: pointer; white-space: nowrap; user-select: none; } table.students th.sorted { color: var(--bone); }
+table.students th { cursor: pointer; white-space: nowrap; user-select: none; }
+table.students td { font-size: 14px; padding: 6px 7px; } table.students td:nth-child(2) { white-space: nowrap; } table.students th.sorted { color: var(--bone); }
 table.students tr[data-key] { cursor: pointer; } table.students tr[data-key]:hover td { background: rgba(255,255,255,.04); } table.students tr.sel td { background: rgba(214,166,88,.12); }
 table.students td.lore { color: var(--lore); }
 table.attempts td.qtext { max-width: 360px; font-size: 14px; }
