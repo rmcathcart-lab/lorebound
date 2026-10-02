@@ -66,6 +66,11 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing:
 .btn.big { font-size: 18px; padding: 14px 26px; }
 input[type=text] { width: 100%; font-family: var(--font-body); font-size: 19px; padding: 10px 12px; background: var(--ash-2); border: 1px solid var(--edge); color: var(--bone); border-radius: 4px; }
 #answer-field { font-family: var(--font-mono); font-size: 20px; letter-spacing: .02em; }
+math-field { display: block; width: 100%; box-sizing: border-box; font-size: 26px; min-height: 58px; padding: 8px 12px; border: 1px solid var(--edge); border-radius: 6px; background: var(--ash); color: var(--bone);
+  --caret-color: var(--lore); --selection-background-color: rgba(214,168,96,.35); --selection-color: var(--bone); --placeholder-color: var(--bone-dim); --placeholder-opacity: .55; --contains-highlight-background-color: rgba(214,168,96,.12); --smart-fence-color: var(--bone-dim); --latex-color: var(--bone); }
+math-field:focus-within { outline: none; border-color: var(--lore); box-shadow: 0 0 0 2px rgba(214,168,96,.25); }
+math-field::part(virtual-keyboard-toggle), math-field::part(menu-toggle) { display: none; }
+math-field::part(content) { color: var(--bone); }
 textarea { width: 100%; font-family: var(--font-mono); font-size: 12px; background: var(--ash-2); border: 1px solid var(--edge); color: var(--bone); border-radius: 4px; padding: 8px; resize: vertical; }
 
 /* title */
@@ -329,8 +334,14 @@ body.in-world #app { padding: 0; max-width: none; }
 .ow-wrap.full { z-index: 5; }
 .ow-wrap.full { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: #07060a; width: auto; max-width: none; margin: 0; }
 .ow-wrap.full .ow-canvas { border: 0; border-radius: 0; }
+.ow-wrap.full .ow-canvas:focus { box-shadow: none; }
 .ow-title { position: absolute; left: 0; right: 0; top: 18%; text-align: center; pointer-events: none; opacity: 1; transition: opacity 1s ease; text-shadow: 0 2px 12px rgba(0,0,0,.9); }
+.ow-title.art { top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: #07060a; }
+.ow-title-img { width: min(92vw, 1100px); height: min(52vh, 560px); background-size: cover; background-position: center; border: 1px solid var(--edge); box-shadow: 0 20px 60px rgba(0,0,0,.8), 0 0 0 6px rgba(0,0,0,.4); -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+.ow-title-text { animation: ow-title-in 1.2s ease both; }
+@keyframes ow-title-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .ow-title h1 { font-family: var(--font-display); font-size: clamp(32px, 6vw, 64px); margin: 4px 0 0; color: var(--bone); letter-spacing: .02em; }
+.ow-title p { margin: 10px 0 0; color: var(--muted); font-size: 16px; }
 .ow-title .eyebrow { font-size: 13px; letter-spacing: .3em; }
 .ow-title.gone { opacity: 0; }
 
@@ -2697,7 +2708,13 @@ var Overworld = (function () {
     var cv = document.createElement('canvas'); cv.className = 'ow-canvas'; cv.tabIndex = 0;
     var wrap = document.createElement('div'); wrap.className = 'ow-wrap'; wrap.appendChild(cv);
     var hint = document.createElement('div'); hint.className = 'ow-hint'; wrap.appendChild(hint);
-    if (opts.title) { var tt = document.createElement('div'); tt.className = 'ow-title'; tt.innerHTML = '<div class="eyebrow">' + opts.title.sub + '</div><h1>' + opts.title.name + '</h1>'; wrap.appendChild(tt); setTimeout(function () { tt.classList.add('gone'); }, 2600); setTimeout(function () { if (tt.parentNode) tt.parentNode.removeChild(tt); }, 3600); }
+    if (opts.title) { // spawn splash: banner art + land name, then it fades and the world is revealed
+      var tt = document.createElement('div'); tt.className = 'ow-title' + (opts.title.img ? ' art' : '');
+      tt.innerHTML = (opts.title.img ? '<div class="ow-title-img" style="background-image:url(' + opts.title.img + ')"></div>' : '') + '<div class="ow-title-text"><div class="eyebrow">' + opts.title.sub + '</div><h1>' + opts.title.name + '</h1>' + (opts.title.line ? '<p>' + opts.title.line + '</p>' : '') + '</div>';
+      wrap.appendChild(tt);
+      var hold = opts.title.img ? 3200 : 2600;
+      setTimeout(function () { tt.classList.add('gone'); if (R) R.frozen = false; }, hold); setTimeout(function () { if (tt.parentNode) tt.parentNode.removeChild(tt); }, hold + 1100);
+    }
     if (opts.fullscreen) wrap.classList.add('full');
     var stick = document.createElement('div'); stick.className = 'ow-stick'; stick.innerHTML = '<div class="ow-stick-knob"></div>'; wrap.appendChild(stick);
     var act = document.createElement('button'); act.type = 'button'; act.className = 'ow-act'; act.textContent = '⚔'; wrap.appendChild(act);
@@ -2713,7 +2730,8 @@ var Overworld = (function () {
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
     if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
-    if (ret && map.v2 && ret.outcome === 'died') say('You wake at the bonfire. The dead have risen again.');
+    if (ret && map.v2 && ret.outcome === 'died' && !opts.title) say('You wake at the bonfire. The dead have risen again.');
+    if (opts.title) R.frozen = true; // hold still while the splash shows
     layout(); window.addEventListener('resize', layout);
     bindInput();
     reveal(); R.last = performance.now(); R.raf = requestAnimationFrame(frame);
@@ -2747,14 +2765,17 @@ var Overworld = (function () {
     if (R.opts.fullscreen) {
       var hud = document.getElementById('hud'), top = hud && !hud.hidden ? hud.getBoundingClientRect().bottom : 0;
       cw = window.innerWidth; ch = window.innerHeight - top; R.wrap.style.top = top + 'px';
-      scale = cw >= 1400 ? 4 : cw >= 900 ? 3 : 2;
+      scale = cw >= 2200 ? 4 : cw >= 1000 ? 3 : 2;
       vw = Math.max(10, Math.floor(cw / (T * scale))); vh = Math.max(8, Math.floor(ch / (T * scale)));
     } else {
       cw = (R.container && R.container.clientWidth ? R.container.clientWidth - 22 : 0) || 800; scale = cw >= 1240 ? 3 : 2;
       vw = Math.min(26, Math.floor(cw / (T * scale))); vh = Math.max(9, Math.min(15, Math.round(vw * 0.6)));
     }
-    R.scale = scale; R.vw = vw; R.vh = vh;
-    R.cv.width = vw * T; R.cv.height = vh * T; R.cv.style.width = (vw * T * scale) + 'px'; R.cv.style.height = (vh * T * scale) + 'px';
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    R.scale = scale; R.vw = vw; R.vh = vh; R.dpr = dpr; R.k = scale * dpr; R.lw = vw * T; R.lh = vh * T;
+    // backing store at device resolution: the world is drawn through an integer-ish transform (nearest-neighbour, so pixel art stays crisp)
+    // while text is drawn at full resolution instead of being blown up with the pixels
+    R.cv.width = Math.round(vw * T * R.k); R.cv.height = Math.round(vh * T * R.k); R.cv.style.width = (vw * T * scale) + 'px'; R.cv.style.height = (vh * T * scale) + 'px';
     R.ctx.imageSmoothingEnabled = false;
   }
 
@@ -2873,7 +2894,8 @@ var Overworld = (function () {
 
   /* ---------- drawing ---------- */
   function draw() {
-    var ctx = R.ctx, p = R.player, th = R.map.theme, cvw = R.cv.width, cvh = R.cv.height;
+    var ctx = R.ctx, p = R.player, th = R.map.theme, cvw = R.lw, cvh = R.lh;
+    ctx.setTransform(R.k, 0, 0, R.k, 0, 0); ctx.imageSmoothingEnabled = false;
     var camx = Math.round(Math.max(0, Math.min(MW * T - cvw, p.x - cvw / 2))), camy = Math.round(Math.max(0, Math.min(MH * T - cvh, p.y - cvh / 2)));
     R.camx = camx; R.camy = camy;
     ctx.fillStyle = '#07060a'; ctx.fillRect(0, 0, cvw, cvh);
@@ -2903,15 +2925,27 @@ var Overworld = (function () {
     }
     if (R.opts.fullscreen) {
       var dead = R.w.dead ? R.w.dead.length : 0, st = 'Pages ' + R.w.pages.length + '/' + R.map.pages.length + '   Chests ' + R.w.chests.length + '/' + R.map.chests.length + '   ' + (R.w.key ? 'Key found' : 'Key ?') + (R.map.v2 ? '   Corpses ' + dead : '');
-      ctx.font = '7px monospace'; var sw = ctx.measureText(st).width + 8; ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(2, cvh - 13, sw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(st, 6, cvh - 5);
-      if (R.t < 8) { var ht = ('ontouchstart' in window) ? 'Drag the stick to walk  -  tap the sword to act' : 'WASD / arrows to walk  -  E to fight, open, rest'; var hw = ctx.measureText(ht).width + 8; ctx.globalAlpha = Math.min(1, 8 - R.t); ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(cvw - hw - 2, cvh - 13, hw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(ht, cvw - hw + 2, cvh - 5); ctx.globalAlpha = 1; }
+      label(ctx, 8, cvh * R.scale - 8, st, '#c9bca0', 'left', 'rgba(10,8,12,.7)');
+      if (R.t < 8) { var ht = ('ontouchstart' in window) ? 'Drag the stick to walk  ·  tap the sword to act' : 'WASD / arrows to walk  ·  E to fight, open, rest'; ctx.globalAlpha = Math.min(1, 8 - R.t); label(ctx, cvw * R.scale - 8, cvh * R.scale - 8, ht, '#c9bca0', 'right', 'rgba(10,8,12,.7)'); ctx.globalAlpha = 1; }
     }
     // name tags for nearby creature
     if (R.near && R.near.e) { var ne = R.near.e; tag(ctx, ne.x - camx, ne.y - camy - 16, ne.ref.name, ne.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[ne.ref.level] || '#e8dcc0'); }
-    if (R.toastT > 0 && R.toast) { ctx.font = '7px monospace'; var tw = ctx.measureText(R.toast).width + 8; ctx.fillStyle = 'rgba(10,8,12,.85)'; ctx.fillRect(Math.round(cvw / 2 - tw / 2), 4, tw, 11); ctx.fillStyle = '#e8dcc0'; ctx.textAlign = 'center'; ctx.fillText(R.toast, cvw / 2, 12); ctx.textAlign = 'left'; }
+    if (R.toastT > 0 && R.toast) label(ctx, cvw * R.scale / 2, 22, R.toast, '#e8dcc0', 'center', 'rgba(10,8,12,.85)');
   }
   var LEVEL_COLORS = { BEG: '#7fb069', PRG: '#6f9be0', MAS: '#b07be8', BOSS: '#d8433a' };
-  function tag(ctx, x, y, text, color) { ctx.font = '7px monospace'; var w = ctx.measureText(text).width + 6; x = Math.max(w / 2 + 1, Math.min(R.cv.width - w / 2 - 1, x)); y = Math.max(10, y); ctx.fillStyle = 'rgba(10,8,12,.8)'; ctx.fillRect(Math.round(x - w / 2), Math.round(y - 9), w, 10); ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(text, Math.round(x), Math.round(y - 2)); ctx.textAlign = 'left'; }
+  function tag(ctx, x, y, text, color) { label(ctx, x * R.scale, Math.max(14, y * R.scale), text, color, 'center', 'rgba(10,8,12,.8)', true); }
+  /* crisp text: drawn in CSS pixels at device resolution (x, y in CSS px of the canvas; y = text baseline). */
+  function label(ctx, x, y, text, color, align, bg, clamp) {
+    ctx.save(); ctx.setTransform(R.dpr, 0, 0, R.dpr, 0, 0); ctx.imageSmoothingEnabled = true;
+    var fs = R.scale >= 3 ? 14 : 12; ctx.font = '600 ' + fs + 'px "Segoe UI", Helvetica, Arial, sans-serif';
+    var w = ctx.measureText(text).width + 12, h = fs + 8, W = R.lw * R.scale;
+    var left = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+    if (clamp) left = Math.max(2, Math.min(W - w - 2, left));
+    left = Math.round(left); var top = Math.round(y - fs - 4);
+    ctx.fillStyle = bg; ctx.fillRect(left, top, Math.round(w), h);
+    ctx.fillStyle = color; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(text, left + 6, top + fs + 1);
+    ctx.restore();
+  }
 
   function spr(name) { return SP.ready && SP.defs[name]; }
   function drawSprite(ctx, name, x, y, frameT, flip) { // x,y = feet centre
@@ -3081,7 +3115,7 @@ var Overworld = (function () {
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function typeset(node) { try { if (window.renderMathInElement) renderMathInElement(node, { delimiters: [{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }], throwOnError: false }); } catch (e) {} }
   function tex(latex) { try { if (window.katex) return katex.renderToString(String(latex), { throwOnError: false }); } catch (e) {} return esc(latex); }
-  function typedTex(raw) { try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
+  function typedTex(raw) { if (/\\/.test(String(raw))) return tex(raw); try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
   function toast(msg) { if (UI.toast) UI.toast.remove(); var t = el('div', 'toast', msg); document.body.appendChild(t); UI.toast = t; setTimeout(function () { if (UI.toast === t) { t.remove(); UI.toast = null; } }, 2600); }
   function landById(id) { return LANDS.filter(function (l) { return l.id === id; })[0]; }
   function creatureById(land, id) { if (land.boss && land.boss.id === id) return land.boss; return land.creatures.filter(function (c) { return c.id === id; })[0]; }
@@ -3365,7 +3399,9 @@ var Overworld = (function () {
     var wrap = el('div', 'world-screen');
     app.appendChild(wrap);
     var fresh = !!UI.landFresh; UI.landFresh = false;
-    Overworld.mount(wrap, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true, title: fresh ? { name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject } : null,
+    var spawning = fresh || (UI.returnFrom && UI.returnFrom.outcome === 'died');
+    var splash = spawning ? { name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject, img: (L.banner && window.ART_IMG && ART_IMG[L.banner]) || null, line: fresh ? null : 'You wake at the bonfire. The dead have risen again.' } : null;
+    Overworld.mount(wrap, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true, title: splash,
       bossOpen: function () { return bossOpen(L); },
       returnFrom: UI.returnFrom,
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
@@ -3474,7 +3510,7 @@ var Overworld = (function () {
       var qp = el('div', 'panel');
       qp.appendChild(el('div', 'eyebrow', B.isBoss ? 'It speaks' : 'The creature asks'));
       if (B.deadline) qp.appendChild(el('div', 'qtimer', '<div class="fill"></div><span class="n"></span>')).id = 'qtimer';
-      qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Type your answer with the keypad. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
+      qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Build your answer in the box: the keypad makes fractions, powers and roots with boxes to fill in. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
       if (B.phase === 'warn') qp.appendChild(el('div', 'result warn', '<h2>It staggers, but does not fall</h2><p>Your answer has the <b>right value</b> but is not in the <b>form the question asks for</b>. Write it that way. A second slip will be fatal.</p>'));
       if (B.phase === 'sight') {
         var sp = el('div', 'result lose', '<h2>Your answer was wrong</h2><p>Second Sight flickers. Spend its charge to try this question once more, or accept your fate.</p>');
@@ -3509,6 +3545,7 @@ var Overworld = (function () {
 
   function submit(raw) {
     var B = UI.battle, q = B.qs[B.i];
+    if (/\\placeholder/.test(raw)) { toast('There is an empty box in your answer. Fill it in, or press ⌫ to remove it.'); return; }
     var r = gradeAnswer(q, raw);
     B.lastRaw = raw;
     if (r.reason === 'blank') { toast('Write an answer first.'); return; }
@@ -3576,16 +3613,16 @@ var Overworld = (function () {
   }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
-    var again = el('button', 'btn', won ? 'Fight another ' + esc(B.foe.name) : 'Face ' + esc(B.foe.name) + ' again'); again.type = 'button';
-    again.onclick = function () { startBattle(B.land, B.foe, B.isBoss); };
-    acts.appendChild(again);
-    var back = el('button', 'btn ghost', 'Back to ' + esc(B.land.name)); back.type = 'button'; back.onclick = function () { UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: B.outcome || 'fled' }; UI.battle = null; go('land'); };
+    var label = B.outcome === 'died' && B.land.explore === 2 ? 'Wake at the bonfire' : won ? 'Return to ' + esc(B.land.name) : 'Back to ' + esc(B.land.name);
+    var back = el('button', 'btn big', label); back.type = 'button'; back.onclick = function () { UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: B.outcome || 'fled' }; UI.battle = null; go('land'); };
     acts.appendChild(back);
     return acts;
   }
 
   /* ---------- math input + keypad ---------- */
+  function mathReady() { return !!(window.customElements && customElements.get('math-field')); }
   function mathInput() {
+    if (mathReady()) return mathFieldInput();
     var obj = {}, wrap = el('div');
     var inp = el('input'); inp.type = 'text'; inp.id = 'answer-field'; inp.autocomplete = 'off'; inp.setAttribute('autocapitalize', 'off'); inp.setAttribute('autocorrect', 'off'); inp.spellcheck = false; inp.setAttribute('inputmode', 'none');
     inp.placeholder = 'Type or use the keypad';
@@ -3615,6 +3652,32 @@ var Overworld = (function () {
     };
     return obj;
   }
+  /* MathLive answer box: a real math editor (fractions, powers and roots are drawn as you build them, with boxes to fill in). */
+  function mathFieldInput() {
+    var obj = {}, wrap = el('div'), mf = document.createElement('math-field');
+    mf.id = 'answer-field'; mf.setAttribute('math-virtual-keyboard-policy', 'manual');
+    try { mf.menuItems = []; } catch (e) {}
+    function noPhoneKeyboard() { try { var sink = mf.shadowRoot && mf.shadowRoot.querySelector('[part="keyboard-sink"]'); if (sink) sink.setAttribute('inputmode', window.matchMedia('(pointer: coarse)').matches ? 'none' : 'text'); } catch (e) {} }
+    mf.addEventListener('pointerdown', noPhoneKeyboard); mf.addEventListener('focusin', noPhoneKeyboard);
+    wrap.appendChild(mf); setTimeout(noPhoneKeyboard, 0);
+    obj.node = wrap; obj.math = true;
+    obj.value = function () { return mf.value; };
+    obj.focus = function () { try { mf.focus(); } catch (e) {} };
+    obj.set = function (v) { try { mf.value = /\\/.test(v) ? v : latexFromTyped(v); } catch (e) { mf.value = v; } };
+    obj.onEnter = function (fn) { mf.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); fn(); } }); };
+    obj.press = function (k) {
+      try {
+        if (k[0] === 'del') mf.executeCommand('deleteBackward');
+        else if (k[0] === 'clear') mf.value = '';
+        else if (k[0] === 'left') mf.executeCommand('moveToPreviousChar');
+        else if (k[0] === 'right') mf.executeCommand('moveToNextChar');
+        else mf.executeCommand(['insert', k[1], { focus: true, feedback: false, mode: 'math', format: 'latex' }]);
+      } catch (e) {}
+      try { mf.focus(); } catch (e) {}
+    };
+    return obj;
+  }
+  function latexFromTyped(v) { try { var t = mathParseLenient_(String(v)); if (t) return treeToLatex(t); } catch (e) {} return String(v); }
   /* expression tree (from the checker) -> LaTeX, so students see how their typing was read */
   function treeToLatex(t) {
     function num(v) { return String(Math.round(v * 1e9) / 1e9); }
@@ -3654,11 +3717,26 @@ var Overworld = (function () {
       [['123', null, '123'], ['left', null, '◀'], ['right', null, '▶'], ['pow', '^', 'xⁿ'], ['=', '='], ['+', '+'], ['−', '-', '−'], [',', ',']]
     ]
   };
+  var MKEYS = { // LaTeX for the math editor: #@ = selection (or a box), #? = a box to fill in, #0 = selection or a box
+    '123': [
+      [['x', 'x'], ['7', '7'], ['8', '8'], ['9', '9'], ['frac', '\\frac{#@}{#?}', 'a/b'], ['pow', '#@^{#?}', 'xⁿ'], ['del', null, '⌫']],
+      [['y', 'y'], ['4', '4'], ['5', '5'], ['6', '6'], ['×', '\\times', '×'], ['sqrt', '\\sqrt{#0}', '√'], ['root', '\\sqrt[#?]{#0}', 'ⁿ√']],
+      [['(', '('], ['1', '1'], ['2', '2'], ['3', '3'], ['−', '-', '−'], ['÷', '\\div', '÷'], ['pi', '\\pi', 'π']],
+      [[')', ')'], ['0', '0'], ['.', '.'], [',', ','], ['+', '+'], ['=', '='], ['sq', '#@^{2}', 'x²']],
+      [['abc', null, 'abc'], ['left', null, '◀'], ['right', null, '▶'], ['<', '<'], ['>', '>'], ['set', '\\lbrace #0\\rbrace', '{ }'], ['clear', null, 'clear']]
+    ],
+    'abc': [
+      'qwertyuiop'.split('').map(function (c) { return [c, c]; }),
+      'asdfghjkl'.split('').map(function (c) { return [c, c]; }).concat([['del', null, '⌫']]),
+      'zxcvbnm'.split('').map(function (c) { return [c, c]; }).concat([['(', '('], [')', ')']]),
+      [['123', null, '123'], ['left', null, '◀'], ['right', null, '▶'], ['pow', '#@^{#?}', 'xⁿ'], ['=', '='], ['+', '+'], ['−', '-', '−'], [',', ',']]
+    ]
+  };
   function buildKeypad(mf) {
-    var kp = el('div', 'kp'), layer = '123';
+    var kp = el('div', 'kp'), layer = '123', K = mf.math ? MKEYS : KEYS;
     function draw() {
       kp.innerHTML = '';
-      KEYS[layer].forEach(function (row) {
+      K[layer].forEach(function (row) {
         var r = el('div', 'kprow');
         row.forEach(function (k) {
           var b = el('button', 'kpk' + (k[1] === null ? ' kpfn' : ''), k[2] || k[0]); b.type = 'button';
@@ -3668,7 +3746,7 @@ var Overworld = (function () {
         });
         kp.appendChild(r);
       });
-      kp.appendChild(el('div', 'kp-hint', 'a/b for fractions, xⁿ for exponents, √ and ∛ for roots, × between factors. The line under the box shows how your answer is read.'));
+      kp.appendChild(el('div', 'kp-hint', mf.math ? 'a/b, xⁿ and √ put boxes in your answer — fill each box, then ▶ to step out of it. You can also type: / makes a fraction, ^ a power, sqrt a root.' : 'a/b for fractions, xⁿ for exponents, √ and ∛ for roots, × between factors. The line under the box shows how your answer is read.'));
     }
     draw(); return kp;
   }
@@ -3934,4 +4012,5 @@ var Overworld = (function () {
 })();
 
 </script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathlive@0.108.3/mathlive.min.js" onload="try { MathfieldElement.fontsDirectory = null; MathfieldElement.soundsDirectory = null; } catch (e) {}"></script>
 </body></html>

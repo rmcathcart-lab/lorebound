@@ -11,7 +11,7 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function typeset(node) { try { if (window.renderMathInElement) renderMathInElement(node, { delimiters: [{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }], throwOnError: false }); } catch (e) {} }
   function tex(latex) { try { if (window.katex) return katex.renderToString(String(latex), { throwOnError: false }); } catch (e) {} return esc(latex); }
-  function typedTex(raw) { try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
+  function typedTex(raw) { if (/\\/.test(String(raw))) return tex(raw); try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
   function toast(msg) { if (UI.toast) UI.toast.remove(); var t = el('div', 'toast', msg); document.body.appendChild(t); UI.toast = t; setTimeout(function () { if (UI.toast === t) { t.remove(); UI.toast = null; } }, 2600); }
   function landById(id) { return LANDS.filter(function (l) { return l.id === id; })[0]; }
   function creatureById(land, id) { if (land.boss && land.boss.id === id) return land.boss; return land.creatures.filter(function (c) { return c.id === id; })[0]; }
@@ -295,7 +295,9 @@
     var wrap = el('div', 'world-screen');
     app.appendChild(wrap);
     var fresh = !!UI.landFresh; UI.landFresh = false;
-    Overworld.mount(wrap, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true, title: fresh ? { name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject } : null,
+    var spawning = fresh || (UI.returnFrom && UI.returnFrom.outcome === 'died');
+    var splash = spawning ? { name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject, img: (L.banner && window.ART_IMG && ART_IMG[L.banner]) || null, line: fresh ? null : 'You wake at the bonfire. The dead have risen again.' } : null;
+    Overworld.mount(wrap, { land: L, state: S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true, title: splash,
       bossOpen: function () { return bossOpen(L); },
       returnFrom: UI.returnFrom,
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
@@ -404,7 +406,7 @@
       var qp = el('div', 'panel');
       qp.appendChild(el('div', 'eyebrow', B.isBoss ? 'It speaks' : 'The creature asks'));
       if (B.deadline) qp.appendChild(el('div', 'qtimer', '<div class="fill"></div><span class="n"></span>')).id = 'qtimer';
-      qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Type your answer with the keypad. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
+      qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Build your answer in the box: the keypad makes fractions, powers and roots with boxes to fill in. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
       if (B.phase === 'warn') qp.appendChild(el('div', 'result warn', '<h2>It staggers, but does not fall</h2><p>Your answer has the <b>right value</b> but is not in the <b>form the question asks for</b>. Write it that way. A second slip will be fatal.</p>'));
       if (B.phase === 'sight') {
         var sp = el('div', 'result lose', '<h2>Your answer was wrong</h2><p>Second Sight flickers. Spend its charge to try this question once more, or accept your fate.</p>');
@@ -439,6 +441,7 @@
 
   function submit(raw) {
     var B = UI.battle, q = B.qs[B.i];
+    if (/\\placeholder/.test(raw)) { toast('There is an empty box in your answer. Fill it in, or press ⌫ to remove it.'); return; }
     var r = gradeAnswer(q, raw);
     B.lastRaw = raw;
     if (r.reason === 'blank') { toast('Write an answer first.'); return; }
@@ -506,16 +509,16 @@
   }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
-    var again = el('button', 'btn', won ? 'Fight another ' + esc(B.foe.name) : 'Face ' + esc(B.foe.name) + ' again'); again.type = 'button';
-    again.onclick = function () { startBattle(B.land, B.foe, B.isBoss); };
-    acts.appendChild(again);
-    var back = el('button', 'btn ghost', 'Back to ' + esc(B.land.name)); back.type = 'button'; back.onclick = function () { UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: B.outcome || 'fled' }; UI.battle = null; go('land'); };
+    var label = B.outcome === 'died' && B.land.explore === 2 ? 'Wake at the bonfire' : won ? 'Return to ' + esc(B.land.name) : 'Back to ' + esc(B.land.name);
+    var back = el('button', 'btn big', label); back.type = 'button'; back.onclick = function () { UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: B.outcome || 'fled' }; UI.battle = null; go('land'); };
     acts.appendChild(back);
     return acts;
   }
 
   /* ---------- math input + keypad ---------- */
+  function mathReady() { return !!(window.customElements && customElements.get('math-field')); }
   function mathInput() {
+    if (mathReady()) return mathFieldInput();
     var obj = {}, wrap = el('div');
     var inp = el('input'); inp.type = 'text'; inp.id = 'answer-field'; inp.autocomplete = 'off'; inp.setAttribute('autocapitalize', 'off'); inp.setAttribute('autocorrect', 'off'); inp.spellcheck = false; inp.setAttribute('inputmode', 'none');
     inp.placeholder = 'Type or use the keypad';
@@ -545,6 +548,32 @@
     };
     return obj;
   }
+  /* MathLive answer box: a real math editor (fractions, powers and roots are drawn as you build them, with boxes to fill in). */
+  function mathFieldInput() {
+    var obj = {}, wrap = el('div'), mf = document.createElement('math-field');
+    mf.id = 'answer-field'; mf.setAttribute('math-virtual-keyboard-policy', 'manual');
+    try { mf.menuItems = []; } catch (e) {}
+    function noPhoneKeyboard() { try { var sink = mf.shadowRoot && mf.shadowRoot.querySelector('[part="keyboard-sink"]'); if (sink) sink.setAttribute('inputmode', window.matchMedia('(pointer: coarse)').matches ? 'none' : 'text'); } catch (e) {} }
+    mf.addEventListener('pointerdown', noPhoneKeyboard); mf.addEventListener('focusin', noPhoneKeyboard);
+    wrap.appendChild(mf); setTimeout(noPhoneKeyboard, 0);
+    obj.node = wrap; obj.math = true;
+    obj.value = function () { return mf.value; };
+    obj.focus = function () { try { mf.focus(); } catch (e) {} };
+    obj.set = function (v) { try { mf.value = /\\/.test(v) ? v : latexFromTyped(v); } catch (e) { mf.value = v; } };
+    obj.onEnter = function (fn) { mf.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); fn(); } }); };
+    obj.press = function (k) {
+      try {
+        if (k[0] === 'del') mf.executeCommand('deleteBackward');
+        else if (k[0] === 'clear') mf.value = '';
+        else if (k[0] === 'left') mf.executeCommand('moveToPreviousChar');
+        else if (k[0] === 'right') mf.executeCommand('moveToNextChar');
+        else mf.executeCommand(['insert', k[1], { focus: true, feedback: false, mode: 'math', format: 'latex' }]);
+      } catch (e) {}
+      try { mf.focus(); } catch (e) {}
+    };
+    return obj;
+  }
+  function latexFromTyped(v) { try { var t = mathParseLenient_(String(v)); if (t) return treeToLatex(t); } catch (e) {} return String(v); }
   /* expression tree (from the checker) -> LaTeX, so students see how their typing was read */
   function treeToLatex(t) {
     function num(v) { return String(Math.round(v * 1e9) / 1e9); }
@@ -584,11 +613,26 @@
       [['123', null, '123'], ['left', null, '◀'], ['right', null, '▶'], ['pow', '^', 'xⁿ'], ['=', '='], ['+', '+'], ['−', '-', '−'], [',', ',']]
     ]
   };
+  var MKEYS = { // LaTeX for the math editor: #@ = selection (or a box), #? = a box to fill in, #0 = selection or a box
+    '123': [
+      [['x', 'x'], ['7', '7'], ['8', '8'], ['9', '9'], ['frac', '\\frac{#@}{#?}', 'a/b'], ['pow', '#@^{#?}', 'xⁿ'], ['del', null, '⌫']],
+      [['y', 'y'], ['4', '4'], ['5', '5'], ['6', '6'], ['×', '\\times', '×'], ['sqrt', '\\sqrt{#0}', '√'], ['root', '\\sqrt[#?]{#0}', 'ⁿ√']],
+      [['(', '('], ['1', '1'], ['2', '2'], ['3', '3'], ['−', '-', '−'], ['÷', '\\div', '÷'], ['pi', '\\pi', 'π']],
+      [[')', ')'], ['0', '0'], ['.', '.'], [',', ','], ['+', '+'], ['=', '='], ['sq', '#@^{2}', 'x²']],
+      [['abc', null, 'abc'], ['left', null, '◀'], ['right', null, '▶'], ['<', '<'], ['>', '>'], ['set', '\\lbrace #0\\rbrace', '{ }'], ['clear', null, 'clear']]
+    ],
+    'abc': [
+      'qwertyuiop'.split('').map(function (c) { return [c, c]; }),
+      'asdfghjkl'.split('').map(function (c) { return [c, c]; }).concat([['del', null, '⌫']]),
+      'zxcvbnm'.split('').map(function (c) { return [c, c]; }).concat([['(', '('], [')', ')']]),
+      [['123', null, '123'], ['left', null, '◀'], ['right', null, '▶'], ['pow', '#@^{#?}', 'xⁿ'], ['=', '='], ['+', '+'], ['−', '-', '−'], [',', ',']]
+    ]
+  };
   function buildKeypad(mf) {
-    var kp = el('div', 'kp'), layer = '123';
+    var kp = el('div', 'kp'), layer = '123', K = mf.math ? MKEYS : KEYS;
     function draw() {
       kp.innerHTML = '';
-      KEYS[layer].forEach(function (row) {
+      K[layer].forEach(function (row) {
         var r = el('div', 'kprow');
         row.forEach(function (k) {
           var b = el('button', 'kpk' + (k[1] === null ? ' kpfn' : ''), k[2] || k[0]); b.type = 'button';
@@ -598,7 +642,7 @@
         });
         kp.appendChild(r);
       });
-      kp.appendChild(el('div', 'kp-hint', 'a/b for fractions, xⁿ for exponents, √ and ∛ for roots, × between factors. The line under the box shows how your answer is read.'));
+      kp.appendChild(el('div', 'kp-hint', mf.math ? 'a/b, xⁿ and √ put boxes in your answer — fill each box, then ▶ to step out of it. You can also type: / makes a fraction, ^ a power, sqrt a root.' : 'a/b for fractions, xⁿ for exponents, √ and ∛ for roots, × between factors. The line under the box shows how your answer is read.'));
     }
     draw(); return kp;
   }

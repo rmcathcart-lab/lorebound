@@ -194,7 +194,13 @@ var Overworld = (function () {
     var cv = document.createElement('canvas'); cv.className = 'ow-canvas'; cv.tabIndex = 0;
     var wrap = document.createElement('div'); wrap.className = 'ow-wrap'; wrap.appendChild(cv);
     var hint = document.createElement('div'); hint.className = 'ow-hint'; wrap.appendChild(hint);
-    if (opts.title) { var tt = document.createElement('div'); tt.className = 'ow-title'; tt.innerHTML = '<div class="eyebrow">' + opts.title.sub + '</div><h1>' + opts.title.name + '</h1>'; wrap.appendChild(tt); setTimeout(function () { tt.classList.add('gone'); }, 2600); setTimeout(function () { if (tt.parentNode) tt.parentNode.removeChild(tt); }, 3600); }
+    if (opts.title) { // spawn splash: banner art + land name, then it fades and the world is revealed
+      var tt = document.createElement('div'); tt.className = 'ow-title' + (opts.title.img ? ' art' : '');
+      tt.innerHTML = (opts.title.img ? '<div class="ow-title-img" style="background-image:url(' + opts.title.img + ')"></div>' : '') + '<div class="ow-title-text"><div class="eyebrow">' + opts.title.sub + '</div><h1>' + opts.title.name + '</h1>' + (opts.title.line ? '<p>' + opts.title.line + '</p>' : '') + '</div>';
+      wrap.appendChild(tt);
+      var hold = opts.title.img ? 3200 : 2600;
+      setTimeout(function () { tt.classList.add('gone'); if (R) R.frozen = false; }, hold); setTimeout(function () { if (tt.parentNode) tt.parentNode.removeChild(tt); }, hold + 1100);
+    }
     if (opts.fullscreen) wrap.classList.add('full');
     var stick = document.createElement('div'); stick.className = 'ow-stick'; stick.innerHTML = '<div class="ow-stick-knob"></div>'; wrap.appendChild(stick);
     var act = document.createElement('button'); act.type = 'button'; act.className = 'ow-act'; act.textContent = '⚔'; wrap.appendChild(act);
@@ -210,7 +216,8 @@ var Overworld = (function () {
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
     if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
-    if (ret && map.v2 && ret.outcome === 'died') say('You wake at the bonfire. The dead have risen again.');
+    if (ret && map.v2 && ret.outcome === 'died' && !opts.title) say('You wake at the bonfire. The dead have risen again.');
+    if (opts.title) R.frozen = true; // hold still while the splash shows
     layout(); window.addEventListener('resize', layout);
     bindInput();
     reveal(); R.last = performance.now(); R.raf = requestAnimationFrame(frame);
@@ -244,14 +251,17 @@ var Overworld = (function () {
     if (R.opts.fullscreen) {
       var hud = document.getElementById('hud'), top = hud && !hud.hidden ? hud.getBoundingClientRect().bottom : 0;
       cw = window.innerWidth; ch = window.innerHeight - top; R.wrap.style.top = top + 'px';
-      scale = cw >= 1400 ? 4 : cw >= 900 ? 3 : 2;
+      scale = cw >= 2200 ? 4 : cw >= 1000 ? 3 : 2;
       vw = Math.max(10, Math.floor(cw / (T * scale))); vh = Math.max(8, Math.floor(ch / (T * scale)));
     } else {
       cw = (R.container && R.container.clientWidth ? R.container.clientWidth - 22 : 0) || 800; scale = cw >= 1240 ? 3 : 2;
       vw = Math.min(26, Math.floor(cw / (T * scale))); vh = Math.max(9, Math.min(15, Math.round(vw * 0.6)));
     }
-    R.scale = scale; R.vw = vw; R.vh = vh;
-    R.cv.width = vw * T; R.cv.height = vh * T; R.cv.style.width = (vw * T * scale) + 'px'; R.cv.style.height = (vh * T * scale) + 'px';
+    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    R.scale = scale; R.vw = vw; R.vh = vh; R.dpr = dpr; R.k = scale * dpr; R.lw = vw * T; R.lh = vh * T;
+    // backing store at device resolution: the world is drawn through an integer-ish transform (nearest-neighbour, so pixel art stays crisp)
+    // while text is drawn at full resolution instead of being blown up with the pixels
+    R.cv.width = Math.round(vw * T * R.k); R.cv.height = Math.round(vh * T * R.k); R.cv.style.width = (vw * T * scale) + 'px'; R.cv.style.height = (vh * T * scale) + 'px';
     R.ctx.imageSmoothingEnabled = false;
   }
 
@@ -370,7 +380,8 @@ var Overworld = (function () {
 
   /* ---------- drawing ---------- */
   function draw() {
-    var ctx = R.ctx, p = R.player, th = R.map.theme, cvw = R.cv.width, cvh = R.cv.height;
+    var ctx = R.ctx, p = R.player, th = R.map.theme, cvw = R.lw, cvh = R.lh;
+    ctx.setTransform(R.k, 0, 0, R.k, 0, 0); ctx.imageSmoothingEnabled = false;
     var camx = Math.round(Math.max(0, Math.min(MW * T - cvw, p.x - cvw / 2))), camy = Math.round(Math.max(0, Math.min(MH * T - cvh, p.y - cvh / 2)));
     R.camx = camx; R.camy = camy;
     ctx.fillStyle = '#07060a'; ctx.fillRect(0, 0, cvw, cvh);
@@ -400,15 +411,27 @@ var Overworld = (function () {
     }
     if (R.opts.fullscreen) {
       var dead = R.w.dead ? R.w.dead.length : 0, st = 'Pages ' + R.w.pages.length + '/' + R.map.pages.length + '   Chests ' + R.w.chests.length + '/' + R.map.chests.length + '   ' + (R.w.key ? 'Key found' : 'Key ?') + (R.map.v2 ? '   Corpses ' + dead : '');
-      ctx.font = '7px monospace'; var sw = ctx.measureText(st).width + 8; ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(2, cvh - 13, sw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(st, 6, cvh - 5);
-      if (R.t < 8) { var ht = ('ontouchstart' in window) ? 'Drag the stick to walk  -  tap the sword to act' : 'WASD / arrows to walk  -  E to fight, open, rest'; var hw = ctx.measureText(ht).width + 8; ctx.globalAlpha = Math.min(1, 8 - R.t); ctx.fillStyle = 'rgba(10,8,12,.7)'; ctx.fillRect(cvw - hw - 2, cvh - 13, hw, 11); ctx.fillStyle = '#c9bca0'; ctx.fillText(ht, cvw - hw + 2, cvh - 5); ctx.globalAlpha = 1; }
+      label(ctx, 8, cvh * R.scale - 8, st, '#c9bca0', 'left', 'rgba(10,8,12,.7)');
+      if (R.t < 8) { var ht = ('ontouchstart' in window) ? 'Drag the stick to walk  ·  tap the sword to act' : 'WASD / arrows to walk  ·  E to fight, open, rest'; ctx.globalAlpha = Math.min(1, 8 - R.t); label(ctx, cvw * R.scale - 8, cvh * R.scale - 8, ht, '#c9bca0', 'right', 'rgba(10,8,12,.7)'); ctx.globalAlpha = 1; }
     }
     // name tags for nearby creature
     if (R.near && R.near.e) { var ne = R.near.e; tag(ctx, ne.x - camx, ne.y - camy - 16, ne.ref.name, ne.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[ne.ref.level] || '#e8dcc0'); }
-    if (R.toastT > 0 && R.toast) { ctx.font = '7px monospace'; var tw = ctx.measureText(R.toast).width + 8; ctx.fillStyle = 'rgba(10,8,12,.85)'; ctx.fillRect(Math.round(cvw / 2 - tw / 2), 4, tw, 11); ctx.fillStyle = '#e8dcc0'; ctx.textAlign = 'center'; ctx.fillText(R.toast, cvw / 2, 12); ctx.textAlign = 'left'; }
+    if (R.toastT > 0 && R.toast) label(ctx, cvw * R.scale / 2, 22, R.toast, '#e8dcc0', 'center', 'rgba(10,8,12,.85)');
   }
   var LEVEL_COLORS = { BEG: '#7fb069', PRG: '#6f9be0', MAS: '#b07be8', BOSS: '#d8433a' };
-  function tag(ctx, x, y, text, color) { ctx.font = '7px monospace'; var w = ctx.measureText(text).width + 6; x = Math.max(w / 2 + 1, Math.min(R.cv.width - w / 2 - 1, x)); y = Math.max(10, y); ctx.fillStyle = 'rgba(10,8,12,.8)'; ctx.fillRect(Math.round(x - w / 2), Math.round(y - 9), w, 10); ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.fillText(text, Math.round(x), Math.round(y - 2)); ctx.textAlign = 'left'; }
+  function tag(ctx, x, y, text, color) { label(ctx, x * R.scale, Math.max(14, y * R.scale), text, color, 'center', 'rgba(10,8,12,.8)', true); }
+  /* crisp text: drawn in CSS pixels at device resolution (x, y in CSS px of the canvas; y = text baseline). */
+  function label(ctx, x, y, text, color, align, bg, clamp) {
+    ctx.save(); ctx.setTransform(R.dpr, 0, 0, R.dpr, 0, 0); ctx.imageSmoothingEnabled = true;
+    var fs = R.scale >= 3 ? 14 : 12; ctx.font = '600 ' + fs + 'px "Segoe UI", Helvetica, Arial, sans-serif';
+    var w = ctx.measureText(text).width + 12, h = fs + 8, W = R.lw * R.scale;
+    var left = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+    if (clamp) left = Math.max(2, Math.min(W - w - 2, left));
+    left = Math.round(left); var top = Math.round(y - fs - 4);
+    ctx.fillStyle = bg; ctx.fillRect(left, top, Math.round(w), h);
+    ctx.fillStyle = color; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(text, left + 6, top + fs + 1);
+    ctx.restore();
+  }
 
   function spr(name) { return SP.ready && SP.defs[name]; }
   function drawSprite(ctx, name, x, y, frameT, flip) { // x,y = feet centre
