@@ -23,6 +23,7 @@
   function lin(a, b, bVar) { return P([[a, 1, 0], bVar ? [b, 0, 1] : [b, 0, 0]]); }
   function degree(p) { return Math.max.apply(null, pTerms(p).map(function (t) { return t.a + t.b; })); }
   function sgn(n) { return n < 0 ? '-' : '+'; }
+  function pVal(p, x) { x = x || 3; var v = 0; pTerms(p).forEach(function (t) { v += t.c * Math.pow(x, t.a) * Math.pow(2, t.b); }); return Math.max(1, Math.abs(v)); }
 
   /* ---------- AN4 · A: terms, degree, adding, subtracting, monomial products ---------- */
   var A_BEG = [
@@ -87,7 +88,7 @@
     function () { // area of a rectangle: monomial × binomial with context
       var k = ri(2, 6), a = ri(2, 7), c = rnz(-9, 9), e = pick([1, 1, 2]);
       var w = P([[k, e, 0]]), l = lin(a, c), area = pMul(w, l);
-      return { prompt: 'A rectangle has width ' + T(pTex(w)) + ' and length ' + T(pTex(l)) + '. Write a simplified expression for its <b>area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      return { prompt: 'A rectangle has width ' + T(pTex(w)) + ' and length ' + T(pTex(l)) + '. Write a simplified expression for its <b>area</b>.' + Fig.rect(pTex(l), pTex(w), pVal(l), pVal(w)), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Area = length × width. Multiply the monomial into both terms of the binomial.',
         solution: steps([T('A = ' + pTex(w) + '(' + pTex(l) + ')') + '.', T('= ' + pTex(area)) + '.']) };
     },
@@ -102,7 +103,7 @@
     },
     function () { // perimeter of a triangle with polynomial sides
       var s1 = lin(ri(1, 4), rnz(-6, 9)), s2 = lin(ri(1, 4), rnz(-6, 9)), s3 = lin(ri(1, 4), rnz(-6, 9)), per = pAdd(pAdd(s1, s2), s3);
-      return { prompt: 'The sides of a triangle are ' + T(pTex(s1)) + ', ' + T(pTex(s2)) + ' and ' + T(pTex(s3)) + '. Write a simplified expression for its <b>perimeter</b>.', type: 'expr', answers: [pTex(per)], check: 'exact',
+      return { prompt: 'The sides of a triangle are ' + T(pTex(s1)) + ', ' + T(pTex(s2)) + ' and ' + T(pTex(s3)) + '. Write a simplified expression for its <b>perimeter</b>.' + Fig.triangle(pTex(s1), pTex(s2), pTex(s3), pVal(s1, 4), pVal(s2, 4), pVal(s3, 4)), type: 'expr', answers: [pTex(per)], check: 'exact',
         hint: 'Perimeter is the sum of all sides. Add the x terms and the constants separately.',
         solution: steps([T('P = (' + pTex(s1) + ') + (' + pTex(s2) + ') + (' + pTex(s3) + ')') + '.', T('= ' + pTex(per)) + '.']) };
     }
@@ -112,7 +113,7 @@
     function () { // L-shaped area: two rectangles
       var w1 = ri(2, 5), l1 = lin(ri(2, 5), ri(1, 7)), w2 = ri(2, 5), l2 = lin(ri(1, 4), ri(1, 7));
       var area = pAdd(pMul(P([[w1, 1, 0]]), l1), pMul(P([[w2, 1, 0]]), l2));
-      return { prompt: 'An L-shaped floor is made of two rectangles: one is ' + T(w1 + 'x') + ' by ' + T(pTex(l1)) + ', the other is ' + T(w2 + 'x') + ' by ' + T(pTex(l2)) + '. Write a simplified expression for the <b>total area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      return { prompt: 'An L-shaped floor is made of two rectangles: one is ' + T(w1 + 'x') + ' by ' + T(pTex(l1)) + ', the other is ' + T(w2 + 'x') + ' by ' + T(pTex(l2)) + '. Write a simplified expression for the <b>total area</b>.' + Fig.lshape({ w: w1 * 3, h: pVal(l1), wLabel: w1 + 'x', hLabel: pTex(l1) }, { w: pVal(l2), h: w2 * 3, wLabel: pTex(l2), hLabel: w2 + 'x' }), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Find each rectangle\'s area (monomial × binomial), then add them.',
         solution: steps([T(w1 + 'x(' + pTex(l1) + ') = ' + pTex(pMul(P([[w1, 1, 0]]), l1))) + ' and ' + T(w2 + 'x(' + pTex(l2) + ') = ' + pTex(pMul(P([[w2, 1, 0]]), l2))) + '.', T('\\text{Total} = ' + pTex(area)) + '.']) };
     },
@@ -133,8 +134,8 @@
         solution: steps(['Inside: ' + T(pTex(P([[a, 1, 0]])) + (i < 0 ? ' + ' : ' - ') + Math.abs(i) + '(' + pTex(inner) + ') = ' + pTex(pSub(P([[a, 1, 0]]), pScale(inner, i)))) + '.', T(o + '(' + pTex(pSub(P([[a, 1, 0]]), pScale(inner, i))) + ') = ' + pTex(pScale(pSub(P([[a, 1, 0]]), pScale(inner, i)), o))) + '.', 'Add the last term: ' + T(pTex(res)) + '.']) };
     },
     function () { // rectangle minus a square (monomial sides)
-      var L = lin(ri(2, 5), ri(1, 9)), W = P([[ri(2, 6), 1, 0]]), s = P([[ri(1, 3), 1, 0]]), area = pSub(pMul(L, W), pMul(s, s));
-      return { prompt: 'A rectangular courtyard is ' + T(pTex(L)) + ' by ' + T(pTex(W)) + '. A square well of side ' + T(pTex(s)) + ' is cut out of it. Write a simplified expression for the <b>remaining area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      var L = lin(ri(2, 5), ri(1, 9)), wc = ri(2, 6), W = P([[wc, 1, 0]]), s = P([[ri(1, Math.min(3, wc - 1)), 1, 0]]), area = pSub(pMul(L, W), pMul(s, s));
+      return { prompt: 'A rectangular courtyard is ' + T(pTex(L)) + ' by ' + T(pTex(W)) + '. A square well of side ' + T(pTex(s)) + ' is cut out of it. Write a simplified expression for the <b>remaining area</b>.' + Fig.cutout(pTex(L), pTex(W), pVal(L), pVal(W), pTex(s), pVal(s), 'centre'), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Rectangle area minus square area. Expand the rectangle first.',
         solution: steps([T(pTex(W) + '(' + pTex(L) + ') = ' + pTex(pMul(L, W))) + ' and ' + T('(' + pTex(s) + ')^{2} = ' + pTex(pMul(s, s))) + '.', T(pTex(pMul(L, W)) + ' - ' + pTex(pMul(s, s)) + ' = ' + pTex(area)) + '.']) };
     },
@@ -175,7 +176,7 @@
     },
     function () { // area of a rectangle (x+a)(x+b) context
       var a = ri(1, 9), b = ri(1, 9), prod = pMul(lin(1, a), lin(1, b));
-      return { prompt: 'A garden is ' + T('(x + ' + a + ')') + ' m long and ' + T('(x + ' + b + ')') + ' m wide. Write a simplified expression for its <b>area</b>.', type: 'expr', answers: [pTex(prod)], check: 'exact',
+      return { prompt: 'A garden is ' + T('(x + ' + a + ')') + ' m long and ' + T('(x + ' + b + ')') + ' m wide. Write a simplified expression for its <b>area</b>.' + Fig.rect('x + ' + a, 'x + ' + b, 3 + a, 3 + b), type: 'expr', answers: [pTex(prod)], check: 'exact',
         hint: 'Area = length × width; expand the two binomials.',
         solution: steps([T('A = (x + ' + a + ')(x + ' + b + ')') + '.', T('= ' + pTex(prod)) + '.']) };
     }
@@ -220,7 +221,7 @@
   var B_MAS = [
     function () { // volume of a prism (x+a)(x+b)(cx+d)
       var a = ri(1, 5), b = rnz(-5, 5), c = ri(1, 3), d = rnz(-5, 5), vol = pMul(pMul(lin(1, a), lin(1, b)), lin(c, d));
-      return { prompt: 'A rectangular prism has dimensions ' + T(bin(1, a)) + ', ' + T(bin(1, b)) + ' and ' + T(bin(c, d)) + '. Write its <b>volume</b> as a polynomial in the form ' + T('ax^{3}+bx^{2}+cx+d') + '.', type: 'expr', answers: [pTex(vol)], check: 'exact',
+      return { prompt: 'A rectangular prism has dimensions ' + T(bin(1, a)) + ', ' + T(bin(1, b)) + ' and ' + T(bin(c, d)) + '. Write its <b>volume</b> as a polynomial in the form ' + T('ax^{3}+bx^{2}+cx+d') + '.' + Fig.prism(pTex(lin(1, a)), pTex(lin(1, b)), pTex(lin(c, d)), pVal(lin(1, a), 6), pVal(lin(1, b), 6), pVal(lin(c, d), 6)), type: 'expr', answers: [pTex(vol)], check: 'exact',
         hint: 'Multiply two of the binomials first, then multiply that trinomial by the third binomial.',
         solution: steps([T(bin(1, a) + bin(1, b) + ' = ' + pTex(pMul(lin(1, a), lin(1, b)))) + '.', T('(' + pTex(pMul(lin(1, a), lin(1, b))) + ')' + bin(c, d) + ' = ' + pTex(vol)) + '.']) };
     },
@@ -232,7 +233,7 @@
     },
     function () { // shaded area: rectangle minus square (binomial sides)
       var L = lin(ri(2, 4), ri(1, 7)), W = lin(ri(1, 3), ri(1, 7)), s = lin(1, ri(1, 5)), area = pSub(pMul(L, W), pMul(s, s));
-      return { prompt: 'A square of side ' + T(pTex(s)) + ' is cut out of a ' + T(pTex(L)) + ' by ' + T(pTex(W)) + ' rectangle. Write a simplified expression for the <b>remaining area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      return { prompt: 'A square of side ' + T(pTex(s)) + ' is cut out of a ' + T(pTex(L)) + ' by ' + T(pTex(W)) + ' rectangle. Write a simplified expression for the <b>remaining area</b>.' + Fig.cutout(pTex(L), pTex(W), pVal(L), pVal(W), pTex(s), pVal(s), 'corner'), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Expand the rectangle (binomial × binomial) and the square, then subtract every term of the square.',
         solution: steps([T('(' + pTex(L) + ')(' + pTex(W) + ') = ' + pTex(pMul(L, W))) + ' and ' + T('(' + pTex(s) + ')^{2} = ' + pTex(pMul(s, s))) + '.', T('= ' + pTex(area)) + '.']) };
     },

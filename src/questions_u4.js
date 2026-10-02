@@ -248,7 +248,7 @@
   var B_MAS = [
     function () { // patio: area N, length a more than width -> find width
       var w = ri(3, 12), a = ri(1, 9), N = w * (w + a);
-      return { prompt: 'A rectangular patio has an area of ' + T(N + '\\text{ m}^{2}') + '. Its length is ' + a + ' m more than its width. Find the <b>width</b> of the patio, in metres.', type: 'num', answers: [String(w)], tol: 0,
+      return { prompt: 'A rectangular patio has an area of ' + T(N + '\\text{ m}^{2}') + '. Its length is ' + a + ' m more than its width. Find the <b>width</b> of the patio, in metres.' + Fig.rect('x + ' + a, 'x', w + a, w, { inside: 'Area = ' + N + ' m²' }), type: 'num', answers: [String(w)], tol: 0,
         hint: 'Let the width be \\(x\\). Then the length is \\(x + ' + a + '\\) and \\(x(x + ' + a + ') = ' + N + '\\). Rearrange to zero and factor; reject the negative root.',
         solution: steps([T('x(x + ' + a + ') = ' + N + ' \\Rightarrow x^{2} + ' + a + 'x - ' + N + ' = 0') + '.', T('(x - ' + w + ')(x + ' + (w + a) + ') = 0') + '.', '\\(x = ' + w + '\\) (the root \\(x = -' + (w + a) + '\\) is not a length). Width = ' + w + ' m.']) };
     },

@@ -41,7 +41,7 @@
 
   /* ---------- state ---------- */
   function newState(name) {
-    return { v: 1, name: name, created: Date.now(), lore: 0, legend: 0, dropped: null, gear: {}, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
+    return { v: 1, name: name, klass: '', created: Date.now(), updated: Date.now(), play: 0, lore: 0, legend: 0, dropped: null, gear: {}, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
   }
   function outcomeStats() { // { AN1: { BEG: {w,l}, ... } }
     var out = {};
@@ -55,8 +55,41 @@
   function slug(name) { return String(name).trim().toLowerCase().replace(/\s+/g, ' '); }
   function saveLocal() {
     if (!S) return;
+    S.updated = Date.now();
     try { localStorage.setItem(SAVE_PREFIX + slug(S.name), JSON.stringify(S)); localStorage.setItem(SAVE_PREFIX + 'last', slug(S.name)); } catch (e) {}
+    report();
   }
+
+  /* ---------- teacher's ledger (reporting) ---------- */
+  var REP = { sig: '', lastTick: 0 };
+  function killsByLevel() {
+    var out = { BEG: 0, PRG: 0, MAS: 0 };
+    LANDS.forEach(function (L) { if (!L.creatures) return; L.creatures.forEach(function (c) { out[c.level] += S.kills[c.id] || 0; }); });
+    return out;
+  }
+  function snapshot(withSave) {
+    var k = killsByLevel(), bosses = 0; Object.keys(S.bossKills).forEach(function (id) { bosses += S.bossKills[id] || 0; });
+    var ev = { t: 'state', hero: S.hero ? S.hero.name : '', heroClass: S.hero ? S.hero.cls : '', stage: S.hero ? heroStage() : 0, lore: S.lore, legend: S.legend, deaths: S.deaths, lostForever: S.lostForever,
+      killsBEG: k.BEG, killsPRG: k.PRG, killsMAS: k.MAS, bossKills: bosses, titles: S.titles.join(', '), landsCleared: Object.keys(S.bossKills).join(' '), play: S.play || 0, lastLand: S.lastLand || '' };
+    if (withSave) { ev.save = encode(S); ev.saveUpdated = S.updated; }
+    return ev;
+  }
+  function report() { // called on every render: sends a state snapshot only when something that matters changed
+    if (!S || !S.klass || !Ledger.enabled()) return;
+    if (!Ledger.identity() || Ledger.identity().name !== S.name) Ledger.identify(S.klass, S.name);
+    var sig = [S.lore, S.legend, S.deaths, S.lostForever, JSON.stringify(S.kills), JSON.stringify(S.gear), S.hero && S.hero.name, S.hero && S.hero.cls, S.hero && S.hero.frame, S.titles.length].join('|');
+    if (sig !== REP.sig) { REP.sig = sig; REP.lastTick = Date.now(); Ledger.push(snapshot(true)); }
+  }
+  function logAttempt(q, raw, result) {
+    var B = UI.battle; if (!B || !S || !S.klass) return;
+    Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: B.foe.level, gen: q.key || '', boss: !!B.isBoss,
+      question: q.prompt, typed: raw, result: result, lore: S.lore, streak: S.streak });
+  }
+  setInterval(function () { // play-time clock: counts only while the tab is visible and the student is active
+    if (!S || UI.screen === 'title' || UI.screen === 'ledger') return;
+    if (Ledger.active()) S.play = (S.play || 0) + 5;
+    if (S.klass && Ledger.enabled() && Date.now() - REP.lastTick > 120000) { REP.lastTick = Date.now(); if (Ledger.active()) Ledger.push(snapshot(false)); }
+  }, 5000);
   function listLocal() {
     var out = [];
     try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(SAVE_PREFIX) === 0 && k !== SAVE_PREFIX + 'last') { try { var st = JSON.parse(localStorage.getItem(k)); if (st && st.name) out.push(st); } catch (e) {} } } } catch (e2) {}
@@ -103,6 +136,7 @@
     w.appendChild(el('span', 'lore-pill', '<span class="orb"></span>' + n(S.lore) + ' Lore'));
     if (S.dropped) { var L = landById(S.dropped.land), c = L && creatureById(L, S.dropped.creature); w.appendChild(el('span', 'drop-pill', n(S.dropped.amount) + ' Lore lies at ' + (c ? esc(c.name) : 'the grave'))); }
     if (S.streak > 1) w.appendChild(el('span', 'streak-pill', 'Streak ' + S.streak));
+    if (Ledger.enabled() && S.klass) { var st = Ledger.status(); var lp = el('span', 'ledger-pill ' + st, st === 'ok' ? 'Ledger ✓' : st === 'offline' ? 'Ledger ✗' : 'Ledger …'); lp.title = st === 'ok' ? 'Connected to your teacher\'s ledger (class ' + S.klass + ')' : 'Not connected to your teacher\'s ledger'; w.appendChild(lp); }
     w.appendChild(el('span', 'spacer'));
     var nav = el('div', 'nav');
     [['map', 'Map'], ['bonfire', 'Bonfire'], ['chronicle', 'Chronicle'], ['help', 'Rules']].forEach(function (b) {
@@ -116,9 +150,9 @@
   /* ---------- screens ---------- */
   function go(screen, opts) { UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
   function render() {
-    if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero') UI.screen = 'hero';
+    if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
     renderHud(); app.innerHTML = '';
-    var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp }[UI.screen] || screenTitle;
+    var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     fn(); typeset(app); saveLocal();
   }
 
@@ -130,13 +164,35 @@
     t.appendChild(el('div', 'sub', 'Ten lands. Every creature is a problem. Every wrong answer is a death.'));
     app.appendChild(t);
     var f = el('div', 'title-form');
-    var saves = listLocal();
+    var saves = listLocal(), online = Ledger.enabled();
+    var klassInp = null;
+    if (online) {
+      f.appendChild(el('div', 'eyebrow', 'Class code'));
+      klassInp = el('input'); klassInp.type = 'text'; klassInp.id = 'class-code'; klassInp.placeholder = 'From your teacher, e.g. 10C-1'; klassInp.maxLength = 24; klassInp.autocomplete = 'off';
+      try { klassInp.value = localStorage.getItem(SAVE_PREFIX + 'class') || ''; } catch (e) {}
+      f.appendChild(klassInp);
+    }
+    function klassValue() { if (!online) return ''; var k = klassInp.value.trim(); if (!k) { klassInp.focus(); toast('Enter your class code first. Your teacher has it.'); return null; } try { localStorage.setItem(SAVE_PREFIX + 'class', k); } catch (e) {} return k; }
+    function enter(st, klass) { // start with a state, after checking the cloud for a newer save
+      if (klass) st.klass = klass;
+      if (!online || !st.klass) { S = st; go('map'); return; }
+      Ledger.identify(st.klass, st.name);
+      var started = false, start = function (state, msg) { if (started) return; started = true; S = state; if (msg) toast(msg); go('map'); };
+      toast('Looking for your progress…');
+      Ledger.hello(st.klass, st.name, function (res) {
+        if (res && res.ok && res.found && res.save && Number(res.saveUpdated || 0) > Number(st.updated || 0) + 1500) {
+          try { var cloud = decode(res.save); cloud.klass = st.klass; start(cloud, 'Progress loaded from your teacher\'s ledger.'); return; } catch (e) {}
+        }
+        start(st, null);
+      });
+      setTimeout(function () { start(st, null); }, 8000);
+    }
     if (saves.length) {
       f.appendChild(el('div', 'eyebrow', 'Continue on this device'));
       var sv = el('div', 'saves');
       saves.forEach(function (st) {
         var b = el('button', null, '<span>' + esc(st.name) + (st.hero ? ' <span class="muted">· ' + esc(st.hero.name) + ' the ' + esc(st.hero.cls === 'sorcerer' ? 'Sorcerer' : 'Knight') + '</span>' : '') + '</span><span class="muted">' + n(st.legend || 0) + ' Legend · ' + n(st.lore || 0) + ' Lore</span>'); b.type = 'button';
-        b.onclick = function () { S = st; go('map'); };
+        b.onclick = function () { var k = st.klass || klassValue(); if (online && k === null) return; enter(st, k || st.klass); };
         sv.appendChild(b);
       });
       f.appendChild(sv);
@@ -147,18 +203,21 @@
     var go1 = el('button', 'btn big', 'Enter the world'); go1.type = 'button';
     go1.onclick = function () {
       var name = inp.value.trim(); if (!name) { inp.focus(); toast('Write your name first.'); return; }
+      var k = klassValue(); if (online && k === null) return;
       var existing = null; try { existing = JSON.parse(localStorage.getItem(SAVE_PREFIX + slug(name))); } catch (e) {}
-      S = existing && existing.name ? existing : newState(name); go('map');
+      enter(existing && existing.name ? existing : newState(name), k);
     };
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go1.click(); });
+    if (klassInp) klassInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go1.click(); });
     f.appendChild(go1);
     f.appendChild(el('div', 'eyebrow', 'Or load a save code'));
     var ta = el('textarea'); ta.id = 'load-code'; ta.rows = 3; ta.placeholder = 'Paste a save code (starts with LORE1.)';
     f.appendChild(ta);
     var lb = el('button', 'btn ghost', 'Load save code'); lb.type = 'button';
-    lb.onclick = function () { try { S = decode(ta.value); toast('Welcome back, ' + esc(S.name) + '.'); go('map'); } catch (e) { toast(e.message); } };
+    lb.onclick = function () { try { var st = decode(ta.value); if (!st.klass) { var k = klassValue(); if (online && k === null) return; st.klass = k || ''; } toast('Welcome back, ' + esc(st.name) + '.'); S = st; go('map'); } catch (e) { toast(e.message); } };
     f.appendChild(lb);
     app.appendChild(f);
+    if (online) { var tl = el('div', 'teacher-link', '<button type="button">Teacher\'s Ledger</button>'); tl.querySelector('button').onclick = function () { go('ledger'); }; app.appendChild(tl); }
   }
 
   function screenHero() {
@@ -193,12 +252,22 @@
     setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
   }
 
+  function ledgerNotice() { // shown when a class code was entered but the teacher's ledger cannot be reached
+    if (!Ledger.enabled() || !S || !S.klass || Ledger.status() === 'ok') return null;
+    var needs = LORE_CONFIG.backendNeedsLogin;
+    var p = el('div', 'panel ledger-warn', '<b>Not connected to your teacher\'s ledger' + (Ledger.status() === 'unknown' ? ' yet' : '') + '.</b> ' +
+      (needs ? 'This browser must be signed in to your <b>' + esc(LORE_CONFIG.schoolName || 'school') + ' Google account</b> (open Google Classroom or Gmail in another tab, sign in, then come back and reload). ' : '') +
+      'You can keep playing — progress saves on this device — but nothing is recorded for your teacher until it connects.');
+    var b = el('button', 'btn ghost', 'Try again'); b.type = 'button'; b.onclick = function () { Ledger.ping(function () { render(); }); }; p.appendChild(b);
+    return p;
+  }
   function landCleared(L) { return !!(S.bossKills[L.id]); }
   function screenMap() {
     var head = el('div', 'land-head');
     head.appendChild(el('div', null, '<div class="eyebrow">The world</div><h1>Choose a land</h1>'));
     app.appendChild(head);
     if (S.dropped) { var DL = landById(S.dropped.land), DC = DL && creatureById(DL, S.dropped.creature); app.appendChild(el('div', 'panel', '<span class="eyebrow">Unfinished business</span><p><b>' + n(S.dropped.amount) + ' Lore</b> lies where you fell, at the feet of <b>' + esc(DC ? DC.name : '?') + '</b> in ' + esc(DL ? DL.name : '?') + '. Defeat that creature to take it back. Die first and it is gone.</p>')); }
+    var ln = ledgerNotice(); if (ln) app.appendChild(ln);
     var mapWrap = WorldMap.build(S, landCleared);
     app.appendChild(mapWrap);
     mapWrap.querySelectorAll('.mnode.open').forEach(function (g) {
@@ -315,6 +384,7 @@
     B.lastRaw = raw;
     if (r.reason === 'blank') { toast('Write an answer first.'); return; }
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
+    logAttempt(q, raw, r.ok ? 'correct' : r.reason);
     if (r.ok) { win(); return; }
     if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; render(); return; }
     if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
@@ -551,7 +621,7 @@
     var cp = el('button', 'btn', 'Copy save code'); cp.type = 'button';
     cp.onclick = function () { var done = function () { toast('Save code copied.'); }; try { navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); toast('Select the code and copy it.'); }); } catch (e) { ta.select(); toast('Select the code and copy it.'); } };
     row.appendChild(cp);
-    var out = el('button', 'btn ghost', 'Leave the world (title screen)'); out.type = 'button'; out.onclick = function () { saveLocal(); S = null; UI.battle = null; go('title'); };
+    var out = el('button', 'btn ghost', 'Leave the world (title screen)'); out.type = 'button'; out.onclick = function () { saveLocal(); Ledger.flush(); S = null; UI.battle = null; go('title'); };
     row.appendChild(out);
     box.appendChild(row); sv.appendChild(box); app.appendChild(sv);
   }
@@ -568,13 +638,147 @@
       '<li><b>Fleeing</b> a fight costs 10% of the Lore you carry.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +
       '<li><b>Legend</b> is the total Lore you have ever earned. It never goes down. Compare Legends, not Lore.</li>' +
-      '<li><b>Saving.</b> Progress saves itself in this browser. Copy your save code from the Chronicle to continue on another device.</li></ul>'));
+      '<li><b>Saving.</b> Progress saves itself in this browser. With a class code, it is also kept in your teacher\'s ledger, so you can continue on any device by entering the same name and class code. The save code in the Chronicle is a backup.</li>' +
+      '<li><b>Your teacher sees</b> how long you play, your Legend, and every question you answer. Play honestly: the point is to learn the math.</li></ul>'));
+  }
+
+
+  /* ---------- Teacher's Ledger (dashboard) ---------- */
+  var LG = { key: '', data: null, klass: '', sort: 'lastSeen', dir: -1, sel: null, detail: null, q: '' };
+  try { LG.key = localStorage.getItem(SAVE_PREFIX + 'tkey') || ''; } catch (e) {}
+  function fmtDur(sec) { sec = Math.round(Number(sec) || 0); var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? h + 'h ' + (m < 10 ? '0' : '') + m + 'm' : m + 'm'; }
+  function fmtAgo(ts) { if (!ts) return '—'; var d = Date.now() - Number(ts); if (d < 90000) return 'just now'; if (d < 3600000) return Math.round(d / 60000) + ' min ago'; if (d < 86400000) return Math.round(d / 3600000) + ' h ago'; var dt = new Date(Number(ts)); return dt.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }); }
+  function accColor(pct) { if (pct == null) return 'transparent'; var h = Math.round(pct * 1.2); return 'hsla(' + h + ', 55%, 45%, ' + (0.25 + 0.45 * Math.abs(pct - 50) / 50) + ')'; }
+  function outcomeOrder() { var seen = [], out = []; LANDS.forEach(function (L) { if (!L.creatures) return; L.creatures.forEach(function (c) { if (seen.indexOf(c.outcome) < 0) { seen.push(c.outcome); out.push({ id: c.outcome, land: L }); } }); }); return out; }
+  function screenLedger() {
+    var head = el('div', 'land-head');
+    head.appendChild(el('div', null, '<div class="eyebrow">For the teacher</div><h1>The Chronicler\'s Ledger</h1><p class="muted" style="margin:6px 0 0">Every student who has entered a class code, what they have fought, and how it went. Students never see this page.</p>'));
+    var back = el('button', 'btn ghost', '← Title screen'); back.type = 'button'; back.onclick = function () { go('title'); }; head.appendChild(back);
+    app.appendChild(head);
+    if (!LG.key || !LG.data) { ledgerLogin(); return; }
+    ledgerBody();
+  }
+  function ledgerLogin(err) {
+    var p = el('div', 'panel ledger-login');
+    p.appendChild(el('div', 'eyebrow', 'Teacher key'));
+    p.appendChild(el('p', 'muted', 'The key is in the Apps Script project\'s Script properties (TEACHER_KEY). It is remembered on this device.'));
+    var inp = el('input'); inp.type = 'password'; inp.id = 'teacher-key'; inp.value = LG.key; inp.autocomplete = 'off'; inp.placeholder = 'Teacher key'; p.appendChild(inp);
+    if (err) p.appendChild(el('div', 'why', err));
+    var b = el('button', 'btn big', 'Open the ledger'); b.type = 'button';
+    b.onclick = function () { LG.key = inp.value.trim(); if (!LG.key) { inp.focus(); return; } try { localStorage.setItem(SAVE_PREFIX + 'tkey', LG.key); } catch (e) {} ledgerLoad(); };
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') b.click(); });
+    p.appendChild(b); app.appendChild(p);
+    setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
+  }
+  function ledgerLoad() {
+    app.innerHTML = ''; app.appendChild(el('div', 'panel', '<div class="eyebrow">Opening the ledger…</div><p class="muted">Reading the spreadsheet. This takes a few seconds.</p>'));
+    Ledger.ledger(LG.key, function (res) {
+      if (!res || !res.ok) { LG.data = null; app.innerHTML = ''; screenLedger(); app.appendChild(el('div', 'panel', '<div class="why">' + esc(res && res.error === 'bad key' ? 'That key was not accepted.' : 'The ledger could not be reached (' + esc((res && res.error) || 'no reply') + '). Check the backend URL and that the web app is deployed to "Anyone".') + '</div>')); if (res && res.error === 'bad key') { LG.key = ''; } return; }
+      LG.data = res; LG.sel = null; LG.detail = null;
+      var classes = ledgerClasses(); if (classes.indexOf(LG.klass) < 0) LG.klass = classes[0] || '';
+      go('ledger');
+    });
+  }
+  function ledgerClasses() { var out = []; (LG.data.players || []).forEach(function (p) { if (out.indexOf(p['class']) < 0) out.push(p['class']); }); return out.sort(); }
+  function ledgerPlayers() {
+    var list = (LG.data.players || []).filter(function (p) { return (!LG.klass || p['class'] === LG.klass) && (!LG.q || (String(p.name) + ' ' + String(p.hero || '')).toLowerCase().indexOf(LG.q.toLowerCase()) >= 0); });
+    var k = LG.sort, dir = LG.dir;
+    list.sort(function (a, b) { var va = a[k], vb = b[k]; if (k === 'accuracy') { va = acc(a); vb = acc(b); } if (typeof va === 'string' || typeof vb === 'string') return String(va || '').localeCompare(String(vb || '')) * dir; return ((Number(va) || 0) - (Number(vb) || 0)) * dir; });
+    return list;
+  }
+  function acc(p) { return p.attempts ? Math.round(100 * (Number(p.correct) || 0) / Number(p.attempts)) : null; }
+  function ledgerBody() {
+    var players = ledgerPlayers(), classes = ledgerClasses();
+    // controls
+    var bar = el('div', 'panel ledger-bar');
+    var sel = el('select'); sel.id = 'ledger-class';
+    var allOpt = el('option', null, 'All classes'); allOpt.value = ''; sel.appendChild(allOpt);
+    classes.forEach(function (c) { var o = el('option', null, esc(c)); o.value = c; if (c === LG.klass) o.selected = true; sel.appendChild(o); });
+    sel.onchange = function () { LG.klass = sel.value; LG.sel = null; LG.detail = null; render(); };
+    bar.appendChild(el('label', 'eyebrow', 'Class')); bar.appendChild(sel);
+    var q = el('input'); q.type = 'search'; q.placeholder = 'Find a student'; q.value = LG.q; q.oninput = function () { LG.q = q.value; renderLedgerTable(); }; bar.appendChild(q);
+    bar.appendChild(el('span', 'spacer'));
+    var rf = el('button', 'btn ghost', 'Refresh'); rf.type = 'button'; rf.onclick = function () { ledgerLoad(); }; bar.appendChild(rf);
+    var out = el('button', 'btn ghost', 'Forget key'); out.type = 'button'; out.onclick = function () { LG.key = ''; LG.data = null; try { localStorage.removeItem(SAVE_PREFIX + 'tkey'); } catch (e) {} go('ledger'); }; bar.appendChild(out);
+    bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
+    app.appendChild(bar);
+    // class summary
+    var tot = { students: players.length, play: 0, attempts: 0, correct: 0, bosses: 0, legend: 0, deaths: 0 };
+    players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.attempts += Number(p.attempts) || 0; tot.correct += Number(p.correct) || 0; tot.bosses += Number(p.bossKills) || 0; tot.legend += Number(p.legend) || 0; tot.deaths += Number(p.deaths) || 0; });
+    var st = el('div', 'panel'), stats = el('div', 'stats');
+    [['Students', n(tot.students)], ['Time played', fmtDur(tot.play)], ['Questions answered', n(tot.attempts)], ['Accuracy', tot.attempts ? Math.round(100 * tot.correct / tot.attempts) + '%' : '—'], ['Deaths', n(tot.deaths)], ['Bosses slain', n(tot.bosses)], ['Legend (total)', n(tot.legend), 'lore']].forEach(function (x) {
+      stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>'));
+    });
+    st.appendChild(stats); app.appendChild(st);
+    // heat map by outcome × level
+    var hm = el('div', 'panel'); hm.appendChild(el('div', 'eyebrow', (LG.klass || 'All classes') + ' · accuracy by outcome and level'));
+    hm.appendChild(el('p', 'muted', 'Each cell: percent correct (first answer, before any retry) over every attempt by every student shown, with the number of attempts. Darker green is better; red needs a lesson.'));
+    hm.appendChild(heatTable(players.map(function (p) { return p.outcomes || {}; })));
+    app.appendChild(hm);
+    // table
+    var tp = el('div', 'panel'); tp.id = 'ledger-table'; app.appendChild(tp);
+    renderLedgerTable();
+    // detail
+    var dp = el('div'); dp.id = 'ledger-detail'; app.appendChild(dp);
+    if (LG.sel) renderLedgerDetail();
+  }
+  function heatTable(outcomeMaps) {
+    var agg = {}; outcomeMaps.forEach(function (m) { Object.keys(m).forEach(function (o) { agg[o] = agg[o] || {}; Object.keys(m[o]).forEach(function (lv) { var c = agg[o][lv] = agg[o][lv] || { a: 0, c: 0, f: 0 }; c.a += m[o][lv].a || 0; c.c += m[o][lv].c || 0; c.f += m[o][lv].f || 0; }); }); });
+    var tw = el('div', 'table-wrap'), t = '<table class="oc heat"><tr><th>Outcome</th><th>Beginning</th><th>Progressing</th><th>Mastery</th></tr>';
+    outcomeOrder().forEach(function (oc) {
+      var row = agg[oc.id]; if (!row) return;
+      t += '<tr><td><b>' + esc(oc.id) + '</b><br><span class="muted" style="font-size:12px">' + esc(oc.land.subject) + '</span></td>' + ['BEG', 'PRG', 'MAS'].map(function (lv) {
+        var c = row[lv]; if (!c || !c.a) return '<td class="empty">—</td>';
+        var pct = Math.round(100 * c.c / c.a);
+        return '<td style="background:' + accColor(pct) + '"><b>' + pct + '%</b><br><span class="muted" style="font-size:12px">' + n(c.a) + ' tries' + (c.f ? ' · ' + n(c.f) + ' form' : '') + '</span></td>';
+      }).join('') + '</tr>';
+    });
+    t += '</table>'; tw.innerHTML = t;
+    if (!Object.keys(agg).length) tw.innerHTML = '<p class="muted">No questions answered yet.</p>';
+    return tw;
+  }
+  function renderLedgerTable() {
+    var tp = document.getElementById('ledger-table'); if (!tp) return;
+    var players = ledgerPlayers();
+    tp.innerHTML = '<div class="eyebrow">Students · ' + n(players.length) + '</div>';
+    var cols = [['name', 'Student'], ['hero', 'Hero'], ['playSeconds', 'Time'], ['legend', 'Legend'], ['lore', 'Lore'], ['deaths', 'Deaths'], ['killsBEG', 'BEG'], ['killsPRG', 'PRG'], ['killsMAS', 'MAS'], ['bossKills', 'Boss'], ['accuracy', 'Accuracy'], ['lastLand', 'Land'], ['lastSeen', 'Last seen']];
+    var tw = el('div', 'table-wrap'), t = '<table class="oc students"><tr>' + cols.map(function (c) { return '<th data-k="' + c[0] + '" class="' + (LG.sort === c[0] ? 'sorted' : '') + '">' + c[1] + (LG.sort === c[0] ? (LG.dir < 0 ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '</tr>';
+    players.forEach(function (p) {
+      var a = acc(p);
+      t += '<tr data-key="' + esc(p.key) + '" class="' + (LG.sel === p.key ? 'sel' : '') + '"><td><b>' + esc(p.name) + '</b>' + (LG.klass ? '' : '<br><span class="muted" style="font-size:12px">' + esc(p['class']) + '</span>') + '</td><td>' + esc(p.hero || '—') + (p.heroClass ? '<br><span class="muted" style="font-size:12px">' + esc(p.heroClass) + ' · stage ' + esc(p.stage || 1) + '</span>' : '') + '</td><td>' + fmtDur(p.playSeconds) + '</td><td class="lore">' + n(p.legend || 0) + '</td><td>' + n(p.lore || 0) + '</td><td>' + n(p.deaths || 0) + '</td><td>' + n(p.killsBEG || 0) + '</td><td>' + n(p.killsPRG || 0) + '</td><td>' + n(p.killsMAS || 0) + '</td><td>' + n(p.bossKills || 0) + (p.titles ? '<br><span class="muted" style="font-size:12px">' + esc(p.titles) + '</span>' : '') + '</td><td style="background:' + accColor(a) + '">' + (a == null ? '—' : a + '%') + '<br><span class="muted" style="font-size:12px">' + n(p.attempts || 0) + ' tries</span></td><td>' + esc(p.lastLand || '—') + '</td><td>' + fmtAgo(p.lastSeen) + '</td></tr>';
+    });
+    t += '</table>'; tw.innerHTML = t; tp.appendChild(tw);
+    if (!players.length) tp.appendChild(el('p', 'muted', 'No students yet' + (LG.q ? ' match that search.' : '. They appear here after entering the class code on the title screen.')));
+    tw.querySelectorAll('th').forEach(function (th) { th.onclick = function () { var k = th.getAttribute('data-k'); if (LG.sort === k) LG.dir = -LG.dir; else { LG.sort = k; LG.dir = (k === 'name' || k === 'hero' || k === 'lastLand') ? 1 : -1; } renderLedgerTable(); }; });
+    tw.querySelectorAll('tr[data-key]').forEach(function (tr) { tr.onclick = function () { LG.sel = tr.getAttribute('data-key'); LG.detail = null; renderLedgerTable(); renderLedgerDetail(); Ledger.player(LG.key, LG.sel, function (res) { if (res && res.ok && LG.sel === res.key) { LG.detail = res; renderLedgerDetail(); } }); }; });
+  }
+  function renderLedgerDetail() {
+    var dp = document.getElementById('ledger-detail'); if (!dp) return; dp.innerHTML = '';
+    var p = (LG.data.players || []).filter(function (x) { return x.key === LG.sel; })[0]; if (!p) return;
+    var pn = el('div', 'panel');
+    pn.appendChild(el('div', 'eyebrow', esc(p.name) + ' · ' + esc(p['class']) + (p.hero ? ' · ' + esc(p.hero) + ' the ' + esc(p.heroClass === 'sorcerer' ? 'Sorcerer' : 'Knight') : '')));
+    var stats = el('div', 'stats');
+    [['Time played', fmtDur(p.playSeconds)], ['Legend', n(p.legend || 0), 'lore'], ['Lore carried', n(p.lore || 0)], ['Deaths', n(p.deaths || 0)], ['Lore lost forever', n(p.lostForever || 0)], ['Accuracy', acc(p) == null ? '—' : acc(p) + '%'], ['First seen', fmtAgo(p.firstSeen)], ['Lands cleared', esc(p.landsCleared || '—')]].forEach(function (x) { stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>')); });
+    pn.appendChild(stats);
+    pn.appendChild(el('div', 'eyebrow', 'Accuracy by outcome')); pn.appendChild(heatTable([p.outcomes || {}]));
+    pn.appendChild(el('div', 'eyebrow', 'Most recent questions'));
+    if (!LG.detail) pn.appendChild(el('p', 'muted', 'Loading…'));
+    else if (!LG.detail.attempts.length) pn.appendChild(el('p', 'muted', 'No questions recorded yet.'));
+    else {
+      var tw = el('div', 'table-wrap'), t = '<table class="oc attempts"><tr><th>When</th><th>Where</th><th>Question</th><th>They wrote</th><th>Result</th></tr>';
+      LG.detail.attempts.forEach(function (a) {
+        t += '<tr class="r-' + esc(a.result) + '"><td>' + fmtAgo(a.time) + '</td><td>' + esc(a.outcome) + ' · ' + esc(a.level) + (a.boss ? ' · boss' : '') + '</td><td class="qtext">' + esc(a.question) + '</td><td>' + typedTex(a.typed) + '</td><td><b>' + (a.result === 'correct' ? 'correct' : a.result === 'form' ? 'right value, wrong form' : 'wrong') + '</b></td></tr>';
+      });
+      t += '</table>'; tw.innerHTML = t; pn.appendChild(tw);
+    }
+    dp.appendChild(pn); typeset(dp);
   }
 
   /* ---------- boot ---------- */
   function boot(data) {
     if (data && data.S) { S = data.S; UI.screen = data.screen === 'battle' ? 'land' : (data.screen || 'map'); UI.land = data.land; }
     else { try { var last = localStorage.getItem(SAVE_PREFIX + 'last'); if (last) { var st = JSON.parse(localStorage.getItem(SAVE_PREFIX + last)); if (st && st.name) { S = st; UI.screen = 'map'; } } } catch (e) {} }
+    if (S && S.klass && Ledger.enabled()) { Ledger.identify(S.klass, S.name); Ledger.ping(function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln && Ledger.status() === 'ok') ln.remove(); }); }
     render();
   }
   try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(function () { return { S: S, screen: UI.screen, land: UI.land }; }); } catch (e) {}

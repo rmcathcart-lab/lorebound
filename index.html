@@ -274,6 +274,28 @@ table.oc td.w { color: var(--good); } table.oc td.l { color: var(--bad); }
 .branches { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 @media (max-width: 640px) { .arena { grid-template-columns: 1fr; } .vs { display: none; } .hero-side { grid-template-columns: 80px 1fr; justify-items: start; align-items: center; } .hero-side .portrait.at-arena { width: 80px; } .hero-cap { text-align: left; } .class-card { grid-template-columns: 90px 1fr; } .class-card .portrait { width: 90px; } }
 
+/* ---- teacher's ledger ---- */
+.teacher-link { text-align: center; margin: 30px 0 10px; }
+.teacher-link button { background: none; border: 0; color: var(--bone-dim); font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; cursor: pointer; padding: 8px 12px; }
+.teacher-link button:hover { color: var(--bone); }
+input[type=password], input[type=search], select { width: 100%; font-family: var(--font-body); font-size: 17px; padding: 9px 12px; background: var(--ash-2); border: 1px solid var(--edge); color: var(--bone); border-radius: 4px; }
+.ledger-login { max-width: 460px; display: grid; gap: 10px; }
+.ledger-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ledger-bar select { width: auto; min-width: 160px; }
+.ledger-bar input[type=search] { width: 220px; }
+.ledger-bar .ledger-stamp { width: 100%; font-size: 13px; }
+.ledger-bar a { color: var(--lore); }
+table.heat td { text-align: center; } table.heat td:first-child { text-align: left; } table.heat td.empty { color: var(--bone-dim); }
+table.students th { cursor: pointer; white-space: nowrap; user-select: none; } table.students th.sorted { color: var(--bone); }
+table.students tr[data-key] { cursor: pointer; } table.students tr[data-key]:hover td { background: rgba(255,255,255,.04); } table.students tr.sel td { background: rgba(214,166,88,.12); }
+table.students td.lore { color: var(--lore); }
+table.attempts td.qtext { max-width: 360px; font-size: 14px; }
+table.attempts tr.r-correct td:last-child { color: var(--good); } table.attempts tr.r-wrong td:last-child { color: var(--bad); } table.attempts tr.r-form td:last-child { color: var(--prg); }
+
+.ledger-pill { font-family: var(--font-ui); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--edge); color: var(--bone-dim); }
+.ledger-pill.ok { color: var(--good); border-color: rgba(127,176,105,.4); } .ledger-pill.offline { color: var(--bad); border-color: rgba(216,67,58,.4); }
+.panel.ledger-warn { border-color: rgba(216,67,58,.5); } .panel.ledger-warn .btn { margin-top: 10px; }
+
 </style></head><body>
 <div id="artdefs"></div>
 <div id="hud" class="hud" hidden></div>
@@ -633,6 +655,136 @@ function gradeAnswer(q, raw) {
   return { ok: false, reason: 'wrong' };
 }
 if (typeof module !== 'undefined') module.exports = gradeAnswer;
+
+/* Deployment settings. `backend` is the Apps Script web-app URL of the teacher's Lorebound Ledger (see backend/Code.gs). Leave empty to play offline. */
+var LORE_CONFIG = {
+  backend: 'https://script.google.com/a/macros/rvschools.ab.ca/s/AKfycbzrbCgf_67q8TvU42eqYb8DEzhpZmC83OmNfv91rX-yDSkYRJ-9uxiP4QnDEfu3kiQg4Q/exec',
+  // the ledger is restricted to the school's Google Workspace: the browser must be signed in to a school Google account
+  backendNeedsLogin: true, schoolName: 'Rocky View Schools'
+};
+
+/* ===================== LEDGER CLIENT =====================
+ * Talks to the teacher's Apps Script backend (see backend/Code.gs).
+ * Writes: queued events POSTed as text/plain (no preflight) every 30 s and on page hide.
+ * Reads: JSONP (script tag), which works from any origin including file://.
+ */
+var Ledger = (function () {
+  var url = (window.LORE_CONFIG && LORE_CONFIG.backend) || '';
+  var ident = null, queue = [], flushing = false, lastInput = Date.now(), cbN = 0, status = 'unknown'; // unknown | ok | offline
+  function enabled() { return !!url; }
+  function identify(klass, name) { ident = { klass: String(klass || '').trim(), name: String(name || '').trim() }; }
+  function identity() { return ident; }
+  function push(ev) { if (!enabled() || !ident || !ident.klass) return; ev.at = ev.at || Date.now(); queue.push(ev); if (queue.length >= 25) flush(); }
+  function flush(useBeacon) {
+    if (!enabled() || !ident || !queue.length || (flushing && !useBeacon)) return;
+    var body = JSON.stringify({ v: 1, 'class': ident.klass, name: ident.name, events: queue.splice(0, queue.length) });
+    if (useBeacon && navigator.sendBeacon) { try { navigator.sendBeacon(url, body); return; } catch (e) {} }
+    flushing = true;
+    try {
+      fetch(url, { method: 'POST', mode: 'no-cors', credentials: 'include', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, keepalive: !!useBeacon })
+        .then(function () { flushing = false; }, function () { flushing = false; });
+    } catch (e) { flushing = false; }
+  }
+  function jsonp(params, cb, timeoutMs) {
+    if (!enabled()) { cb({ ok: false, error: 'no backend' }); return; }
+    var name = '__lore_cb' + (++cbN), done = false, s = document.createElement('script');
+    var qs = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+    window[name] = function (data) { if (done) return; done = true; try { delete window[name]; } catch (e) { window[name] = undefined; } s.remove(); cb(data || { ok: false }); };
+    s.onerror = function () { if (done) return; done = true; s.remove(); cb({ ok: false, error: 'network' }); };
+    s.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + qs + '&callback=' + name + '&_=' + Date.now();
+    document.head.appendChild(s);
+    setTimeout(function () { if (!done) { done = true; s.remove(); cb({ ok: false, error: 'timeout' }); } }, timeoutMs || 20000);
+  }
+  function hello(klass, name, cb) { jsonp({ action: 'hello', 'class': klass, name: name }, function (res) { status = res && res.ok ? 'ok' : 'offline'; cb(res); }, 12000); }
+  function ping(cb) { jsonp({ action: 'ping' }, function (res) { status = res && res.ok ? 'ok' : 'offline'; if (cb) cb(status); }, 12000); }
+  function getStatus() { return status; }
+  function ledger(key, cb) { jsonp({ action: 'ledger', key: key }, cb, 40000); }
+  function player(key, id, cb) { jsonp({ action: 'player', key: key, id: id }, cb, 30000); }
+  function active() { return document.visibilityState === 'visible' && (Date.now() - lastInput) < 90000; }
+  ['keydown', 'pointerdown', 'touchstart'].forEach(function (evn) { try { window.addEventListener(evn, function () { lastInput = Date.now(); }, { passive: true }); } catch (e) {} });
+  setInterval(function () { flush(); }, 30000);
+  try { window.addEventListener('pagehide', function () { flush(true); }); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); }); } catch (e) {}
+  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, ping: ping, status: getStatus, ledger: ledger, player: player, active: active };
+})();
+
+/* ===================== FIGURES =====================
+ * Small SVG diagrams for questions. Every helper takes DISPLAY labels (strings such as "3x + 5")
+ * plus NUMERIC sizes used only for proportions, and returns an <svg class="fig"> string.
+ * Labels are plain SVG text (x^{2} is shown as x²), drawn in the game's parchment-and-gold palette.
+ */
+var Fig = (function () {
+  var STROKE = '#d6a860', FILL = 'rgba(214,168,96,.08)', INK = '#e8dcc0', FONT = 'font-family="Helvetica, Arial, sans-serif" font-size="14" fill="' + INK + '"';
+  function lab(s) { return String(s).replace(/\^\{?2\}?/g, '²').replace(/\^\{?3\}?/g, '³').replace(/\\,/g, ' ').replace(/[{}]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function text(x, y, s, anchor, extra) { return '<text x="' + x + '" y="' + y + '" text-anchor="' + (anchor || 'middle') + '" ' + FONT + (extra || '') + '>' + lab(s) + '</text>'; }
+  function svg(W, H, inner, aria) { return '<svg class="fig" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" role="img" aria-label="' + (aria || 'figure') + '">' + inner + '</svg>'; }
+  function poly(pts, dashed) { return '<polygon points="' + pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' ') + '" fill="' + FILL + '" stroke="' + STROKE + '" stroke-width="2"' + (dashed ? ' stroke-dasharray="6 4"' : '') + '/>'; }
+  function fit(w, h, maxW, maxH) { var k = Math.min(maxW / w, maxH / h); return [w * k, h * k]; }
+
+  /* Rectangle: width label along the bottom, height label on the right. opts.inside: text in the middle. */
+  function rect(wLabel, hLabel, wNum, hNum, opts) {
+    opts = opts || {}; var d = fit(wNum, hNum, 230, 150), w = Math.max(90, d[0]), h = Math.max(60, d[1]);
+    var x0 = 30, y0 = 20, W = x0 + w + 80, H = y0 + h + 36;
+    var s = poly([[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]]);
+    s += text(x0 + w / 2, y0 + h + 22, wLabel) + text(x0 + w + 10, y0 + h / 2 + 5, hLabel, 'start');
+    if (opts.inside) s += text(x0 + w / 2, y0 + h / 2 + 5, opts.inside, 'middle', ' font-style="italic"');
+    return svg(W, H, s, 'rectangle ' + lab(wLabel) + ' by ' + lab(hLabel));
+  }
+
+  /* L-shape made of two rectangles: A stands on the left (wA wide, hA tall), B lies to its right along the bottom (wB wide, hB tall). */
+  function lshape(A, B) { // A = { w, h, wLabel, hLabel }, B = { w, h, wLabel, hLabel }  (numbers for proportion)
+    var totW = A.w + B.w, totH = Math.max(A.h, B.h), d = fit(totW, totH, 250, 160), k = d[0] / totW;
+    var x0 = 80, yTop = 24, wA = Math.max(50, A.w * k), hA = Math.max(70, A.h * k), wB = Math.max(70, B.w * k), hB = Math.max(45, Math.min(B.h * k, hA - 25));
+    var base = yTop + hA, W = x0 + wA + wB + 80, H = base + 40;
+    var s = poly([[x0, yTop], [x0 + wA, yTop], [x0 + wA, base - hB], [x0 + wA + wB, base - hB], [x0 + wA + wB, base], [x0, base]]);
+    s += '<line x1="' + (x0 + wA) + '" y1="' + (base - hB) + '" x2="' + (x0 + wA) + '" y2="' + base + '" stroke="' + STROKE + '" stroke-width="1.5" stroke-dasharray="5 4"/>';
+    s += text(x0 + wA / 2, yTop - 6, A.wLabel) + text(x0 - 8, yTop + hA / 2 + 5, A.hLabel, 'end');
+    s += text(x0 + wA + wB / 2, base + 22, B.wLabel) + text(x0 + wA + wB + 10, base - hB / 2 + 5, B.hLabel, 'start');
+    return svg(W, H, s, 'L-shaped floor');
+  }
+
+  /* Rectangle with a square cut out of it. */
+  function cutout(wLabel, hLabel, wNum, hNum, sLabel, sNum, hole) {
+    var d = fit(wNum, hNum, 240, 150), w = Math.max(120, d[0]), h = Math.max(80, d[1]), k = w / wNum, side = Math.max(44, Math.min(sNum * k, Math.min(w, h) - 24));
+    var x0 = 30, y0 = 20, W = x0 + w + 80, H = y0 + h + 36;
+    var hx = x0 + (hole === 'corner' ? w - side - 14 : (w - side) / 2), hy = y0 + (hole === 'corner' ? 14 : (h - side) / 2);
+    var s = poly([[x0, y0], [x0 + w, y0], [x0 + w, y0 + h], [x0, y0 + h]]);
+    s += '<rect x="' + hx + '" y="' + hy + '" width="' + side + '" height="' + side + '" fill="#0d0b0a" stroke="' + STROKE + '" stroke-width="1.5" stroke-dasharray="5 4"/>';
+    s += text(hx + side / 2, hy + side / 2 + 5, sLabel) + text(x0 + w / 2, y0 + h + 22, wLabel) + text(x0 + w + 10, y0 + h / 2 + 5, hLabel, 'start');
+    return svg(W, H, s, 'rectangle with a square cut out');
+  }
+
+  /* Triangle with three side labels (numbers give proportions; falls back to a generic scalene). */
+  function triangle(aLabel, bLabel, cLabel, a, b, c) {
+    var ok = (a > 0 && b > 0 && c > 0 && a + b > c && a + c > b && b + c > a);
+    if (ok) { var s2 = (a + b + c) / 2, area = Math.sqrt(Math.max(0, s2 * (s2 - a) * (s2 - b) * (s2 - c))); if (area / (a * a) < 0.22) ok = false; }
+    if (!ok) { a = 5; b = 4.3; c = 3.6; }
+    // base = a along the bottom; apex from law of cosines
+    var cx = (a * a + b * b - c * c) / (2 * a), cy = Math.sqrt(Math.max(0.1, b * b - cx * cx));
+    var d = fit(Math.max(a, cx, a - cx), cy, 220, 140), k = Math.min(d[0] / Math.max(a, cx, a - cx), 140 / cy);
+    var x0 = 80, y0 = 160, px = x0 + cx * k, py = y0 - cy * k, W = x0 + a * k + 90, H = 190;
+    var pts = [[x0, y0], [x0 + a * k, y0], [px, py]];
+    var s = poly(pts);
+    s += text(x0 + a * k / 2, y0 + 20, aLabel);                                   // a: base
+    s += text((x0 + px) / 2 - 10, (y0 + py) / 2 - 2, bLabel, 'end');             // b: left side
+    s += text((x0 + a * k + px) / 2 + 10, (y0 + py) / 2 - 2, cLabel, 'start');   // c: right side
+    return svg(W, H, s, 'triangle');
+  }
+
+  /* Rectangular prism (oblique) with length, width and height labels. */
+  function prism(lLabel, wLabel, hLabel, l, w, h) {
+    var d = fit(l + w * 0.5, h + w * 0.4, 230, 150), k = d[0] / (l + w * 0.5);
+    var L = Math.max(80, l * k), Hh = Math.max(50, h * k), D = Math.max(28, w * 0.5 * k), dy = D * 0.7;
+    var x0 = 30, y0 = 20 + dy, W = x0 + L + D + 80, H = y0 + Hh + 40;
+    var front = [[x0, y0], [x0 + L, y0], [x0 + L, y0 + Hh], [x0, y0 + Hh]];
+    var top = [[x0, y0], [x0 + D, y0 - dy], [x0 + L + D, y0 - dy], [x0 + L, y0]];
+    var side = [[x0 + L, y0], [x0 + L + D, y0 - dy], [x0 + L + D, y0 + Hh - dy], [x0 + L, y0 + Hh]];
+    var s = poly(top) + poly(side) + poly(front);
+    s += text(x0 + L / 2, y0 + Hh + 22, lLabel) + text(x0 + L + D + 8, y0 + Hh / 2 - dy / 2 + 5, hLabel, 'start') + text(x0 + L + D / 2 + 10, y0 + Hh + 6 - dy + 14, wLabel, 'start');
+    return svg(W, H, s, 'rectangular prism');
+  }
+
+  return { rect: rect, lshape: lshape, cutout: cutout, triangle: triangle, prism: prism, lab: lab };
+})();
 
 /* ===================== QUESTION GENERATORS =====================
  * Every creature owns a list of templates. Each template returns:
@@ -1317,6 +1469,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
   function lin(a, b, bVar) { return P([[a, 1, 0], bVar ? [b, 0, 1] : [b, 0, 0]]); }
   function degree(p) { return Math.max.apply(null, pTerms(p).map(function (t) { return t.a + t.b; })); }
   function sgn(n) { return n < 0 ? '-' : '+'; }
+  function pVal(p, x) { x = x || 3; var v = 0; pTerms(p).forEach(function (t) { v += t.c * Math.pow(x, t.a) * Math.pow(2, t.b); }); return Math.max(1, Math.abs(v)); }
 
   /* ---------- AN4 · A: terms, degree, adding, subtracting, monomial products ---------- */
   var A_BEG = [
@@ -1381,7 +1534,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
     function () { // area of a rectangle: monomial × binomial with context
       var k = ri(2, 6), a = ri(2, 7), c = rnz(-9, 9), e = pick([1, 1, 2]);
       var w = P([[k, e, 0]]), l = lin(a, c), area = pMul(w, l);
-      return { prompt: 'A rectangle has width ' + T(pTex(w)) + ' and length ' + T(pTex(l)) + '. Write a simplified expression for its <b>area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      return { prompt: 'A rectangle has width ' + T(pTex(w)) + ' and length ' + T(pTex(l)) + '. Write a simplified expression for its <b>area</b>.' + Fig.rect(pTex(l), pTex(w), pVal(l), pVal(w)), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Area = length × width. Multiply the monomial into both terms of the binomial.',
         solution: steps([T('A = ' + pTex(w) + '(' + pTex(l) + ')') + '.', T('= ' + pTex(area)) + '.']) };
     },
@@ -1396,7 +1549,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
     },
     function () { // perimeter of a triangle with polynomial sides
       var s1 = lin(ri(1, 4), rnz(-6, 9)), s2 = lin(ri(1, 4), rnz(-6, 9)), s3 = lin(ri(1, 4), rnz(-6, 9)), per = pAdd(pAdd(s1, s2), s3);
-      return { prompt: 'The sides of a triangle are ' + T(pTex(s1)) + ', ' + T(pTex(s2)) + ' and ' + T(pTex(s3)) + '. Write a simplified expression for its <b>perimeter</b>.', type: 'expr', answers: [pTex(per)], check: 'exact',
+      return { prompt: 'The sides of a triangle are ' + T(pTex(s1)) + ', ' + T(pTex(s2)) + ' and ' + T(pTex(s3)) + '. Write a simplified expression for its <b>perimeter</b>.' + Fig.triangle(pTex(s1), pTex(s2), pTex(s3), pVal(s1, 4), pVal(s2, 4), pVal(s3, 4)), type: 'expr', answers: [pTex(per)], check: 'exact',
         hint: 'Perimeter is the sum of all sides. Add the x terms and the constants separately.',
         solution: steps([T('P = (' + pTex(s1) + ') + (' + pTex(s2) + ') + (' + pTex(s3) + ')') + '.', T('= ' + pTex(per)) + '.']) };
     }
@@ -1406,7 +1559,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
     function () { // L-shaped area: two rectangles
       var w1 = ri(2, 5), l1 = lin(ri(2, 5), ri(1, 7)), w2 = ri(2, 5), l2 = lin(ri(1, 4), ri(1, 7));
       var area = pAdd(pMul(P([[w1, 1, 0]]), l1), pMul(P([[w2, 1, 0]]), l2));
-      return { prompt: 'An L-shaped floor is made of two rectangles: one is ' + T(w1 + 'x') + ' by ' + T(pTex(l1)) + ', the other is ' + T(w2 + 'x') + ' by ' + T(pTex(l2)) + '. Write a simplified expression for the <b>total area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      return { prompt: 'An L-shaped floor is made of two rectangles: one is ' + T(w1 + 'x') + ' by ' + T(pTex(l1)) + ', the other is ' + T(w2 + 'x') + ' by ' + T(pTex(l2)) + '. Write a simplified expression for the <b>total area</b>.' + Fig.lshape({ w: w1 * 3, h: pVal(l1), wLabel: w1 + 'x', hLabel: pTex(l1) }, { w: pVal(l2), h: w2 * 3, wLabel: pTex(l2), hLabel: w2 + 'x' }), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Find each rectangle\'s area (monomial × binomial), then add them.',
         solution: steps([T(w1 + 'x(' + pTex(l1) + ') = ' + pTex(pMul(P([[w1, 1, 0]]), l1))) + ' and ' + T(w2 + 'x(' + pTex(l2) + ') = ' + pTex(pMul(P([[w2, 1, 0]]), l2))) + '.', T('\\text{Total} = ' + pTex(area)) + '.']) };
     },
@@ -1427,8 +1580,8 @@ if (typeof module !== 'undefined') module.exports = QGen;
         solution: steps(['Inside: ' + T(pTex(P([[a, 1, 0]])) + (i < 0 ? ' + ' : ' - ') + Math.abs(i) + '(' + pTex(inner) + ') = ' + pTex(pSub(P([[a, 1, 0]]), pScale(inner, i)))) + '.', T(o + '(' + pTex(pSub(P([[a, 1, 0]]), pScale(inner, i))) + ') = ' + pTex(pScale(pSub(P([[a, 1, 0]]), pScale(inner, i)), o))) + '.', 'Add the last term: ' + T(pTex(res)) + '.']) };
     },
     function () { // rectangle minus a square (monomial sides)
-      var L = lin(ri(2, 5), ri(1, 9)), W = P([[ri(2, 6), 1, 0]]), s = P([[ri(1, 3), 1, 0]]), area = pSub(pMul(L, W), pMul(s, s));
-      return { prompt: 'A rectangular courtyard is ' + T(pTex(L)) + ' by ' + T(pTex(W)) + '. A square well of side ' + T(pTex(s)) + ' is cut out of it. Write a simplified expression for the <b>remaining area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      var L = lin(ri(2, 5), ri(1, 9)), wc = ri(2, 6), W = P([[wc, 1, 0]]), s = P([[ri(1, Math.min(3, wc - 1)), 1, 0]]), area = pSub(pMul(L, W), pMul(s, s));
+      return { prompt: 'A rectangular courtyard is ' + T(pTex(L)) + ' by ' + T(pTex(W)) + '. A square well of side ' + T(pTex(s)) + ' is cut out of it. Write a simplified expression for the <b>remaining area</b>.' + Fig.cutout(pTex(L), pTex(W), pVal(L), pVal(W), pTex(s), pVal(s), 'centre'), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Rectangle area minus square area. Expand the rectangle first.',
         solution: steps([T(pTex(W) + '(' + pTex(L) + ') = ' + pTex(pMul(L, W))) + ' and ' + T('(' + pTex(s) + ')^{2} = ' + pTex(pMul(s, s))) + '.', T(pTex(pMul(L, W)) + ' - ' + pTex(pMul(s, s)) + ' = ' + pTex(area)) + '.']) };
     },
@@ -1469,7 +1622,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
     },
     function () { // area of a rectangle (x+a)(x+b) context
       var a = ri(1, 9), b = ri(1, 9), prod = pMul(lin(1, a), lin(1, b));
-      return { prompt: 'A garden is ' + T('(x + ' + a + ')') + ' m long and ' + T('(x + ' + b + ')') + ' m wide. Write a simplified expression for its <b>area</b>.', type: 'expr', answers: [pTex(prod)], check: 'exact',
+      return { prompt: 'A garden is ' + T('(x + ' + a + ')') + ' m long and ' + T('(x + ' + b + ')') + ' m wide. Write a simplified expression for its <b>area</b>.' + Fig.rect('x + ' + a, 'x + ' + b, 3 + a, 3 + b), type: 'expr', answers: [pTex(prod)], check: 'exact',
         hint: 'Area = length × width; expand the two binomials.',
         solution: steps([T('A = (x + ' + a + ')(x + ' + b + ')') + '.', T('= ' + pTex(prod)) + '.']) };
     }
@@ -1514,7 +1667,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
   var B_MAS = [
     function () { // volume of a prism (x+a)(x+b)(cx+d)
       var a = ri(1, 5), b = rnz(-5, 5), c = ri(1, 3), d = rnz(-5, 5), vol = pMul(pMul(lin(1, a), lin(1, b)), lin(c, d));
-      return { prompt: 'A rectangular prism has dimensions ' + T(bin(1, a)) + ', ' + T(bin(1, b)) + ' and ' + T(bin(c, d)) + '. Write its <b>volume</b> as a polynomial in the form ' + T('ax^{3}+bx^{2}+cx+d') + '.', type: 'expr', answers: [pTex(vol)], check: 'exact',
+      return { prompt: 'A rectangular prism has dimensions ' + T(bin(1, a)) + ', ' + T(bin(1, b)) + ' and ' + T(bin(c, d)) + '. Write its <b>volume</b> as a polynomial in the form ' + T('ax^{3}+bx^{2}+cx+d') + '.' + Fig.prism(pTex(lin(1, a)), pTex(lin(1, b)), pTex(lin(c, d)), pVal(lin(1, a), 6), pVal(lin(1, b), 6), pVal(lin(c, d), 6)), type: 'expr', answers: [pTex(vol)], check: 'exact',
         hint: 'Multiply two of the binomials first, then multiply that trinomial by the third binomial.',
         solution: steps([T(bin(1, a) + bin(1, b) + ' = ' + pTex(pMul(lin(1, a), lin(1, b)))) + '.', T('(' + pTex(pMul(lin(1, a), lin(1, b))) + ')' + bin(c, d) + ' = ' + pTex(vol)) + '.']) };
     },
@@ -1526,7 +1679,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
     },
     function () { // shaded area: rectangle minus square (binomial sides)
       var L = lin(ri(2, 4), ri(1, 7)), W = lin(ri(1, 3), ri(1, 7)), s = lin(1, ri(1, 5)), area = pSub(pMul(L, W), pMul(s, s));
-      return { prompt: 'A square of side ' + T(pTex(s)) + ' is cut out of a ' + T(pTex(L)) + ' by ' + T(pTex(W)) + ' rectangle. Write a simplified expression for the <b>remaining area</b>.', type: 'expr', answers: [pTex(area)], check: 'exact',
+      return { prompt: 'A square of side ' + T(pTex(s)) + ' is cut out of a ' + T(pTex(L)) + ' by ' + T(pTex(W)) + ' rectangle. Write a simplified expression for the <b>remaining area</b>.' + Fig.cutout(pTex(L), pTex(W), pVal(L), pVal(W), pTex(s), pVal(s), 'corner'), type: 'expr', answers: [pTex(area)], check: 'exact',
         hint: 'Expand the rectangle (binomial × binomial) and the square, then subtract every term of the square.',
         solution: steps([T('(' + pTex(L) + ')(' + pTex(W) + ') = ' + pTex(pMul(L, W))) + ' and ' + T('(' + pTex(s) + ')^{2} = ' + pTex(pMul(s, s))) + '.', T('= ' + pTex(area)) + '.']) };
     },
@@ -1800,7 +1953,7 @@ if (typeof module !== 'undefined') module.exports = QGen;
   var B_MAS = [
     function () { // patio: area N, length a more than width -> find width
       var w = ri(3, 12), a = ri(1, 9), N = w * (w + a);
-      return { prompt: 'A rectangular patio has an area of ' + T(N + '\\text{ m}^{2}') + '. Its length is ' + a + ' m more than its width. Find the <b>width</b> of the patio, in metres.', type: 'num', answers: [String(w)], tol: 0,
+      return { prompt: 'A rectangular patio has an area of ' + T(N + '\\text{ m}^{2}') + '. Its length is ' + a + ' m more than its width. Find the <b>width</b> of the patio, in metres.' + Fig.rect('x + ' + a, 'x', w + a, w, { inside: 'Area = ' + N + ' m²' }), type: 'num', answers: [String(w)], tol: 0,
         hint: 'Let the width be \\(x\\). Then the length is \\(x + ' + a + '\\) and \\(x(x + ' + a + ') = ' + N + '\\). Rearrange to zero and factor; reject the negative root.',
         solution: steps([T('x(x + ' + a + ') = ' + N + ' \\Rightarrow x^{2} + ' + a + 'x - ' + N + ' = 0') + '.', T('(x - ' + w + ')(x + ' + (w + a) + ') = 0') + '.', '\\(x = ' + w + '\\) (the root \\(x = -' + (w + a) + '\\) is not a length). Width = ' + w + ' m.']) };
     },
@@ -2347,7 +2500,7 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
 
   /* ---------- state ---------- */
   function newState(name) {
-    return { v: 1, name: name, created: Date.now(), lore: 0, legend: 0, dropped: null, gear: {}, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
+    return { v: 1, name: name, klass: '', created: Date.now(), updated: Date.now(), play: 0, lore: 0, legend: 0, dropped: null, gear: {}, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
   }
   function outcomeStats() { // { AN1: { BEG: {w,l}, ... } }
     var out = {};
@@ -2361,8 +2514,41 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
   function slug(name) { return String(name).trim().toLowerCase().replace(/\s+/g, ' '); }
   function saveLocal() {
     if (!S) return;
+    S.updated = Date.now();
     try { localStorage.setItem(SAVE_PREFIX + slug(S.name), JSON.stringify(S)); localStorage.setItem(SAVE_PREFIX + 'last', slug(S.name)); } catch (e) {}
+    report();
   }
+
+  /* ---------- teacher's ledger (reporting) ---------- */
+  var REP = { sig: '', lastTick: 0 };
+  function killsByLevel() {
+    var out = { BEG: 0, PRG: 0, MAS: 0 };
+    LANDS.forEach(function (L) { if (!L.creatures) return; L.creatures.forEach(function (c) { out[c.level] += S.kills[c.id] || 0; }); });
+    return out;
+  }
+  function snapshot(withSave) {
+    var k = killsByLevel(), bosses = 0; Object.keys(S.bossKills).forEach(function (id) { bosses += S.bossKills[id] || 0; });
+    var ev = { t: 'state', hero: S.hero ? S.hero.name : '', heroClass: S.hero ? S.hero.cls : '', stage: S.hero ? heroStage() : 0, lore: S.lore, legend: S.legend, deaths: S.deaths, lostForever: S.lostForever,
+      killsBEG: k.BEG, killsPRG: k.PRG, killsMAS: k.MAS, bossKills: bosses, titles: S.titles.join(', '), landsCleared: Object.keys(S.bossKills).join(' '), play: S.play || 0, lastLand: S.lastLand || '' };
+    if (withSave) { ev.save = encode(S); ev.saveUpdated = S.updated; }
+    return ev;
+  }
+  function report() { // called on every render: sends a state snapshot only when something that matters changed
+    if (!S || !S.klass || !Ledger.enabled()) return;
+    if (!Ledger.identity() || Ledger.identity().name !== S.name) Ledger.identify(S.klass, S.name);
+    var sig = [S.lore, S.legend, S.deaths, S.lostForever, JSON.stringify(S.kills), JSON.stringify(S.gear), S.hero && S.hero.name, S.hero && S.hero.cls, S.hero && S.hero.frame, S.titles.length].join('|');
+    if (sig !== REP.sig) { REP.sig = sig; REP.lastTick = Date.now(); Ledger.push(snapshot(true)); }
+  }
+  function logAttempt(q, raw, result) {
+    var B = UI.battle; if (!B || !S || !S.klass) return;
+    Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: B.foe.level, gen: q.key || '', boss: !!B.isBoss,
+      question: q.prompt, typed: raw, result: result, lore: S.lore, streak: S.streak });
+  }
+  setInterval(function () { // play-time clock: counts only while the tab is visible and the student is active
+    if (!S || UI.screen === 'title' || UI.screen === 'ledger') return;
+    if (Ledger.active()) S.play = (S.play || 0) + 5;
+    if (S.klass && Ledger.enabled() && Date.now() - REP.lastTick > 120000) { REP.lastTick = Date.now(); if (Ledger.active()) Ledger.push(snapshot(false)); }
+  }, 5000);
   function listLocal() {
     var out = [];
     try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(SAVE_PREFIX) === 0 && k !== SAVE_PREFIX + 'last') { try { var st = JSON.parse(localStorage.getItem(k)); if (st && st.name) out.push(st); } catch (e) {} } } } catch (e2) {}
@@ -2409,6 +2595,7 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     w.appendChild(el('span', 'lore-pill', '<span class="orb"></span>' + n(S.lore) + ' Lore'));
     if (S.dropped) { var L = landById(S.dropped.land), c = L && creatureById(L, S.dropped.creature); w.appendChild(el('span', 'drop-pill', n(S.dropped.amount) + ' Lore lies at ' + (c ? esc(c.name) : 'the grave'))); }
     if (S.streak > 1) w.appendChild(el('span', 'streak-pill', 'Streak ' + S.streak));
+    if (Ledger.enabled() && S.klass) { var st = Ledger.status(); var lp = el('span', 'ledger-pill ' + st, st === 'ok' ? 'Ledger ✓' : st === 'offline' ? 'Ledger ✗' : 'Ledger …'); lp.title = st === 'ok' ? 'Connected to your teacher\'s ledger (class ' + S.klass + ')' : 'Not connected to your teacher\'s ledger'; w.appendChild(lp); }
     w.appendChild(el('span', 'spacer'));
     var nav = el('div', 'nav');
     [['map', 'Map'], ['bonfire', 'Bonfire'], ['chronicle', 'Chronicle'], ['help', 'Rules']].forEach(function (b) {
@@ -2422,9 +2609,9 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
   /* ---------- screens ---------- */
   function go(screen, opts) { UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
   function render() {
-    if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero') UI.screen = 'hero';
+    if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
     renderHud(); app.innerHTML = '';
-    var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp }[UI.screen] || screenTitle;
+    var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     fn(); typeset(app); saveLocal();
   }
 
@@ -2436,13 +2623,35 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     t.appendChild(el('div', 'sub', 'Ten lands. Every creature is a problem. Every wrong answer is a death.'));
     app.appendChild(t);
     var f = el('div', 'title-form');
-    var saves = listLocal();
+    var saves = listLocal(), online = Ledger.enabled();
+    var klassInp = null;
+    if (online) {
+      f.appendChild(el('div', 'eyebrow', 'Class code'));
+      klassInp = el('input'); klassInp.type = 'text'; klassInp.id = 'class-code'; klassInp.placeholder = 'From your teacher, e.g. 10C-1'; klassInp.maxLength = 24; klassInp.autocomplete = 'off';
+      try { klassInp.value = localStorage.getItem(SAVE_PREFIX + 'class') || ''; } catch (e) {}
+      f.appendChild(klassInp);
+    }
+    function klassValue() { if (!online) return ''; var k = klassInp.value.trim(); if (!k) { klassInp.focus(); toast('Enter your class code first. Your teacher has it.'); return null; } try { localStorage.setItem(SAVE_PREFIX + 'class', k); } catch (e) {} return k; }
+    function enter(st, klass) { // start with a state, after checking the cloud for a newer save
+      if (klass) st.klass = klass;
+      if (!online || !st.klass) { S = st; go('map'); return; }
+      Ledger.identify(st.klass, st.name);
+      var started = false, start = function (state, msg) { if (started) return; started = true; S = state; if (msg) toast(msg); go('map'); };
+      toast('Looking for your progress…');
+      Ledger.hello(st.klass, st.name, function (res) {
+        if (res && res.ok && res.found && res.save && Number(res.saveUpdated || 0) > Number(st.updated || 0) + 1500) {
+          try { var cloud = decode(res.save); cloud.klass = st.klass; start(cloud, 'Progress loaded from your teacher\'s ledger.'); return; } catch (e) {}
+        }
+        start(st, null);
+      });
+      setTimeout(function () { start(st, null); }, 8000);
+    }
     if (saves.length) {
       f.appendChild(el('div', 'eyebrow', 'Continue on this device'));
       var sv = el('div', 'saves');
       saves.forEach(function (st) {
         var b = el('button', null, '<span>' + esc(st.name) + (st.hero ? ' <span class="muted">· ' + esc(st.hero.name) + ' the ' + esc(st.hero.cls === 'sorcerer' ? 'Sorcerer' : 'Knight') + '</span>' : '') + '</span><span class="muted">' + n(st.legend || 0) + ' Legend · ' + n(st.lore || 0) + ' Lore</span>'); b.type = 'button';
-        b.onclick = function () { S = st; go('map'); };
+        b.onclick = function () { var k = st.klass || klassValue(); if (online && k === null) return; enter(st, k || st.klass); };
         sv.appendChild(b);
       });
       f.appendChild(sv);
@@ -2453,18 +2662,21 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     var go1 = el('button', 'btn big', 'Enter the world'); go1.type = 'button';
     go1.onclick = function () {
       var name = inp.value.trim(); if (!name) { inp.focus(); toast('Write your name first.'); return; }
+      var k = klassValue(); if (online && k === null) return;
       var existing = null; try { existing = JSON.parse(localStorage.getItem(SAVE_PREFIX + slug(name))); } catch (e) {}
-      S = existing && existing.name ? existing : newState(name); go('map');
+      enter(existing && existing.name ? existing : newState(name), k);
     };
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go1.click(); });
+    if (klassInp) klassInp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go1.click(); });
     f.appendChild(go1);
     f.appendChild(el('div', 'eyebrow', 'Or load a save code'));
     var ta = el('textarea'); ta.id = 'load-code'; ta.rows = 3; ta.placeholder = 'Paste a save code (starts with LORE1.)';
     f.appendChild(ta);
     var lb = el('button', 'btn ghost', 'Load save code'); lb.type = 'button';
-    lb.onclick = function () { try { S = decode(ta.value); toast('Welcome back, ' + esc(S.name) + '.'); go('map'); } catch (e) { toast(e.message); } };
+    lb.onclick = function () { try { var st = decode(ta.value); if (!st.klass) { var k = klassValue(); if (online && k === null) return; st.klass = k || ''; } toast('Welcome back, ' + esc(st.name) + '.'); S = st; go('map'); } catch (e) { toast(e.message); } };
     f.appendChild(lb);
     app.appendChild(f);
+    if (online) { var tl = el('div', 'teacher-link', '<button type="button">Teacher\'s Ledger</button>'); tl.querySelector('button').onclick = function () { go('ledger'); }; app.appendChild(tl); }
   }
 
   function screenHero() {
@@ -2499,12 +2711,22 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
   }
 
+  function ledgerNotice() { // shown when a class code was entered but the teacher's ledger cannot be reached
+    if (!Ledger.enabled() || !S || !S.klass || Ledger.status() === 'ok') return null;
+    var needs = LORE_CONFIG.backendNeedsLogin;
+    var p = el('div', 'panel ledger-warn', '<b>Not connected to your teacher\'s ledger' + (Ledger.status() === 'unknown' ? ' yet' : '') + '.</b> ' +
+      (needs ? 'This browser must be signed in to your <b>' + esc(LORE_CONFIG.schoolName || 'school') + ' Google account</b> (open Google Classroom or Gmail in another tab, sign in, then come back and reload). ' : '') +
+      'You can keep playing — progress saves on this device — but nothing is recorded for your teacher until it connects.');
+    var b = el('button', 'btn ghost', 'Try again'); b.type = 'button'; b.onclick = function () { Ledger.ping(function () { render(); }); }; p.appendChild(b);
+    return p;
+  }
   function landCleared(L) { return !!(S.bossKills[L.id]); }
   function screenMap() {
     var head = el('div', 'land-head');
     head.appendChild(el('div', null, '<div class="eyebrow">The world</div><h1>Choose a land</h1>'));
     app.appendChild(head);
     if (S.dropped) { var DL = landById(S.dropped.land), DC = DL && creatureById(DL, S.dropped.creature); app.appendChild(el('div', 'panel', '<span class="eyebrow">Unfinished business</span><p><b>' + n(S.dropped.amount) + ' Lore</b> lies where you fell, at the feet of <b>' + esc(DC ? DC.name : '?') + '</b> in ' + esc(DL ? DL.name : '?') + '. Defeat that creature to take it back. Die first and it is gone.</p>')); }
+    var ln = ledgerNotice(); if (ln) app.appendChild(ln);
     var mapWrap = WorldMap.build(S, landCleared);
     app.appendChild(mapWrap);
     mapWrap.querySelectorAll('.mnode.open').forEach(function (g) {
@@ -2621,6 +2843,7 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     B.lastRaw = raw;
     if (r.reason === 'blank') { toast('Write an answer first.'); return; }
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
+    logAttempt(q, raw, r.ok ? 'correct' : r.reason);
     if (r.ok) { win(); return; }
     if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; render(); return; }
     if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
@@ -2857,7 +3080,7 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
     var cp = el('button', 'btn', 'Copy save code'); cp.type = 'button';
     cp.onclick = function () { var done = function () { toast('Save code copied.'); }; try { navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); toast('Select the code and copy it.'); }); } catch (e) { ta.select(); toast('Select the code and copy it.'); } };
     row.appendChild(cp);
-    var out = el('button', 'btn ghost', 'Leave the world (title screen)'); out.type = 'button'; out.onclick = function () { saveLocal(); S = null; UI.battle = null; go('title'); };
+    var out = el('button', 'btn ghost', 'Leave the world (title screen)'); out.type = 'button'; out.onclick = function () { saveLocal(); Ledger.flush(); S = null; UI.battle = null; go('title'); };
     row.appendChild(out);
     box.appendChild(row); sv.appendChild(box); app.appendChild(sv);
   }
@@ -2874,13 +3097,147 @@ if (typeof module !== 'undefined') module.exports = WorldMap;
       '<li><b>Fleeing</b> a fight costs 10% of the Lore you carry.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +
       '<li><b>Legend</b> is the total Lore you have ever earned. It never goes down. Compare Legends, not Lore.</li>' +
-      '<li><b>Saving.</b> Progress saves itself in this browser. Copy your save code from the Chronicle to continue on another device.</li></ul>'));
+      '<li><b>Saving.</b> Progress saves itself in this browser. With a class code, it is also kept in your teacher\'s ledger, so you can continue on any device by entering the same name and class code. The save code in the Chronicle is a backup.</li>' +
+      '<li><b>Your teacher sees</b> how long you play, your Legend, and every question you answer. Play honestly: the point is to learn the math.</li></ul>'));
+  }
+
+
+  /* ---------- Teacher's Ledger (dashboard) ---------- */
+  var LG = { key: '', data: null, klass: '', sort: 'lastSeen', dir: -1, sel: null, detail: null, q: '' };
+  try { LG.key = localStorage.getItem(SAVE_PREFIX + 'tkey') || ''; } catch (e) {}
+  function fmtDur(sec) { sec = Math.round(Number(sec) || 0); var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? h + 'h ' + (m < 10 ? '0' : '') + m + 'm' : m + 'm'; }
+  function fmtAgo(ts) { if (!ts) return '—'; var d = Date.now() - Number(ts); if (d < 90000) return 'just now'; if (d < 3600000) return Math.round(d / 60000) + ' min ago'; if (d < 86400000) return Math.round(d / 3600000) + ' h ago'; var dt = new Date(Number(ts)); return dt.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }); }
+  function accColor(pct) { if (pct == null) return 'transparent'; var h = Math.round(pct * 1.2); return 'hsla(' + h + ', 55%, 45%, ' + (0.25 + 0.45 * Math.abs(pct - 50) / 50) + ')'; }
+  function outcomeOrder() { var seen = [], out = []; LANDS.forEach(function (L) { if (!L.creatures) return; L.creatures.forEach(function (c) { if (seen.indexOf(c.outcome) < 0) { seen.push(c.outcome); out.push({ id: c.outcome, land: L }); } }); }); return out; }
+  function screenLedger() {
+    var head = el('div', 'land-head');
+    head.appendChild(el('div', null, '<div class="eyebrow">For the teacher</div><h1>The Chronicler\'s Ledger</h1><p class="muted" style="margin:6px 0 0">Every student who has entered a class code, what they have fought, and how it went. Students never see this page.</p>'));
+    var back = el('button', 'btn ghost', '← Title screen'); back.type = 'button'; back.onclick = function () { go('title'); }; head.appendChild(back);
+    app.appendChild(head);
+    if (!LG.key || !LG.data) { ledgerLogin(); return; }
+    ledgerBody();
+  }
+  function ledgerLogin(err) {
+    var p = el('div', 'panel ledger-login');
+    p.appendChild(el('div', 'eyebrow', 'Teacher key'));
+    p.appendChild(el('p', 'muted', 'The key is in the Apps Script project\'s Script properties (TEACHER_KEY). It is remembered on this device.'));
+    var inp = el('input'); inp.type = 'password'; inp.id = 'teacher-key'; inp.value = LG.key; inp.autocomplete = 'off'; inp.placeholder = 'Teacher key'; p.appendChild(inp);
+    if (err) p.appendChild(el('div', 'why', err));
+    var b = el('button', 'btn big', 'Open the ledger'); b.type = 'button';
+    b.onclick = function () { LG.key = inp.value.trim(); if (!LG.key) { inp.focus(); return; } try { localStorage.setItem(SAVE_PREFIX + 'tkey', LG.key); } catch (e) {} ledgerLoad(); };
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') b.click(); });
+    p.appendChild(b); app.appendChild(p);
+    setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
+  }
+  function ledgerLoad() {
+    app.innerHTML = ''; app.appendChild(el('div', 'panel', '<div class="eyebrow">Opening the ledger…</div><p class="muted">Reading the spreadsheet. This takes a few seconds.</p>'));
+    Ledger.ledger(LG.key, function (res) {
+      if (!res || !res.ok) { LG.data = null; app.innerHTML = ''; screenLedger(); app.appendChild(el('div', 'panel', '<div class="why">' + esc(res && res.error === 'bad key' ? 'That key was not accepted.' : 'The ledger could not be reached (' + esc((res && res.error) || 'no reply') + '). Check the backend URL and that the web app is deployed to "Anyone".') + '</div>')); if (res && res.error === 'bad key') { LG.key = ''; } return; }
+      LG.data = res; LG.sel = null; LG.detail = null;
+      var classes = ledgerClasses(); if (classes.indexOf(LG.klass) < 0) LG.klass = classes[0] || '';
+      go('ledger');
+    });
+  }
+  function ledgerClasses() { var out = []; (LG.data.players || []).forEach(function (p) { if (out.indexOf(p['class']) < 0) out.push(p['class']); }); return out.sort(); }
+  function ledgerPlayers() {
+    var list = (LG.data.players || []).filter(function (p) { return (!LG.klass || p['class'] === LG.klass) && (!LG.q || (String(p.name) + ' ' + String(p.hero || '')).toLowerCase().indexOf(LG.q.toLowerCase()) >= 0); });
+    var k = LG.sort, dir = LG.dir;
+    list.sort(function (a, b) { var va = a[k], vb = b[k]; if (k === 'accuracy') { va = acc(a); vb = acc(b); } if (typeof va === 'string' || typeof vb === 'string') return String(va || '').localeCompare(String(vb || '')) * dir; return ((Number(va) || 0) - (Number(vb) || 0)) * dir; });
+    return list;
+  }
+  function acc(p) { return p.attempts ? Math.round(100 * (Number(p.correct) || 0) / Number(p.attempts)) : null; }
+  function ledgerBody() {
+    var players = ledgerPlayers(), classes = ledgerClasses();
+    // controls
+    var bar = el('div', 'panel ledger-bar');
+    var sel = el('select'); sel.id = 'ledger-class';
+    var allOpt = el('option', null, 'All classes'); allOpt.value = ''; sel.appendChild(allOpt);
+    classes.forEach(function (c) { var o = el('option', null, esc(c)); o.value = c; if (c === LG.klass) o.selected = true; sel.appendChild(o); });
+    sel.onchange = function () { LG.klass = sel.value; LG.sel = null; LG.detail = null; render(); };
+    bar.appendChild(el('label', 'eyebrow', 'Class')); bar.appendChild(sel);
+    var q = el('input'); q.type = 'search'; q.placeholder = 'Find a student'; q.value = LG.q; q.oninput = function () { LG.q = q.value; renderLedgerTable(); }; bar.appendChild(q);
+    bar.appendChild(el('span', 'spacer'));
+    var rf = el('button', 'btn ghost', 'Refresh'); rf.type = 'button'; rf.onclick = function () { ledgerLoad(); }; bar.appendChild(rf);
+    var out = el('button', 'btn ghost', 'Forget key'); out.type = 'button'; out.onclick = function () { LG.key = ''; LG.data = null; try { localStorage.removeItem(SAVE_PREFIX + 'tkey'); } catch (e) {} go('ledger'); }; bar.appendChild(out);
+    bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
+    app.appendChild(bar);
+    // class summary
+    var tot = { students: players.length, play: 0, attempts: 0, correct: 0, bosses: 0, legend: 0, deaths: 0 };
+    players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.attempts += Number(p.attempts) || 0; tot.correct += Number(p.correct) || 0; tot.bosses += Number(p.bossKills) || 0; tot.legend += Number(p.legend) || 0; tot.deaths += Number(p.deaths) || 0; });
+    var st = el('div', 'panel'), stats = el('div', 'stats');
+    [['Students', n(tot.students)], ['Time played', fmtDur(tot.play)], ['Questions answered', n(tot.attempts)], ['Accuracy', tot.attempts ? Math.round(100 * tot.correct / tot.attempts) + '%' : '—'], ['Deaths', n(tot.deaths)], ['Bosses slain', n(tot.bosses)], ['Legend (total)', n(tot.legend), 'lore']].forEach(function (x) {
+      stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>'));
+    });
+    st.appendChild(stats); app.appendChild(st);
+    // heat map by outcome × level
+    var hm = el('div', 'panel'); hm.appendChild(el('div', 'eyebrow', (LG.klass || 'All classes') + ' · accuracy by outcome and level'));
+    hm.appendChild(el('p', 'muted', 'Each cell: percent correct (first answer, before any retry) over every attempt by every student shown, with the number of attempts. Darker green is better; red needs a lesson.'));
+    hm.appendChild(heatTable(players.map(function (p) { return p.outcomes || {}; })));
+    app.appendChild(hm);
+    // table
+    var tp = el('div', 'panel'); tp.id = 'ledger-table'; app.appendChild(tp);
+    renderLedgerTable();
+    // detail
+    var dp = el('div'); dp.id = 'ledger-detail'; app.appendChild(dp);
+    if (LG.sel) renderLedgerDetail();
+  }
+  function heatTable(outcomeMaps) {
+    var agg = {}; outcomeMaps.forEach(function (m) { Object.keys(m).forEach(function (o) { agg[o] = agg[o] || {}; Object.keys(m[o]).forEach(function (lv) { var c = agg[o][lv] = agg[o][lv] || { a: 0, c: 0, f: 0 }; c.a += m[o][lv].a || 0; c.c += m[o][lv].c || 0; c.f += m[o][lv].f || 0; }); }); });
+    var tw = el('div', 'table-wrap'), t = '<table class="oc heat"><tr><th>Outcome</th><th>Beginning</th><th>Progressing</th><th>Mastery</th></tr>';
+    outcomeOrder().forEach(function (oc) {
+      var row = agg[oc.id]; if (!row) return;
+      t += '<tr><td><b>' + esc(oc.id) + '</b><br><span class="muted" style="font-size:12px">' + esc(oc.land.subject) + '</span></td>' + ['BEG', 'PRG', 'MAS'].map(function (lv) {
+        var c = row[lv]; if (!c || !c.a) return '<td class="empty">—</td>';
+        var pct = Math.round(100 * c.c / c.a);
+        return '<td style="background:' + accColor(pct) + '"><b>' + pct + '%</b><br><span class="muted" style="font-size:12px">' + n(c.a) + ' tries' + (c.f ? ' · ' + n(c.f) + ' form' : '') + '</span></td>';
+      }).join('') + '</tr>';
+    });
+    t += '</table>'; tw.innerHTML = t;
+    if (!Object.keys(agg).length) tw.innerHTML = '<p class="muted">No questions answered yet.</p>';
+    return tw;
+  }
+  function renderLedgerTable() {
+    var tp = document.getElementById('ledger-table'); if (!tp) return;
+    var players = ledgerPlayers();
+    tp.innerHTML = '<div class="eyebrow">Students · ' + n(players.length) + '</div>';
+    var cols = [['name', 'Student'], ['hero', 'Hero'], ['playSeconds', 'Time'], ['legend', 'Legend'], ['lore', 'Lore'], ['deaths', 'Deaths'], ['killsBEG', 'BEG'], ['killsPRG', 'PRG'], ['killsMAS', 'MAS'], ['bossKills', 'Boss'], ['accuracy', 'Accuracy'], ['lastLand', 'Land'], ['lastSeen', 'Last seen']];
+    var tw = el('div', 'table-wrap'), t = '<table class="oc students"><tr>' + cols.map(function (c) { return '<th data-k="' + c[0] + '" class="' + (LG.sort === c[0] ? 'sorted' : '') + '">' + c[1] + (LG.sort === c[0] ? (LG.dir < 0 ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '</tr>';
+    players.forEach(function (p) {
+      var a = acc(p);
+      t += '<tr data-key="' + esc(p.key) + '" class="' + (LG.sel === p.key ? 'sel' : '') + '"><td><b>' + esc(p.name) + '</b>' + (LG.klass ? '' : '<br><span class="muted" style="font-size:12px">' + esc(p['class']) + '</span>') + '</td><td>' + esc(p.hero || '—') + (p.heroClass ? '<br><span class="muted" style="font-size:12px">' + esc(p.heroClass) + ' · stage ' + esc(p.stage || 1) + '</span>' : '') + '</td><td>' + fmtDur(p.playSeconds) + '</td><td class="lore">' + n(p.legend || 0) + '</td><td>' + n(p.lore || 0) + '</td><td>' + n(p.deaths || 0) + '</td><td>' + n(p.killsBEG || 0) + '</td><td>' + n(p.killsPRG || 0) + '</td><td>' + n(p.killsMAS || 0) + '</td><td>' + n(p.bossKills || 0) + (p.titles ? '<br><span class="muted" style="font-size:12px">' + esc(p.titles) + '</span>' : '') + '</td><td style="background:' + accColor(a) + '">' + (a == null ? '—' : a + '%') + '<br><span class="muted" style="font-size:12px">' + n(p.attempts || 0) + ' tries</span></td><td>' + esc(p.lastLand || '—') + '</td><td>' + fmtAgo(p.lastSeen) + '</td></tr>';
+    });
+    t += '</table>'; tw.innerHTML = t; tp.appendChild(tw);
+    if (!players.length) tp.appendChild(el('p', 'muted', 'No students yet' + (LG.q ? ' match that search.' : '. They appear here after entering the class code on the title screen.')));
+    tw.querySelectorAll('th').forEach(function (th) { th.onclick = function () { var k = th.getAttribute('data-k'); if (LG.sort === k) LG.dir = -LG.dir; else { LG.sort = k; LG.dir = (k === 'name' || k === 'hero' || k === 'lastLand') ? 1 : -1; } renderLedgerTable(); }; });
+    tw.querySelectorAll('tr[data-key]').forEach(function (tr) { tr.onclick = function () { LG.sel = tr.getAttribute('data-key'); LG.detail = null; renderLedgerTable(); renderLedgerDetail(); Ledger.player(LG.key, LG.sel, function (res) { if (res && res.ok && LG.sel === res.key) { LG.detail = res; renderLedgerDetail(); } }); }; });
+  }
+  function renderLedgerDetail() {
+    var dp = document.getElementById('ledger-detail'); if (!dp) return; dp.innerHTML = '';
+    var p = (LG.data.players || []).filter(function (x) { return x.key === LG.sel; })[0]; if (!p) return;
+    var pn = el('div', 'panel');
+    pn.appendChild(el('div', 'eyebrow', esc(p.name) + ' · ' + esc(p['class']) + (p.hero ? ' · ' + esc(p.hero) + ' the ' + esc(p.heroClass === 'sorcerer' ? 'Sorcerer' : 'Knight') : '')));
+    var stats = el('div', 'stats');
+    [['Time played', fmtDur(p.playSeconds)], ['Legend', n(p.legend || 0), 'lore'], ['Lore carried', n(p.lore || 0)], ['Deaths', n(p.deaths || 0)], ['Lore lost forever', n(p.lostForever || 0)], ['Accuracy', acc(p) == null ? '—' : acc(p) + '%'], ['First seen', fmtAgo(p.firstSeen)], ['Lands cleared', esc(p.landsCleared || '—')]].forEach(function (x) { stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>')); });
+    pn.appendChild(stats);
+    pn.appendChild(el('div', 'eyebrow', 'Accuracy by outcome')); pn.appendChild(heatTable([p.outcomes || {}]));
+    pn.appendChild(el('div', 'eyebrow', 'Most recent questions'));
+    if (!LG.detail) pn.appendChild(el('p', 'muted', 'Loading…'));
+    else if (!LG.detail.attempts.length) pn.appendChild(el('p', 'muted', 'No questions recorded yet.'));
+    else {
+      var tw = el('div', 'table-wrap'), t = '<table class="oc attempts"><tr><th>When</th><th>Where</th><th>Question</th><th>They wrote</th><th>Result</th></tr>';
+      LG.detail.attempts.forEach(function (a) {
+        t += '<tr class="r-' + esc(a.result) + '"><td>' + fmtAgo(a.time) + '</td><td>' + esc(a.outcome) + ' · ' + esc(a.level) + (a.boss ? ' · boss' : '') + '</td><td class="qtext">' + esc(a.question) + '</td><td>' + typedTex(a.typed) + '</td><td><b>' + (a.result === 'correct' ? 'correct' : a.result === 'form' ? 'right value, wrong form' : 'wrong') + '</b></td></tr>';
+      });
+      t += '</table>'; tw.innerHTML = t; pn.appendChild(tw);
+    }
+    dp.appendChild(pn); typeset(dp);
   }
 
   /* ---------- boot ---------- */
   function boot(data) {
     if (data && data.S) { S = data.S; UI.screen = data.screen === 'battle' ? 'land' : (data.screen || 'map'); UI.land = data.land; }
     else { try { var last = localStorage.getItem(SAVE_PREFIX + 'last'); if (last) { var st = JSON.parse(localStorage.getItem(SAVE_PREFIX + last)); if (st && st.name) { S = st; UI.screen = 'map'; } } } catch (e) {} }
+    if (S && S.klass && Ledger.enabled()) { Ledger.identify(S.klass, S.name); Ledger.ping(function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln && Ledger.status() === 'ok') ln.remove(); }); }
     render();
   }
   try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(function () { return { S: S, screen: UI.screen, land: UI.land }; }); } catch (e) {}
