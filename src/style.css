@@ -270,7 +270,7 @@ table.oc td.w { color: var(--good); } table.oc td.l { color: var(--bad); }
 .portrait.frame-lore { border: 2px solid var(--lore); box-shadow: 0 0 22px rgba(143,211,255,.6), 0 6px 18px rgba(0,0,0,.5); }
 .portrait.frame-gold { border: 3px double #e0b84a; box-shadow: 0 0 22px rgba(224,184,74,.55), 0 6px 18px rgba(0,0,0,.5); }
 .portrait.hero { width: 140px; height: auto; }
-.portrait.shop { width: 90px; height: auto; flex: none; }
+.portrait.regalia-pic { width: 90px; height: auto; flex: none; }
 .regalia-preview { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
 .branches { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 @media (max-width: 640px) { .arena { grid-template-columns: 1fr; } .vs { display: none; } .hero-side { grid-template-columns: 80px 1fr; justify-items: start; align-items: center; } .hero-side .portrait.at-arena { width: 80px; } .hero-cap { text-align: left; } .class-card { grid-template-columns: 90px 1fr; } .class-card .portrait { width: 90px; } }
@@ -437,3 +437,11 @@ body.in-world #app { padding: 0; max-width: none; }
 @media (max-width: 640px) { .bstage { height: 180px; } .bstage-cap .nm { font-size: 16px; } }
 /* keep the two fighters in view while you work on the answer (tall enough screens only) */
 @media (min-height: 700px) { .battle > .panel:first-child { position: sticky; top: 52px; z-index: 6; padding: 8px; background: var(--ash, #15121a); } html:has(.battle) { scroll-padding-top: 280px; } }
+
+.form-help { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 6px; background: rgba(0,0,0,.25); display: grid; gap: 4px; }
+.form-help .fh-math { font-size: 22px; margin-bottom: 6px; }
+.form-help .fh-note { margin: 4px 0 0; font-size: 15px; }
+
+.gear-top { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.gear-img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; border: 1px solid var(--edge); flex: none; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+.gear.locked .gear-img { filter: grayscale(.7) brightness(.6); }

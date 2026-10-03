@@ -171,11 +171,18 @@
         hint: 'Use the distance formula with the unknown x, square both sides, and solve (x − ' + qx + ')² = ' + (tr[0] * tr[0]) + '.',
         solution: steps([T('(x - (' + qx + '))^{2} + (' + py + ' - (' + qy + '))^{2} = ' + tr[2] + '^{2}'), T('(x - (' + qx + '))^{2} = ' + (tr[2] * tr[2]) + ' - ' + (tr[1] * tr[1]) + ' = ' + (tr[0] * tr[0])), T('x - (' + qx + ') = \\pm ' + tr[0]) + ', so ' + T('x = ' + xa) + ' or ' + T('x = ' + xb) + '.']) };
     },
-    function () { // area of a right triangle from vertices
-      var x = nz(-6, 3), y = nz(-6, 3), w = ri(3, 9), h = ri(2, 9), P = pt(x, y), Q = pt(x + w, y), R = pt(x, y + h);
-      return { prompt: 'A triangle has vertices ' + T('P' + P) + ', ' + T('Q' + Q) + ' and ' + T('R' + R) + '. Determine its area, in square units.', type: 'num', answers: [num(w * h / 2)], tol: 0,
-        hint: 'PQ is horizontal and PR is vertical, so they are the base and the height.',
-        solution: steps([T('PQ = ' + w + ',\\ PR = ' + h), T('A = \\tfrac{1}{2}(' + w + ')(' + h + ') = ' + num(w * h / 2)) + '.']) };
+    function () { // area of a tilted right triangle: find the right angle with slopes, the legs with the distance formula
+      var V, u, k1, k2, A0, tries = 0;
+      do { u = [ri(1, 3), nz(-3, 3)]; k1 = pick([1, 2]); k2 = pick([1, 2]); A0 = [nz(-5, 5), nz(-5, 5)];
+        V = [A0, [A0[0] + k1 * u[0], A0[1] + k1 * u[1]], [A0[0] - k2 * u[1], A0[1] + k2 * u[0]]]; // right angle at V[0]
+      } while (!V.every(function (p) { return Math.abs(p[0]) <= 9 && Math.abs(p[1]) <= 9; }) && ++tries < 200);
+      var u2 = u[0] * u[0] + u[1] * u[1], area = k1 * k2 * u2 / 2;
+      var order = [0, 1, 2]; for (var i = 2; i > 0; i--) { var j = ri(0, i); var t = order[i]; order[i] = order[j]; order[j] = t; }
+      var names = ['P', 'Q', 'R'], W = order.map(function (o) { return V[o]; }), rt = names[order.indexOf(0)], o1 = names[order.indexOf(1)], o2 = names[order.indexOf(2)];
+      var l1 = k1 * k1 * u2, l2 = k2 * k2 * u2;
+      return { prompt: 'A triangle has vertices ' + T('P' + pt(W[0][0], W[0][1])) + ', ' + T('Q' + pt(W[1][0], W[1][1])) + ' and ' + T('R' + pt(W[2][0], W[2][1])) + '. It is a right triangle. Determine its area, in square units. (Number only.)', type: 'num', answers: [num(area)], tol: 0,
+        hint: 'Use slopes to find the two sides that are perpendicular (slopes that multiply to −1): they are the base and the height. Find their lengths with the distance formula, then area = ½ × base × height.',
+        solution: steps([T('m_{' + rt + o1 + '} = ' + frac(u[1], u[0])) + ' and ' + T('m_{' + rt + o2 + '} = ' + frac(u[0], -u[1])) + ' are negative reciprocals, so the right angle is at ' + T(rt) + '.', T(rt + o1 + ' = \\sqrt{' + l1 + '}' + (rad(l1) === '\\sqrt{' + l1 + '}' ? '' : ' = ' + rad(l1))) + ' and ' + T(rt + o2 + ' = \\sqrt{' + l2 + '}' + (rad(l2) === '\\sqrt{' + l2 + '}' ? '' : ' = ' + rad(l2))) + '.', T('A = \\tfrac{1}{2}\\sqrt{' + l1 + '}\\sqrt{' + l2 + '} = \\tfrac{1}{2}\\sqrt{' + (l1 * l2) + '} = ' + num(area)) + ' square units.']) };
     },
     function () { // distance between the midpoints of two sides (midsegment = half the third side)
       var tr = pick(TRIPLES), ax = nz(-6, 2), ay = nz(-6, 2); var B = [ax + 2 * tr[0], ay], C = [ax, ay + 2 * tr[1]]; // BC = 2*tr[2]

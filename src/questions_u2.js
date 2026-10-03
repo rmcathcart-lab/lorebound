@@ -24,16 +24,64 @@
   function powTex(b, m) { return m === 1 ? String(b) : b + '^{' + m + '}'; }
   function num(x) { return String(Math.round(x * 1e9) / 1e9); }
   function ipow(b, e) { return Math.pow(b, e); }
+  // Students always have a scientific calculator, so items test the laws and forms, not arithmetic.
+  function rat(p, q) { q = q || 1; var g = gcd(p, q) || 1; p /= g; q /= g; if (q < 0) { p = -p; q = -q; } return [p, q]; }
+  function expTex(p, q) { var r = rat(p, q); return r[1] === 1 ? String(r[0]) : (r[0] < 0 ? '-' : '') + '\\frac{' + Math.abs(r[0]) + '}{' + r[1] + '}'; }
+  function pwR(base, p, q) { var r = rat(p, q); return r[0] === 1 && r[1] === 1 ? base : base + '^{' + expTex(r[0], r[1]) + '}'; }
+  function coefTex(c) { return c === 1 ? '' : c === -1 ? '-' : String(c); }
+  // Positive-exponent form of (cn/cd)·Π v^(p/q). vars: [[name, p, q?], ...]. Returns every acceptable spelling.
+  function posForm(cn, cd, vars) {
+    var r = rat(cn, cd), sign = r[0] < 0 ? '-' : '', n = Math.abs(r[0]), d = r[1], top = '', bot = '';
+    vars.forEach(function (v) { var e = rat(v[1], v[2] || 1); if (e[0] > 0) top += pwR(v[0], e[0], e[1]); else if (e[0] < 0) bot += pwR(v[0], -e[0], e[1]); });
+    var topS = (n === 1 && top ? '' : String(n)) + top, botS = (d === 1 ? '' : String(d)) + bot;
+    if (!botS) return [sign + topS];
+    var out = [sign + '\\frac{' + topS + '}{' + botS + '}'];
+    if (!bot && top && d > 1) out.push(sign + '\\frac{' + n + '}{' + d + '}' + top);
+    return out;
+  }
+  // The same expression with negative exponents left in (used only in solutions, to show the step before tidying).
+  function negForm(cn, cd, vars) {
+    var r = rat(cn, cd), c = r[1] === 1 ? coefTex(r[0]) : (r[0] < 0 ? '-' : '') + '\\frac{' + Math.abs(r[0]) + '}{' + r[1] + '}';
+    var s = c; vars.forEach(function (v) { var e = rat(v[1], v[2] || 1); if (e[0] !== 0) s += pwR(v[0], e[0], e[1]); });
+    return s === '' ? '1' : s === '-' ? '-1' : s;
+  }
+  function sub(a, b) { return a + (b < 0 ? '-(' + b + ')' : '-' + b); }
+  function powVal(c, e) { return e >= 0 ? String(Math.pow(c, e)) : '\\frac{1}{' + Math.pow(c, -e) + '}'; }
+  function nrm(m, e) { // normalise a × 10^e so 1 <= a < 10
+    while (Math.abs(m) >= 10 - 1e-9) { m /= 10; e++; } while (Math.abs(m) < 1 - 1e-9) { m *= 10; e--; }
+    return [Math.round(m * 1e9) / 1e9, e];
+  }
+  function nice(m, dp) { var k = Math.pow(10, dp == null ? 2 : dp); return Math.abs(m * k - Math.round(m * k)) < 1e-6; }
+  function stdTex(m, e) { // standard notation for a modest power of ten
+    var v = m * Math.pow(10, e), dp = Math.max(0, -e + 3), s = v.toFixed(dp);
+    if (s.indexOf('.') >= 0) s = s.replace(/0+$/, '').replace(/\.$/, '');
+    return s.replace(/^(\d+)/, function (w) { return w.replace(/\B(?=(\d{3})+(?!\d))/g, '\\,'); });
+  }
 
   /* ---------- AN3 · Exponent laws and integral exponents ---------- */
   var L_BEG = [
-    function () { // sign of a power: -3^4 vs (-3)^4, plus zero exponent
-      var b = pick([2, 3, 4, 5]), e = pick([2, 3, 4]), neg = Math.random() < 0.5, z = pick([2, 5, 7, 9]);
-      var expr = neg ? '(-' + b + ')^{' + e + '}' : '-' + b + '^{' + e + '}', val = neg ? Math.pow(-b, e) : -Math.pow(b, e);
-      var ans = val + 1;
-      return { prompt: 'Evaluate <b>without a calculator</b>: ' + T(expr + ' + ' + z + '^{0}'), type: 'num', answers: [String(ans)], tol: 0,
-        hint: (neg ? 'The brackets mean the negative sign is part of the base.' : 'Without brackets the exponent applies to ' + b + ' only; the negative sign is applied last.') + ' Anything to the power 0 is 1.',
-        solution: steps([T(expr + ' = ' + val) + (neg ? ' because the base is ' + T('-' + b) + '.' : ' because ' + T(b + '^{' + e + '} = ' + Math.pow(b, e)) + ' and then the sign is applied.'), T(z + '^{0} = 1') + ', so the total is ' + T(val + ' + 1 = ' + ans) + '.']) };
+    function () { // the fence with variables: (-2a)^4 vs -(2a)^4 vs 2(-a)^3 vs -4(mn)^3  (L1 §3, EP01 Q5)
+      var c = pick([2, 3, 4, 5]), a = ri(1, 3), e = pick([2, 3, 4]), v = pick(['a', 'x', 'm', 'y']), kind = pick(['in', 'out', 'coef', 'pair']);
+      if (c >= 4 && e === 4) e = pick([2, 3]);
+      var inner = mono(c, [[v, a]]), expr, ans, sol;
+      if (kind === 'in') {
+        expr = '\\left(-' + inner + '\\right)^{' + e + '}'; ans = mono(Math.pow(-c, e), [[v, a * e]]);
+        sol = ['The negative sign is <b>inside</b> the brackets, so it is part of the base and is raised to the power ' + e + ': ' + T('(-' + c + ')^{' + e + '} = ' + Math.pow(-c, e)) + ' (' + (e % 2 ? 'odd' : 'even') + ' exponent).', T('\\left(' + pw(v, a) + '\\right)^{' + e + '} = ' + pw(v, a * e)) + ', so the answer is ' + T(ans) + '.'];
+      } else if (kind === 'out') {
+        expr = '-\\left(' + inner + '\\right)^{' + e + '}'; ans = mono(-Math.pow(c, e), [[v, a * e]]);
+        sol = ['The negative sign is <b>outside</b> the brackets, so it is not raised to the power; apply it last.', T('\\left(' + inner + '\\right)^{' + e + '} = ' + mono(Math.pow(c, e), [[v, a * e]])) + ', so the answer is ' + T(ans) + '.'];
+      } else if (kind === 'coef') {
+        e = pick([2, 3, 4]); var s = e % 2 ? -1 : 1;
+        expr = c + '\\left(-' + pw(v, a) + '\\right)^{' + e + '}'; ans = mono(s * c, [[v, a * e]]);
+        sol = ['Only ' + T('-' + pw(v, a)) + ' is inside the brackets; the coefficient ' + T(c) + ' sits outside and is <b>not</b> raised to the power.', T('\\left(-' + pw(v, a) + '\\right)^{' + e + '} = ' + (s < 0 ? '-' : '') + pw(v, a * e)) + ' (' + (e % 2 ? 'odd' : 'even') + ' exponent), so the answer is ' + T(ans) + '.'];
+      } else {
+        var pr = pick([['m', 'n'], ['x', 'y'], ['c', 'd'], ['p', 'q']]); e = pick([2, 3, 4]);
+        expr = '-' + c + '\\left(' + pr[0] + pr[1] + '\\right)^{' + e + '}'; ans = mono(-c, [[pr[0], e], [pr[1], e]]);
+        sol = ['The coefficient ' + T('-' + c) + ' is outside the brackets, so it is <b>not</b> raised to the power.', T('\\left(' + pr[0] + pr[1] + '\\right)^{' + e + '} = ' + pr[0] + '^{' + e + '}' + pr[1] + '^{' + e + '}') + ', so the answer is ' + T(ans) + '.'];
+      }
+      return { prompt: 'Simplify. Watch where the brackets are.<br>' + T(expr), type: 'expr', answers: [ans], check: 'exact',
+        hint: 'Brackets are a fence: only what is inside gets raised to the power. A negative sign or coefficient outside the brackets is applied afterwards.',
+        solution: steps(sol) };
     },
     function () { // product of powers with coefficients
       var c1 = pick([2, 3, 4, 5]), c2 = pick([2, 3, 4, 5, -2, -3]), a = ri(2, 7), b = ri(2, 7), v = pick(['x', 'y', 'm', 'k']);
@@ -52,16 +100,27 @@
         hint: 'Dividing powers of the same base: subtract the exponents.',
         solution: steps([T('\\dfrac{' + v + '^{' + m + '}}{' + v + '^{' + n2 + '}} = ' + v + '^{' + m + '-' + n2 + '} = ' + pw(v, m - n2)) + '.']) };
     },
-    function () { // evaluate a small expression with laws first
-      var b = pick([2, 3, 5]), a = ri(2, 4), c = ri(1, 3), d = ri(1, 2);
-      // b^a * b^c / b^(a+c-d)  -> b^d
-      var top = a + c, bot = top - d;
-      return { prompt: 'Use the exponent laws to simplify, then evaluate: ' + T('\\dfrac{' + b + '^{' + a + '}\\times ' + b + '^{' + c + '}}{' + b + '^{' + bot + '}}'), type: 'num', answers: [String(Math.pow(b, d))], tol: 0,
-        hint: 'Add the exponents on top, then subtract the exponent on the bottom. Only then evaluate.',
-        solution: steps([T(b + '^{' + a + '}\\times ' + b + '^{' + c + '} = ' + b + '^{' + top + '}') + '.', T(b + '^{' + top + '}\\div ' + b + '^{' + bot + '} = ' + b + '^{' + d + '} = ' + Math.pow(b, d)) + '.']) };
+    function () { // missing exponent, one law (L1 Q15)
+      var v = pick(['a', 'b', 'c', 'd', 'w', 'p']), kind = ri(0, 4), a, n, s, eq, law, work;
+      if (kind === 0) { a = ri(2, 8); n = ri(2, 9); s = a + n; eq = '\\left(' + v + '^{' + a + '}\\right)\\left(' + v + '^{n}\\right) = ' + v + '^{' + s + '}'; law = 'Multiplying powers with the same base adds the exponents'; work = T(a + ' + n = ' + s); }
+      else if (kind === 1) { a = ri(2, 8); n = ri(5, 15); s = n - a; eq = v + '^{n}\\div ' + v + '^{' + a + '} = ' + v + '^{' + s + '}'; law = 'Dividing powers with the same base subtracts the exponents'; work = T('n - ' + a + ' = ' + s); }
+      else if (kind === 2) { a = ri(9, 16); n = ri(2, a - 2); s = a - n; eq = '\\dfrac{' + v + '^{' + a + '}}{' + v + '^{n}} = ' + v + '^{' + s + '}'; law = 'Dividing powers with the same base subtracts the exponents'; work = T(a + ' - n = ' + s); }
+      else if (kind === 3) { a = ri(2, 6); n = ri(2, 7); s = a * n; eq = '\\left(' + v + '^{n}\\right)^{' + a + '} = ' + v + '^{' + s + '}'; law = 'A power of a power multiplies the exponents'; work = T(a + 'n = ' + s); }
+      else { a = ri(2, 9); n = ri(2, 5); s = a * n; eq = '\\left(' + v + '^{' + a + '}\\right)^{n} = ' + v + '^{' + s + '}'; law = 'A power of a power multiplies the exponents'; work = T(a + 'n = ' + s); }
+      return { prompt: 'Find the value of ' + T('n') + ':<br>' + T(eq), type: 'num', answers: [String(n)], tol: 0,
+        hint: law + '. Write that as an equation in ' + T('n') + ' and solve it.',
+        solution: steps([law + ', so the exponents must match: ' + work + '.', T('n = ' + n) + '.']) };
     },
-    function () { // power of a product
+    function () { // power of a product, or power of a quotient (L1 Q12–13)
       var c = pick([2, 3, 5]), e = pick([2, 3]), a = ri(1, 4), v = pick(['x', 'y', 'n']);
+      if (Math.random() < 0.4) {
+        var up = Math.random() < 0.5, ce = Math.pow(c, e), vv = pw(v, a * e);
+        var expr = up ? '\\left(\\dfrac{' + pw(v, a) + '}{' + c + '}\\right)^{' + e + '}' : '\\left(\\dfrac{' + c + '}{' + pw(v, a) + '}\\right)^{' + e + '}';
+        var ansQ = up ? ['\\frac{' + vv + '}{' + ce + '}', '\\frac{1}{' + ce + '}' + vv] : ['\\frac{' + ce + '}{' + vv + '}'];
+        return { prompt: 'Simplify: ' + T(expr), type: 'expr', answers: ansQ, check: 'exact',
+          hint: 'The exponent outside applies to the top and to the bottom of the fraction.',
+          solution: steps([T(expr + ' = ' + (up ? '\\dfrac{' + '\\left(' + pw(v, a) + '\\right)^{' + e + '}}{' + c + '^{' + e + '}}' : '\\dfrac{' + c + '^{' + e + '}}{\\left(' + pw(v, a) + '\\right)^{' + e + '}}')) + '.', T('= ' + ansQ[0]) + '.']) };
+      }
       return { prompt: 'Simplify: ' + T('\\left(' + mono(c, [[v, a]]) + '\\right)^{' + e + '}'), type: 'expr', answers: [mono(Math.pow(c, e), [[v, a * e]])], check: 'exact',
         hint: 'The exponent outside applies to everything inside: the coefficient and the variable.',
         solution: steps([T('\\left(' + mono(c, [[v, a]]) + '\\right)^{' + e + '} = ' + c + '^{' + e + '}\\cdot ' + v + '^{' + a + '\\times' + e + '}') + '.', T('= ' + mono(Math.pow(c, e), [[v, a * e]])) + '.']) };
@@ -85,13 +144,17 @@
         hint: 'Decide the sign of ' + T('(-' + v + ')^{' + lo + '}') + ' first (' + (oddLo ? 'odd' : 'even') + ' exponent), then subtract exponents.',
         solution: steps([T('(-' + v + ')^{' + lo + '} = ' + (oddLo ? '-' : '') + v + '^{' + lo + '}') + ' because the exponent is ' + (oddLo ? 'odd' : 'even') + '.', T('\\dfrac{-' + v + '^{' + hi + '}}{' + (oddLo ? '-' : '') + v + '^{' + lo + '}} = ' + ans) + '.']) };
     },
-    function () { // evaluate with negative exponents
-      var p = pick([2, 3, 4, 5]), q = pick([2, 3, 5, 7]); if (p === q) return L_PRG[2]();
-      var e = pick([2, 3]), z = pick([3, 6, 8]);
-      var n = Math.pow(q, e) + Math.pow(p, e), d = Math.pow(p, e); // (p/q)^-e + 1 = q^e/p^e + 1
-      return { prompt: 'Evaluate <b>without a calculator</b>: ' + T('\\left(\\dfrac{' + p + '}{' + q + '}\\right)^{-' + e + '} + ' + z + '^{0}'), type: 'num', answers: [frac(n, d)], tol: 0,
-        hint: 'A negative exponent flips the fraction; then apply the positive exponent to top and bottom.',
-        solution: steps([T('\\left(\\dfrac{' + p + '}{' + q + '}\\right)^{-' + e + '} = \\left(\\dfrac{' + q + '}{' + p + '}\\right)^{' + e + '} = \\dfrac{' + Math.pow(q, e) + '}{' + Math.pow(p, e) + '}') + '.', 'Add ' + T(z + '^{0} = 1') + ': ' + T('\\dfrac{' + Math.pow(q, e) + '}{' + d + '} + 1 = ' + frac(n, d)) + '.']) };
+    function () { // fractional base with a negative exponent, with variables (L3 §4, EP03 Q9)
+      var p = pick([1, 2, 3, 4, 5]), q = pick([2, 3, 4, 5]), e = pick([2, 3]); if (gcd(p, q) !== 1) return L_PRG[2]();
+      if (e === 3 && (p > 3 || q > 3)) e = 2;
+      var v = pick(['x', 'a', 'm']), w = v === 'x' ? 'y' : v === 'a' ? 'b' : 'n', a = ri(1, 3), b = ri(1, 3), neg = Math.random() < 0.35, both = Math.random() < 0.65;
+      var sg = neg ? -1 : 1, topIn = mono(sg * p, [[v, a]]), botIn = both ? mono(q, [[w, b]]) : String(q);
+      var expr = '\\left(\\dfrac{' + topIn + '}{' + botIn + '}\\right)^{-' + e + '}';
+      var vars = both ? [[w, b * e], [v, -a * e]] : [[v, -a * e]];
+      var cn = Math.pow(sg, e) * Math.pow(q, e), cd = Math.pow(p, e), ans = posForm(cn, cd, vars);
+      return { prompt: 'Simplify. Write the answer with <b>positive exponents only</b>.<br>' + T(expr), type: 'expr', answers: ans, check: 'exact',
+        hint: 'A negative exponent on a fraction flips the fraction. Then apply the positive exponent to every factor, top and bottom' + (neg ? ' (the negative sign too)' : '') + '.',
+        solution: steps([T(expr + ' = \\left(\\dfrac{' + botIn + '}{' + topIn + '}\\right)^{' + e + '}') + '.', 'Raise every factor to the power ' + e + ': ' + T('\\dfrac{' + (both ? mono(Math.pow(q, e), [[w, b * e]]) : Math.pow(q, e)) + '}{' + mono(Math.pow(sg * p, e), [[v, a * e]]) + '}') + '.', T('= ' + ans[0]) + '.']) };
     },
     function () { // simplify with positive exponents only
       var c1 = pick([6, 8, 10, 12, 15]), c2 = pick([2, 3, 4, 5]); if (c1 % c2 !== 0) return L_PRG[3]();
@@ -112,11 +175,15 @@
   ];
 
   var L_MAS = [
-    function () { // solve for n in (a^n)^3 · a^2 = a^20
+    function () { // solve for n in (a^n)^3 · a^2 = a^20  (or ÷ a^2)
       var v = pick(['a', 'x', 'b']), k = pick([2, 3, 4]), add = ri(1, 5), n = ri(2, 7), total = k * n + add;
-      return { prompt: 'If ' + T('\\left(' + v + '^{n}\\right)^{' + k + '}\\cdot ' + v + '^{' + add + '} = ' + v + '^{' + total + '}') + ', what is the value of ' + T('n') + '?', type: 'num', answers: [String(n)], tol: 0,
+      if (Math.random() < 0.4) { total = k * n - add; if (total < 2) return L_MAS[0]();
+        return { prompt: 'If ' + T('\\dfrac{\\left(' + v + '^{n}\\right)^{' + k + '}}{' + pw(v, add) + '} = ' + v + '^{' + total + '}') + ', what is the value of ' + T('n') + '?', type: 'num', answers: [String(n)], tol: 0,
+          hint: 'Simplify the left side to a single power of ' + v + ' using the laws, then match exponents.',
+          solution: steps([T('\\dfrac{\\left(' + v + '^{n}\\right)^{' + k + '}}{' + pw(v, add) + '} = ' + v + '^{' + k + 'n - ' + add + '}') + '.', 'Match exponents: ' + T(k + 'n - ' + add + ' = ' + total) + ', so ' + T(k + 'n = ' + (total + add)) + ' and ' + T('n = ' + n) + '.']) }; }
+      return { prompt: 'If ' + T('\\left(' + v + '^{n}\\right)^{' + k + '}\\cdot ' + pw(v, add) + ' = ' + v + '^{' + total + '}') + ', what is the value of ' + T('n') + '?', type: 'num', answers: [String(n)], tol: 0,
         hint: 'Simplify the left side to a single power of ' + v + ' using the laws, then match exponents.',
-        solution: steps([T('\\left(' + v + '^{n}\\right)^{' + k + '}\\cdot ' + v + '^{' + add + '} = ' + v + '^{' + k + 'n + ' + add + '}') + '.', 'Match exponents: ' + T(k + 'n + ' + add + ' = ' + total) + ', so ' + T('n = ' + n) + '.']) };
+        solution: steps([T('\\left(' + v + '^{n}\\right)^{' + k + '}\\cdot ' + pw(v, add) + ' = ' + v + '^{' + k + 'n + ' + add + '}') + '.', 'Match exponents: ' + T(k + 'n + ' + add + ' = ' + total) + ', so ' + T('n = ' + n) + '.']) };
     },
     function () { // quotient with algebraic exponents b^{5x+2}/b^{x-3}
       var v = pick(['b', 'a', 'm']), p1 = ri(3, 7), q1 = ri(-4, 6), p2 = ri(1, p1 - 1), q2 = ri(-5, 5);
@@ -134,21 +201,42 @@
         hint: 'Square the last bracket first (the sign disappears), then multiply all coefficients and add exponents base by base.',
         solution: steps([T('\\left(' + mono(c3, [['b', b3]]) + '\\right)^{2} = ' + mono(c3 * c3, [['b', b3 * 2]])) + '.', 'Coefficients: ' + T(c1 + '\\times' + c2 + '\\times' + (c3 * c3) + ' = ' + C) + '; ' + T('a^{' + a1 + '+' + a2 + '} = a^{' + A + '}') + '; ' + T('b^{' + b1 + '+' + b2 + '+' + (b3 * 2) + '} = b^{' + B + '}') + '.', T('= ' + mono(C, [['a', A], ['b', B]])) + '.']) };
     },
-    function () { // volume of a cube with edge ck^2
-      var c = pick([2, 3, 4, 5]), a = ri(2, 4), v = pick(['k', 'x', 'm']);
-      return { prompt: 'Each edge of a cube is ' + T(mono(c, [[v, a]])) + ' units long. Write a simplified expression for its <b>volume</b>.', type: 'expr', answers: [mono(Math.pow(c, 3), [[v, 3 * a]])], check: 'exact',
-        hint: 'Volume of a cube = edge³. Cube the coefficient and multiply the exponent by 3.',
-        solution: steps([T('V = \\left(' + mono(c, [[v, a]]) + '\\right)^{3} = ' + c + '^{3}\\cdot ' + v + '^{' + a + '\\times3}') + '.', T('= ' + mono(Math.pow(c, 3), [[v, 3 * a]])) + '.']) };
+    function () { // two-step geometry with monomials: cube surface area, tiling a floor, recasting a cube
+      var kind = ri(0, 2);
+      if (kind === 0) { // surface area of a cube
+        var c = pick([2, 3, 4, 5]), a = ri(2, 4), v = pick(['k', 'x', 'm']), ans0 = mono(6 * c * c, [[v, 2 * a]]);
+        return { prompt: 'Each edge of an obsidian cube is ' + T(mono(c, [[v, a]])) + ' units long. Write a simplified expression for its total <b>surface area</b>.', type: 'expr', answers: [ans0], check: 'exact',
+          hint: 'A cube has 6 square faces. Find the area of one face (edge squared), then multiply by 6.',
+          solution: steps(['One face: ' + T('\\left(' + mono(c, [[v, a]]) + '\\right)^{2} = ' + mono(c * c, [[v, 2 * a]])) + '.', 'Six faces: ' + T('6\\times' + mono(c * c, [[v, 2 * a]]) + ' = ' + ans0) + '.']) };
+      }
+      if (kind === 1) { // tiles on a floor
+        var c1 = pick([2, 3, 4, 5]), a1 = ri(1, 3), b1 = ri(1, 2), t = ri(2, 12), u = ri(1, 4), w = ri(0, 3);
+        var side = mono(c1, [['x', a1], ['y', b1]]), tile = mono(c1 * c1, [['x', 2 * a1], ['y', 2 * b1]]), area = mono(c1 * c1 * t, [['x', 2 * a1 + u], ['y', 2 * b1 + w]]), ans1 = mono(t, [['x', u], ['y', w]]);
+        return { prompt: 'Square tiles of side length ' + T(side) + ' are used to cover the floor of the Ember Hall, which has an area of ' + T(area) + '. Write a simplified expression for the <b>number of tiles</b> needed.', type: 'expr', answers: [ans1], check: 'exact',
+          hint: 'First find the area of one tile (side squared). Then divide the floor area by the tile area.',
+          solution: steps(['Area of one tile: ' + T('\\left(' + side + '\\right)^{2} = ' + tile) + '.', 'Number of tiles: ' + T('\\dfrac{' + area + '}{' + tile + '} = ' + ans1) + '.']) };
+      }
+      var d = pick([1, 2, 3]), r = pick([2, 3, 4]), big = d * r, A = ri(3, 6), B = ri(1, A - 1), vv = pick(['k', 'x', 'm']);
+      var ans2 = mono(Math.pow(r, 3), [[vv, 3 * (A - B)]]);
+      return { prompt: 'A solid cube of edge ' + T(mono(big, [[vv, A]])) + ' is melted down and recast into small cubes of edge ' + T(mono(d, [[vv, B]])) + '. Write a simplified expression for the <b>number of small cubes</b>.', type: 'expr', answers: [ans2], check: 'exact',
+        hint: 'Find both volumes (edge cubed), then divide the big volume by the small volume.',
+        solution: steps(['Big volume: ' + T('\\left(' + mono(big, [[vv, A]]) + '\\right)^{3} = ' + mono(Math.pow(big, 3), [[vv, 3 * A]])) + '. Small volume: ' + T('\\left(' + mono(d, [[vv, B]]) + '\\right)^{3} = ' + mono(Math.pow(d, 3), [[vv, 3 * B]])) + '.', T('\\dfrac{' + mono(Math.pow(big, 3), [[vv, 3 * A]]) + '}{' + mono(Math.pow(d, 3), [[vv, 3 * B]]) + '} = ' + ans2) + '.']) };
     },
-    function () { // numeric: (3/4)^{-2} − 2^{-3}
-      var p = pick([2, 3, 4]), q = pick([3, 5, 7]); if (p === q) return L_MAS[4]();
-      var b = pick([2, 3, 4]), e2 = pick([1, 2]);
-      // (p/q)^-2 - b^-e2 = q^2/p^2 - 1/b^e2
-      var n1 = q * q, d1 = p * p, d2 = Math.pow(b, e2);
-      var N = n1 * d2 - d1, D = d1 * d2;
-      return { prompt: 'Evaluate <b>without a calculator</b>. Give an exact answer.<br>' + T('\\left(\\dfrac{' + p + '}{' + q + '}\\right)^{-2} - ' + b + '^{-' + e2 + '}'), type: 'num', answers: [frac(N, D)], tol: 0,
-        hint: 'Flip the fraction for the negative exponent, write ' + T(b + '^{-' + e2 + '}') + ' as a fraction, then subtract with a common denominator.',
-        solution: steps([T('\\left(\\dfrac{' + p + '}{' + q + '}\\right)^{-2} = \\dfrac{' + n1 + '}{' + d1 + '}') + ' and ' + T(b + '^{-' + e2 + '} = \\dfrac{1}{' + d2 + '}') + '.', T('\\dfrac{' + n1 + '}{' + d1 + '} - \\dfrac{1}{' + d2 + '} = \\dfrac{' + (n1 * d2) + ' - ' + d1 + '}{' + D + '} = ' + frac(N, D)) + '.']) };
+    function () { // negative-exponent chain: (c1 x^a y^b)^e1 ÷ (c2 x^p y^q)^e2, positive exponents (L3 Q10–11, EP03 Q7)
+      var e1 = pick([-2, -2, -3, 2]), e2 = pick([-1, -2]), c1 = Math.abs(e1) === 3 ? pick([2, -2]) : pick([2, 3, -2, -3]), c2 = Math.abs(e2) === 2 ? pick([2, 3]) : pick([2, 3, 4, 5, 6]);
+      function nz(lo, hi) { var k; do { k = ri(lo, hi); } while (k === 0); return k; }
+      var a = nz(-3, 4), b = nz(-4, 3), p = nz(-3, 3), q = nz(-3, 3), zero = Math.random() < 0.3;
+      var X = a * e1 - p * e2, Y = b * e1 - q * e2;
+      if (X === 0 || Y === 0 || (X > 0) === (Y > 0) || Math.abs(X) > 16 || Math.abs(Y) > 16) return L_MAS[4]();
+      var N = (e1 > 0 ? Math.pow(c1, e1) : (Math.abs(e1) % 2 && c1 < 0 ? -1 : 1)) * (e2 < 0 ? Math.pow(c2, -e2) : 1);
+      var D = (e1 < 0 ? Math.pow(Math.abs(c1), -e1) : 1) * (e2 > 0 ? Math.pow(c2, e2) : 1);
+      var ans = posForm(N, D, [['x', X], ['y', Y]]);
+      var b1 = mono(c1, [['x', a], ['y', b]]) + (zero ? 'z^{0}' : ''), b2 = mono(c2, [['x', p], ['y', q]]);
+      var expr = '\\dfrac{\\left(' + b1 + '\\right)^{' + e1 + '}}{\\left(' + b2 + '\\right)^{' + e2 + '}}';
+      var c1e = e1 > 0 ? String(Math.pow(c1, e1)) : (Math.abs(e1) % 2 && c1 < 0 ? '-' : '') + '\\frac{1}{' + Math.pow(Math.abs(c1), -e1) + '}';
+      return { prompt: 'Simplify. Write the answer with <b>positive exponents only</b>.<br>' + T(expr), type: 'expr', answers: ans, check: 'exact',
+        hint: 'Apply each outside exponent to every factor in its bracket (multiply exponents, keep track of signs). Then divide: subtract exponents base by base. Move negative exponents across the fraction bar last.',
+        solution: steps([(zero ? T('z^{0} = 1') + '. ' : '') + 'Top: ' + T('\\left(' + mono(c1, [['x', a], ['y', b]]) + '\\right)^{' + e1 + '} = ' + c1e + '\\,x^{' + a * e1 + '}y^{' + b * e1 + '}') + '.', 'Bottom: ' + T('\\left(' + b2 + '\\right)^{' + e2 + '} = ' + powVal(c2, e2) + '\\,x^{' + p * e2 + '}y^{' + q * e2 + '}') + '.', 'Divide (subtract exponents): ' + T('x^{' + sub(a * e1, p * e2) + '} = ' + pw('x', X)) + ', ' + T('y^{' + sub(b * e1, q * e2) + '} = ' + pw('y', Y)) + '; coefficient ' + T(negForm(N, D, [])) + '.', T(negForm(N, D, [['x', X], ['y', Y]]) + ' = ' + ans[0]) + '.']) };
     }
   ];
 
@@ -161,22 +249,40 @@
       return { prompt: 'Write ' + T(shown) + ' in <b>scientific notation</b>.', type: 'expr', answers: [sci(m, big ? e : -e)], check: 'exact',
         note: 'Type it as a × 10^n, with × between.',
         hint: 'Put the decimal point after the first non-zero digit, then count how many places it moved. Left means a positive exponent; right means negative.',
-        solution: steps(['First non-zero digit: the mantissa is ' + T(m) + '.', 'The decimal point moves ' + e + ' places ' + (big ? 'left, so the exponent is +' + e : 'right, so the exponent is −' + e) + ': ' + T(sci(m, big ? e : -e)) + '.']) };
+        solution: steps(['First non-zero digit: the coefficient is ' + T(m) + '.', 'The decimal point moves ' + e + ' places ' + (big ? 'left, so the exponent is +' + e : 'right, so the exponent is −' + e) + ': ' + T(sci(m, big ? e : -e)) + '.']) };
     },
-    function () { // scientific -> standard
-      var m = ri(11, 99) / 10, e = pick([-4, -3, -2, 3, 4, 5]);
-      var val = m * Math.pow(10, e), txt = e > 0 ? String(Math.round(val)) : val.toFixed(-e + 1).replace(/0+$/, '');
-      return { prompt: 'Write ' + T(sci(m, e)) + ' as an ordinary number.', type: 'num', answers: [txt], tol: 0,
-        hint: 'A positive exponent moves the decimal point to the right; a negative one moves it left.',
-        solution: steps(['Move the decimal point ' + Math.abs(e) + ' places to the ' + (e > 0 ? 'right' : 'left') + ', filling with zeros.', T(sci(m, e) + ' = ' + txt) + '.']) };
+    function () { // coefficient out of range -> proper scientific notation, or find the exponent (L4 Q10, EP04 Q4–5)
+      var dp = Math.random() < 0.5 ? 1 : 2, m = dp === 1 ? ri(11, 99) / 10 : ri(101, 999) / 100; if (nice(m, dp - 1)) return R_BEG[1]();
+      var s = pick([-3, -2, -1, 1, 2, 3]), k = ri(-9, 9); if (k === 0) k = 4;
+      var n = s + k; if (n === 0 || n === 1) return R_BEG[1]();
+      var shown = (m * Math.pow(10, s)).toFixed(Math.max(0, dp - s)), bad = sci(shown, k);
+      var why = 'The coefficient ' + T(shown) + ' is ' + (s > 0 ? 'too big' : 'less than 1') + '. Moving its decimal point ' + Math.abs(s) + ' place' + (Math.abs(s) > 1 ? 's' : '') + ' to the ' + (s > 0 ? 'left' : 'right') + ' gives ' + T(m) + ', so the exponent must go ' + (s > 0 ? 'up' : 'down') + ' by ' + Math.abs(s) + ' to keep the value the same.';
+      if (Math.random() < 0.5)
+        return { prompt: T(bad) + ' is <b>not</b> in scientific notation. Rewrite it correctly, with ' + T('1 \\le a < 10') + '.', type: 'expr', answers: [sci(m, n)], check: 'exact',
+          note: 'Type it as a × 10^n, with × between.',
+          hint: 'Fix the coefficient first. Each place you move its decimal point to the left adds 1 to the exponent; each place to the right subtracts 1.',
+          solution: steps([why, T(k + (s > 0 ? ' + ' : ' - ') + Math.abs(s) + ' = ' + n) + ', so ' + T(bad + ' = ' + sci(m, n)) + '.']) };
+      return { prompt: 'Find the value of ' + T('n') + ':<br>' + T(bad + ' = ' + sci(m, 'n')), type: 'num', answers: [String(n)], tol: 0,
+        hint: 'Compare the two coefficients: how many places did the decimal point move, and which way? Each place left adds 1 to the exponent.',
+        solution: steps([why, T('n = ' + k + (s > 0 ? ' + ' : ' - ') + Math.abs(s) + ' = ' + n) + '.']) };
     },
-    function () { // evaluate a rational exponent
-      var base = pick([[4, 2], [9, 3], [16, 4], [25, 5], [36, 6], [49, 7], [64, 8], [81, 9], [100, 10], [8, 2, 3], [27, 3, 3], [64, 4, 3], [125, 5, 3], [32, 2, 5]]);
-      var n = base[2] || 2, root = base[1], m = pick([1, 2, 3]); if (m === n) m = 1;
-      var val = Math.pow(root, m);
-      return { prompt: 'Evaluate <b>without a calculator</b>: ' + T(base[0] + '^{' + fracExp(m, n) + '}'), type: 'num', answers: [String(val)], tol: 0,
-        hint: 'The denominator is the root, the numerator is the power: take the ' + (n === 2 ? 'square' : n === 3 ? 'cube' : n + 'th') + ' root first, then raise it to the power ' + m + '.',
-        solution: steps([T(rootTex(n, base[0]) + ' = ' + root) + '.', T(base[0] + '^{' + fracExp(m, n) + '} = ' + powTex(root, m) + (m === 1 ? '' : ' = ' + val)) + '.']) };
+    function () { // one exponent law with rational exponents -> single power (L5 Ex7, Q14)
+      var v = pick(['x', 'y', 'a', 'w']), kind = ri(0, 3), d = pick([2, 3, 4, 5, 6]), a, b, E, expr, sol;
+      do { a = ri(1, 2 * d + 1); } while (gcd(a, d) !== 1);
+      if (kind === 0) { do { b = ri(1, 2 * d); } while (gcd(b, d) !== 1); E = rat(a + b, d);
+        expr = pwR(v, a, d) + '\\cdot ' + pwR(v, b, d); sol = 'Same base, multiplying: add the exponents. ' + T(expTex(a, d) + ' + ' + expTex(b, d) + ' = \\frac{' + (a + b) + '}{' + d + '}' + (E[1] !== d ? ' = ' + expTex(E[0], E[1]) : '')) + '.'; }
+      else if (kind === 1) { var w = ri(1, 3); E = rat(a + w * d, d);
+        expr = pwR(v, a, d) + '\\times ' + pw(v, w); sol = 'Same base, multiplying: add the exponents. ' + T(expTex(a, d) + ' + ' + w + ' = \\frac{' + a + '}{' + d + '} + \\frac{' + w * d + '}{' + d + '} = ' + expTex(E[0], E[1])) + '.'; }
+      else if (kind === 2) { a += d; do { b = ri(1, a - 1); } while (gcd(b, d) !== 1); E = rat(a - b, d);
+        expr = pwR(v, a, d) + '\\div ' + pwR(v, b, d); sol = 'Same base, dividing: subtract the exponents. ' + T(expTex(a, d) + ' - ' + expTex(b, d) + ' = \\frac{' + (a - b) + '}{' + d + '}' + (E[1] !== d ? ' = ' + expTex(E[0], E[1]) : '')) + '.'; }
+      else { var c = pick([2, 3, 4, 5]); if (c === d) c = d + 1; var cf = Math.random() < 0.5 ? [c, 1] : [d, pick([2, 3, 5].filter(function (z) { return z !== a; }))];
+        E = rat(a * cf[0], d * cf[1]); var outer = expTex(cf[0], cf[1]);
+        expr = '\\left(' + pwR(v, a, d) + '\\right)^{' + outer + '}'; sol = 'A power of a power: multiply the exponents. ' + T(expTex(a, d) + '\\times ' + outer + ' = ' + expTex(E[0], E[1])) + '.'; }
+      if (E[0] === E[1]) return R_BEG[2]();
+      var ans = pwR(v, E[0], E[1]);
+      return { prompt: 'Simplify. Write the answer as a <b>single power</b>.<br>' + T(expr), type: 'expr', answers: [ans], check: 'exact',
+        hint: 'The exponent laws work the same way with fractions: multiplying adds exponents, dividing subtracts them, and a power of a power multiplies them.',
+        solution: steps([sol, T(expr + ' = ' + ans) + '.']) };
     },
     function () { // radical -> power
       var v = pick(['x', 'y', 'a']), n = pick([2, 3, 4, 5]), m = pick([1, 2, 3, 5]); if (gcd(m, n) !== 1) return R_BEG[3]();
@@ -189,7 +295,7 @@
       var v = pick(['x', 'w', 'k']), n = pick([2, 3, 4]), m = pick([1, 3, 5]); if (gcd(m, n) !== 1) return R_BEG[4]();
       var inner = m === 1 ? v : v + '^{' + m + '}', rad = n === 2 ? '\\sqrt{' + inner + '}' : '\\sqrt[' + n + ']{' + inner + '}';
       var alt = n === 2 ? '(\\sqrt{' + v + '})^{' + m + '}' : '(\\sqrt[' + n + ']{' + v + '})^{' + m + '}';
-      return { prompt: 'Write ' + T(v + '^{' + fracExp(m, n) + '}') + ' in <b>radical form</b>.', type: 'expr', answers: [rad, alt], check: 'exact',
+      return { prompt: 'Write ' + T(v + '^{' + fracExp(m, n) + '}') + ' in <b>radical form</b>.', type: 'expr', answers: m > 1 ? [rad, alt] : [rad], check: 'exact',
         note: 'Use √ or ∛ on the keypad; for other roots type e.g. sqrt[4](x).',
         hint: 'Denominator = index of the root, numerator = power of the radicand.',
         solution: steps([T(v + '^{' + fracExp(m, n) + '} = ' + rad) + (m > 1 ? ' (or ' + T(alt) + ')' : '') + '.']) };
@@ -197,31 +303,46 @@
   ];
 
   var R_PRG = [
-    function () { // (16/81)^{-3/4}
-      var pair = pick([[16, 81, 2, 3, 4], [8, 27, 2, 3, 3], [4, 9, 2, 3, 2], [25, 4, 5, 2, 2], [27, 64, 3, 4, 3], [16, 25, 4, 5, 2], [32, 243, 2, 3, 5]]);
-      var m = pick([1, 2, 3]); if (m === pair[4]) m = 1;
-      var a = pair[0], b = pair[1], ra = pair[2], rb = pair[3], n = pair[4];
-      // (a/b)^{-m/n} = (b/a)^{m/n} = rb^m / ra^m
-      return { prompt: 'Evaluate <b>without a calculator</b>: ' + T('\\left(\\dfrac{' + a + '}{' + b + '}\\right)^{-' + fracExp(m, n) + '}'), type: 'num', answers: ['\\frac{' + Math.pow(rb, m) + '}{' + Math.pow(ra, m) + '}'], tol: 0,
-        hint: 'Negative exponent: flip the fraction. Then root first (denominator), power second (numerator).',
-        solution: steps([T('\\left(\\dfrac{' + a + '}{' + b + '}\\right)^{-' + fracExp(m, n) + '} = \\left(\\dfrac{' + b + '}{' + a + '}\\right)^{' + fracExp(m, n) + '}') + '.', T(rootTex(n, b) + ' = ' + rb + ',\\ ' + rootTex(n, a) + ' = ' + ra) + ', so the value is ' + T('\\dfrac{' + powTex(rb, m) + '}{' + powTex(ra, m) + '} = \\dfrac{' + Math.pow(rb, m) + '}{' + Math.pow(ra, m) + '}') + '.']) };
+    function () { // (16x^8)^{-3/4} or (16x^8 / y^4)^{-3/4}, positive exponents (EP05 Q16, L5 Ex7)
+      var pair = pick([[16, 2, 4], [8, 2, 3], [27, 3, 3], [9, 3, 2], [25, 5, 2], [4, 2, 2], [64, 4, 3], [32, 2, 5], [81, 3, 4], [49, 7, 2], [36, 6, 2], [125, 5, 3]]);
+      var C = pair[0], r = pair[1], n = pair[2], m = pick([1, 2, 3]); if (gcd(m, n) !== 1 || Math.pow(r, m) > 150) m = 1;
+      var v = pick(['x', 'a', 'm']), w = v === 'x' ? 'y' : v === 'a' ? 'b' : 'n', k = n * ri(1, 3), j = n * ri(1, 2), two = Math.random() < 0.5;
+      var inner = two ? '\\dfrac{' + C + pw(v, k) + '}{' + pw(w, j) + '}' : C + pw(v, k), ex = fracExp(m, n);
+      var vars = two ? [[w, j * m / n], [v, -k * m / n]] : [[v, -k * m / n]], ans = posForm(1, Math.pow(r, m), vars);
+      return { prompt: 'Simplify. Write the answer with <b>positive exponents only</b>.<br>' + T('\\left(' + inner + '\\right)^{-' + ex + '}'), type: 'expr', answers: ans, check: 'exact',
+        hint: 'Apply the exponent ' + T('-' + ex) + ' to every factor: the number (root, then power), and each variable (multiply exponents). A negative exponent then sends that factor to the other side of the fraction bar.',
+        solution: steps([T(C + '^{-' + ex + '} = \\dfrac{1}{' + (m === 1 ? rootTex(n, C) : '\\left(' + rootTex(n, C) + '\\right)^{' + m + '}') + '} = \\dfrac{1}{' + Math.pow(r, m) + '}') + '.', T('\\left(' + pw(v, k) + '\\right)^{-' + ex + '} = ' + v + '^{-' + (k * m / n) + '}') + (two ? ' and ' + T('\\left(' + pw(w, j) + '\\right)^{-' + ex + '}') + ' in the denominator becomes ' + T(pw(w, j * m / n)) + ' on top' : '') + '.', T('= ' + ans[0]) + '.']) };
     },
-    function () { // multiply / divide in scientific notation
-      var m1 = pick([1.5, 2, 2.5, 3, 4, 5, 6, 8]), m2 = pick([2, 3, 4, 5]), e1 = ri(-6, 8), e2 = ri(-4, 7), div = Math.random() < 0.4;
-      var mant = div ? m1 / m2 : m1 * m2, e = div ? e1 - e2 : e1 + e2;
-      if (div && Math.round(mant * 100) !== mant * 100) return R_PRG[1]();
-      var k = 0; while (mant >= 10) { mant /= 10; k++; } while (mant < 1) { mant *= 10; k--; }
-      mant = Math.round(mant * 1000) / 1000; e += k;
-      return { prompt: 'Evaluate <b>without a calculator</b>. Write the answer in <b>scientific notation</b>.<br>' + T((div ? '\\dfrac{' + sci(m1, e1) + '}{' + sci(m2, e2) + '}' : '\\left(' + sci(m1, e1) + '\\right)\\left(' + sci(m2, e2) + '\\right)')), type: 'expr', answers: [sci(num(mant), e)], check: 'exact',
-        note: 'Type it as a × 10^n, with × between.',
-        hint: (div ? 'Divide the mantissas and subtract the exponents.' : 'Multiply the mantissas and add the exponents.') + ' Then adjust so the mantissa is between 1 and 10.',
-        solution: steps([(div ? T(m1 + '\\div' + m2 + ' = ' + num(m1 / m2)) + ' and ' + T('10^{' + e1 + '}\\div10^{' + e2 + '} = 10^{' + (e1 - e2) + '}') : T(m1 + '\\times' + m2 + ' = ' + num(m1 * m2)) + ' and ' + T('10^{' + e1 + '}\\times10^{' + e2 + '} = 10^{' + (e1 + e2) + '}')) + '.', (k === 0 ? 'The mantissa is already between 1 and 10: ' : 'Rewrite the mantissa between 1 and 10 (' + (k > 0 ? 'move the point left, add ' + k : 'move the point right, subtract ' + (-k)) + '): ') + T(sci(num(mant), e)) + '.']) };
+    function () { // one-step scientific-notation context: the set-up is the point (L4 Q15, L6 Ex8, EP04 Q14–16)
+      var kind = ri(0, 2), ans, prompt, sol, hint;
+      if (kind === 0) { // total mass = mass of one × count
+        var m1 = pick([1.2, 1.5, 2, 2.5, 3, 4, 4.5, 6, 8, 9.5]), e1 = ri(-14, -6), m2 = pick([2, 3, 4, 5, 6, 8]), e2 = ri(6, 14);
+        ans = nrm(m1 * m2, e1 + e2); if (ans[1] >= -1 && ans[1] <= 1) return R_PRG[1]();
+        prompt = 'A single ash mote from the Ember Peaks has a mass of ' + T(sci(m1, e1) + '\\text{ g}') + '. One plume carries ' + T(sci(m2, e2)) + ' motes. What is the total mass of ash in the plume, in grams?';
+        hint = 'Total mass = mass of one mote × number of motes.';
+        sol = [T('(' + sci(m1, e1) + ')(' + sci(m2, e2) + ') = ' + num(m1 * m2) + '\\times10^{' + (e1 + e2) + '}') + '.', 'In scientific notation: ' + T(sci(num(ans[0]), ans[1])) + ' g.'];
+      } else if (kind === 1) { // time = distance ÷ speed
+        var a = pick([1.2, 1.5, 2, 2.4, 3, 4, 5, 6, 8]), n = ri(2, 6), dist = nrm(a * 3, n + 8);
+        ans = [a, n];
+        prompt = 'A message-rune travels at the speed of light, ' + T('3\\times10^{8}\\text{ m/s}') + '. How many seconds does it take to reach a scrying probe ' + T(sci(num(dist[0]), dist[1]) + '\\text{ m}') + ' away?';
+        hint = 'Time = distance ÷ speed.';
+        sol = [T('t = \\dfrac{' + sci(num(dist[0]), dist[1]) + '}{3\\times10^{8}} = ' + num(dist[0] / 3) + '\\times10^{' + (dist[1] - 8) + '}') + '.', 'In scientific notation: ' + T(sci(a, n)) + ' s.'];
+      } else { // how many thin sheets make a stack
+        var t = pick([[8, -5], [4, -4], [5, -5], [2.5, -4], [1.6, -3], [9.2, -6], [6.4, -5], [2, -5]]), A = pick([2, 2.5, 4, 5, 1.5, 3, 6, 8]), c = ri(2, 6), h = nrm(A * t[0], t[1] + c);
+        if (!nice(h[0], 2) || h[1] < -1 || h[1] > 1) return R_PRG[1]();
+        ans = nrm(A, c);
+        prompt = 'Each sheet of gold leaf in the Furnace King\'s vault is ' + T(sci(t[0], t[1]) + '\\text{ m}') + ' thick. How many sheets make a stack ' + T(stdTex(h[0], h[1]) + '\\text{ m}') + ' high?';
+        hint = 'Number of sheets = total height ÷ thickness of one sheet. Write the height in scientific notation first.';
+        sol = [T(stdTex(h[0], h[1]) + ' = ' + sci(num(h[0]), h[1])) + '.', T('\\dfrac{' + sci(num(h[0]), h[1]) + '}{' + sci(t[0], t[1]) + '} = ' + num(h[0] / t[0]) + '\\times10^{' + (h[1] - t[1]) + '}') + '.', 'In scientific notation: ' + T(sci(num(ans[0]), ans[1])) + ' sheets.'];
+      }
+      return { prompt: prompt + ' Answer in <b>scientific notation</b> (number only).', type: 'expr', answers: [sci(num(ans[0]), ans[1])], check: 'exact',
+        note: 'Type it as a × 10^n, with × between.', hint: hint + ' Then make sure the coefficient is between 1 and 10.', solution: steps(sol) };
     },
     function () { // power with negative rational exponent -> radical
       var v = pick(['w', 'x', 'a']), n = pick([2, 3, 4]), m = pick([1, 2, 3]); if (gcd(m, n) !== 1) return R_PRG[2]();
       var inner = m === 1 ? v : v + '^{' + m + '}', rad = n === 2 ? '\\sqrt{' + inner + '}' : '\\sqrt[' + n + ']{' + inner + '}';
       var alt = n === 2 ? '(\\sqrt{' + v + '})^{' + m + '}' : '(\\sqrt[' + n + ']{' + v + '})^{' + m + '}';
-      return { prompt: 'Write ' + T(v + '^{-' + fracExp(m, n) + '}') + ' in <b>radical form</b> with a positive exponent.', type: 'expr', answers: ['\\frac{1}{' + rad + '}', '\\frac{1}{' + alt + '}'], check: 'exact',
+      return { prompt: 'Write ' + T(v + '^{-' + fracExp(m, n) + '}') + ' in <b>radical form</b> with a positive exponent.', type: 'expr', answers: m > 1 ? ['\\frac{1}{' + rad + '}', '\\frac{1}{' + alt + '}'] : ['\\frac{1}{' + rad + '}'], check: 'exact',
         note: 'Use √ or ∛ on the keypad; for other roots type e.g. sqrt[4](x).',
         hint: 'Negative exponent means reciprocal: 1 over the power. Then turn the positive rational exponent into a root.',
         solution: steps([T(v + '^{-' + fracExp(m, n) + '} = \\dfrac{1}{' + v + '^{' + fracExp(m, n) + '}}') + '.', T('= \\dfrac{1}{' + rad + '}') + '.']) };
@@ -235,56 +356,151 @@
         hint: 'Convert each radical to a rational exponent, multiply the coefficients, and add the exponents with a common denominator.',
         solution: steps([T(rad(n1, m1) + ' = ' + v + '^{' + fracExp(m1, n1) + '}') + ' and ' + T(rad(n2, m2) + ' = ' + v + '^{' + fracExp(m2, n2) + '}') + '.', T(c1 + '\\times' + c2 + ' = ' + c1 * c2) + ' and ' + T(fracExp(m1, n1) + ' + ' + fracExp(m2, n2) + ' = ' + fracExp(N, D)) + '.', T('= ' + (c1 * c2) + v + '^{' + fracExp(N, D) + '}') + '.']) };
     },
-    function () { // evaluate a negative rational exponent on a whole number
-      var base = pick([[8, 2, 3], [27, 3, 3], [16, 2, 4], [32, 2, 5], [9, 3, 2], [25, 5, 2], [64, 4, 3], [49, 7, 2]]);
-      var m = pick([1, 2, 3]); if (m === base[2]) m = 1; var val = Math.pow(base[1], m);
-      return { prompt: 'Evaluate <b>without a calculator</b>: ' + T(base[0] + '^{-' + fracExp(m, base[2]) + '}'), type: 'num', answers: ['\\frac{1}{' + val + '}'], tol: 0,
-        hint: 'Negative: take the reciprocal. Rational: root first (' + base[2] + 'th root of ' + base[0] + '), then the power.',
-        solution: steps([T(rootTex(base[2], base[0]) + ' = ' + base[1]) + ', so ' + T(base[0] + '^{' + fracExp(m, base[2]) + '} = ' + powTex(base[1], m) + (m === 1 ? '' : ' = ' + val)) + '.', T(base[0] + '^{-' + fracExp(m, base[2]) + '} = \\dfrac{1}{' + val + '}') + '.']) };
+    function () { // working backwards: the missing exponent with rational exponents (EP06 Q9)
+      var v = pick(['x', 'y', 'a', 'w', 'b']), kind = ri(0, 3), N, D, eq, work;
+      if (kind === 0) { // (v^{a/b})^k = v^c  or  1/v^c
+        var ab = pick([[1, 2], [2, 3], [3, 2], [3, 4], [2, 5], [4, 3], [1, 3], [5, 2]]), c = ri(1, 8), inv = Math.random() < 0.3;
+        N = (inv ? -1 : 1) * c * ab[1]; D = ab[0];
+        eq = '\\left(' + pwR(v, ab[0], ab[1]) + '\\right)^{k} = ' + (inv ? '\\dfrac{1}{' + pw(v, c) + '}' : pw(v, c));
+        work = 'Power of a power: ' + T(expTex(ab[0], ab[1]) + '\\cdot k = ' + (inv ? '-' : '') + c) + (inv ? ' (because ' + T('\\dfrac{1}{' + pw(v, c) + '} = ' + v + '^{-' + c + '}') + ')' : '') + ', so ' + T('k = ' + (inv ? '-' : '') + c + '\\times' + expTex(ab[1], ab[0])) + '.';
+      } else if (kind === 1) { // v^{a/b} · v^k = v^c
+        var b1 = pick([2, 3, 4, 5]), a1; do { a1 = ri(1, 2 * b1 + 1); } while (gcd(a1, b1) !== 1); var c1 = ri(1, 6);
+        N = c1 * b1 - a1; D = b1; if (N === 0) return R_PRG[4]();
+        eq = pwR(v, a1, b1) + '\\cdot ' + v + '^{k} = ' + pw(v, c1);
+        work = 'Product law: ' + T(expTex(a1, b1) + ' + k = ' + c1) + ', so ' + T('k = ' + c1 + ' - ' + expTex(a1, b1)) + '.';
+      } else if (kind === 2) { // v^{a/b} ÷ v^k = ⁿ√v
+        var b2 = pick([2, 3, 4, 5]), a2; do { a2 = ri(2, 3 * b2); } while (gcd(a2, b2) !== 1);
+        N = a2 - 1; D = b2;
+        eq = '\\dfrac{' + pwR(v, a2, b2) + '}{' + v + '^{k}} = ' + rootTex(b2, v);
+        work = T(rootTex(b2, v) + ' = ' + pwR(v, 1, b2)) + '. Quotient law: ' + T(expTex(a2, b2) + ' - k = ' + expTex(1, b2)) + ', so ' + T('k = \\frac{' + a2 + '}{' + b2 + '} - \\frac{1}{' + b2 + '}') + '.';
+      } else { // (ⁿ√(v^k))^m = v^c
+        var n3 = pick([3, 4, 5]), m3 = pick([2, 3]); if (m3 === n3) m3 = 2; var c3 = ri(2, 9);
+        N = c3 * n3; D = m3;
+        eq = '\\left(' + rootTex(n3, v + '^{k}') + '\\right)^{' + m3 + '} = ' + pw(v, c3);
+        work = T(rootTex(n3, v + '^{k}') + ' = ' + v + '^{\\frac{k}{' + n3 + '}}') + ', so the left side is ' + T(v + '^{\\frac{' + m3 + 'k}{' + n3 + '}}') + '. Match exponents: ' + T('\\frac{' + m3 + 'k}{' + n3 + '} = ' + c3) + ', so ' + T('k = \\frac{' + c3 * n3 + '}{' + m3 + '}') + '.';
+      }
+      var r = rat(N, D), ans = frac(r[0], r[1]);
+      return { prompt: 'Find the value of ' + T('k') + '. Give an exact answer (a fraction is fine).<br>' + T(eq), type: 'num', answers: [ans], tol: r[1] === 1 ? 0 : 0.01,
+        hint: 'Write everything as powers of ' + T(v) + ' with rational exponents, simplify the left side with the exponent laws, then set the exponents equal.',
+        solution: steps([work, T('k = ' + ans) + '.']) };
     }
   ];
 
   var R_MAS = [
-    function () { // sheets in a stack: division in scientific notation
-      var t = pick([[8, -5], [4, -4], [5, -5], [2.5, -4], [1.6, -3]]), h = pick([1.2, 2.4, 3.2, 4.8, 6.4, 0.8]);
-      var n = h / (t[0] * Math.pow(10, t[1])), mant = n, e = 0; while (mant >= 10) { mant /= 10; e++; } mant = Math.round(mant * 1000) / 1000;
-      if (Math.abs(n - Math.round(n)) > 1e-6) return R_MAS[0]();
-      var ctx = pick(['Each sheet of vellum in the Ember Archive is ' + T(sci(t[0], t[1]) + '\\text{ m}') + ' thick. How many sheets make a stack ' + T(h + '\\text{ m}') + ' high?', 'A soot particle is ' + T(sci(t[0], t[1]) + '\\text{ m}') + ' across. How many of them, side by side, would stretch ' + T(h + '\\text{ m}') + '?']);
-      return { prompt: ctx + ' Answer in <b>scientific notation</b>.', type: 'expr', answers: [sci(num(mant), e)], check: 'exact',
-        note: 'Type it as a × 10^n, with × between.',
-        hint: 'Divide the total by the size of one. Write the total in scientific notation first so you can subtract exponents.',
-        solution: steps([T(h + ' = ' + sci(h, 0)) + '.', T('\\dfrac{' + sci(h, 0) + '}{' + sci(t[0], t[1]) + '} = \\dfrac{' + h + '}{' + t[0] + '}\\times10^{0-(' + t[1] + ')} = ' + num(h / t[0]) + '\\times10^{' + (-t[1]) + '}') + '.', 'Adjust the mantissa: ' + T(sci(num(mant), e)) + ' sheets.']) };
+    function () { // two-step scientific-notation context (EP04 Q14–16, EP06 Q12, L6 Q17)
+      var kind = ri(0, 2), ans, prompt, sol, hint;
+      if (kind === 0) { // round trip of a signal: 2d ÷ c
+        var a = pick([2, 4, 6, 8, 1.2, 1.6, 2.4, 3.2, 4.8, 6.4]), n = ri(2, 6), d = nrm(1.5 * a, n + 8);
+        ans = [a, n];
+        prompt = 'A message-rune travels at ' + T('3\\times10^{8}\\text{ m/s}') + '. It is sent to a scrying probe ' + T(sci(num(d[0]), d[1]) + '\\text{ m}') + ' away, and the reply comes straight back. How many seconds does the <b>round trip</b> take?';
+        hint = 'The rune covers the distance twice. Total distance ÷ speed.';
+        var tot = nrm(2 * d[0], d[1]);
+        sol = ['Round-trip distance: ' + T('2\\times' + sci(num(d[0]), d[1]) + ' = ' + sci(num(tot[0]), tot[1])) + ' m.', 'Time: ' + T('\\dfrac{' + sci(num(tot[0]), tot[1]) + '}{3\\times10^{8}} = ' + num(tot[0] / 3) + '\\times10^{' + (tot[1] - 8) + '}') + '.', 'In scientific notation: ' + T(sci(a, n)) + ' s.'];
+      } else if (kind === 1) { // sheets bound into tomes; tomes stacked to a height
+        var t = pick([[8, -5], [4, -4], [5, -5], [2.5, -4], [1.6, -4], [6.4, -5], [2, -5], [1.2, -4]]), per = pick([200, 250, 400, 500, 800]), A = pick([1.5, 2, 2.5, 3, 4, 5, 6, 8]), c = ri(2, 4);
+        var tome = nrm(t[0] * per, t[1]), H = nrm(A * tome[0], tome[1] + c);
+        if (!nice(H[0], 2) || !nice(tome[0], 3) || H[1] < -1 || H[1] > 3) return R_MAS[0]();
+        ans = nrm(A, c);
+        prompt = 'Each sheet of vellum in the Ember Archive is ' + T(sci(t[0], t[1]) + '\\text{ m}') + ' thick, and the scribes bind ' + T(per) + ' sheets into each tome. How many tomes, stacked flat, make a column ' + T(stdTex(H[0], H[1]) + '\\text{ m}') + ' tall?';
+        hint = 'First find the thickness of one tome (sheets × thickness of a sheet). Then divide the height of the column by the thickness of one tome.';
+        sol = ['One tome: ' + T(per + '\\times' + sci(t[0], t[1]) + ' = ' + sci(num(tome[0]), tome[1])) + ' m.', 'Column: ' + T(stdTex(H[0], H[1]) + ' = ' + sci(num(H[0]), H[1])) + ', and ' + T('\\dfrac{' + sci(num(H[0]), H[1]) + '}{' + sci(num(tome[0]), tome[1]) + '} = ' + num(H[0] / tome[0]) + '\\times10^{' + (H[1] - tome[1]) + '}') + '.', 'In scientific notation: ' + T(sci(num(ans[0]), ans[1])) + ' tomes.'];
+      } else { // spores: colony mass, then how many colonies make M kg
+        var m1 = pick([1.5, 2, 2.5, 4, 5, 8]), e1 = ri(-14, -9), m2 = pick([2, 4, 5, 8]), e2 = ri(5, 8), M = pick([1, 2, 3, 4, 5, 6]);
+        var col = nrm(m1 * m2, e1 + e2), raw = nrm(M / col[0], 3 - col[1]);
+        if (!nice(raw[0], 2) || !nice(col[0], 2) || raw[1] < 2) return R_MAS[0]();
+        ans = raw;
+        prompt = 'One fire-spore has a mass of ' + T(sci(m1, e1) + '\\text{ g}') + ', and one colony holds ' + T(sci(m2, e2)) + ' spores. How many colonies have a combined mass of ' + T(M + '\\text{ kg}') + '? (' + T('1\\text{ kg} = 1000\\text{ g}') + ')';
+        hint = 'Step 1: mass of one colony = mass of a spore × number of spores. Step 2: change kilograms to grams, then divide by the mass of one colony.';
+        sol = ['One colony: ' + T('(' + sci(m1, e1) + ')(' + sci(m2, e2) + ') = ' + sci(num(col[0]), col[1])) + ' g.', T(M + '\\text{ kg} = ' + sci(M, 3) + '\\text{ g}') + '.', T('\\dfrac{' + sci(M, 3) + '}{' + sci(num(col[0]), col[1]) + '} = ' + num(M / col[0]) + '\\times10^{' + (3 - col[1]) + '}') + '.', 'In scientific notation: ' + T(sci(num(ans[0]), ans[1])) + ' colonies.'];
+      }
+      return { prompt: prompt + ' Answer in <b>scientific notation</b> (number only).', type: 'expr', answers: [sci(num(ans[0]), ans[1])], check: 'exact',
+        note: 'Type it as a × 10^n, with × between.', hint: hint, solution: steps(sol) };
     },
-    function () { // p^{3/2} − q^{-2/3} numeric
-      var p = pick([4, 9, 16, 25, 36]), q = pick([-8, 8, 27, -27, 64]);
-      var A = Math.pow(Math.sqrt(p), 3), B = 1 / Math.pow(Math.cbrt(q), 2), ans = A - B;
-      return { prompt: 'If ' + T('p = ' + p) + ' and ' + T('q = ' + q) + ', evaluate ' + T('p^{\\frac{3}{2}} - q^{-\\frac{2}{3}}') + '. Give an exact answer (a fraction or a decimal).', type: 'num', answers: [num(ans)], tol: 0.001,
-        hint: 'Root first, power second, and a negative exponent means reciprocal. Cube roots of negatives are negative, but squaring removes the sign.',
-        solution: steps([T('p^{\\frac{3}{2}} = (\\sqrt{' + p + '})^{3} = ' + Math.sqrt(p) + '^{3} = ' + A) + '.', T('q^{-\\frac{2}{3}} = \\dfrac{1}{(\\sqrt[3]{' + q + '})^{2}} = \\dfrac{1}{(' + Math.cbrt(q) + ')^{2}} = \\dfrac{1}{' + Math.pow(Math.cbrt(q), 2) + '}') + '.', T(A + ' - \\dfrac{1}{' + Math.pow(Math.cbrt(q), 2) + '} = ' + num(ans)) + '.']) };
+    function () { // every law at once: rational AND negative exponents, positive-exponent answer (EP06 Q1–2)
+      var x = 'x', y = 'y', ans, expr, sol;
+      if (Math.random() < 0.55) { // (C x^a y^b)^{±m/n}  ÷ or ·  D x^p y^q
+        var pair = pick([[4, 2, 2], [9, 3, 2], [16, 4, 2], [25, 5, 2], [8, 2, 3], [27, 3, 3], [64, 4, 3], [16, 2, 4], [81, 3, 4]]);
+        var C = pair[0], r = pair[1], n = pair[2], m = pick([1, 2, 3]); if (gcd(m, n) !== 1 || Math.pow(r, m) > 64) m = 1;
+        var sm = Math.random() < 0.35 ? -1 : 1, a = n * pick([-2, -1, 1, 2, 3]), b = n * pick([-3, -2, -1, 1, 2]), Dc = pick([2, 3, 4, 6, 8, 9]);
+        var p = pick([-3, -2, -1, 1, 2, 3]), q = pick([-3, -2, -1, 1, 2, 3]), ax = sm * a * m / n, by = sm * b * m / n, rm = Math.pow(r, m);
+        var X, Y, cn, cd, op;
+        if (sm > 0) { X = ax - p; Y = by - q; cn = rm; cd = Dc; op = 'div'; } else { X = ax + p; Y = by + q; cn = Dc; cd = rm; op = 'mul'; }
+        if (X === 0 || Y === 0 || (X > 0) === (Y > 0) || Math.abs(X) > 15 || Math.abs(Y) > 15) return R_MAS[1]();
+        var ex = (sm < 0 ? '-' : '') + fracExp(m, n), br = '\\left(' + C + pw(x, a) + pw(y, b) + '\\right)^{' + ex + '}', other = Dc + pw(x, p) + pw(y, q);
+        expr = op === 'div' ? '\\dfrac{' + br + '}{' + other + '}' : br + '\\cdot ' + other;
+        ans = posForm(cn, cd, [[x, X], [y, Y]]);
+        sol = ['Apply ' + T(ex) + ' to each factor: ' + T(C + '^{' + ex + '} = ' + (sm > 0 ? rm : '\\frac{1}{' + rm + '}')) + ', ' + T('\\left(' + x + '^{' + a + '}\\right)^{' + ex + '} = ' + x + '^{' + ax + '}') + ', ' + T('\\left(' + y + '^{' + b + '}\\right)^{' + ex + '} = ' + y + '^{' + by + '}') + '.',
+          (op === 'div' ? 'Divide (subtract exponents): ' + T(x + '^{' + sub(ax, p) + '} = ' + pw(x, X)) + ', ' + T(y + '^{' + sub(by, q) + '} = ' + pw(y, Y)) : 'Multiply (add exponents): ' + T(x + '^{' + ax + (p < 0 ? '+(' + p + ')' : '+' + p) + '} = ' + pw(x, X)) + ', ' + T(y + '^{' + by + (q < 0 ? '+(' + q + ')' : '+' + q) + '} = ' + pw(y, Y))) + '; coefficient ' + T(negForm(cn, cd, [])) + '.',
+          T(negForm(cn, cd, [[x, X], [y, Y]]) + ' = ' + ans[0]) + '.'];
+      } else { // (x^{a/d} y^b / x^{c/d} y^e)^{-k}
+        var d = pick([2, 3]), aa, cc, k = pick([2, 3]); do { aa = ri(-4, 5); cc = ri(-4, 5); } while (aa === cc || aa === 0 || cc === 0 || gcd(aa, d) !== 1 || gcd(cc, d) !== 1);
+        var bb = pick([-2, -1, 1, 2, 3]), ee = pick([-2, -1, 1, 2, 3]); if (bb === ee) return R_MAS[1]();
+        var Xn = -(aa - cc) * k, Yv = -(bb - ee) * k; var Xr = rat(Xn, d);
+        if ((Xr[0] > 0) === (Yv > 0) || Math.abs(Yv) > 15) return R_MAS[1]();
+        expr = '\\left(\\dfrac{' + pwR(x, aa, d) + pw(y, bb) + '}{' + pwR(x, cc, d) + pw(y, ee) + '}\\right)^{-' + k + '}';
+        ans = posForm(1, 1, [[x, Xn, d], [y, Yv]]);
+        var inX = rat(aa - cc, d);
+        sol = ['Inside the brackets, subtract exponents: ' + T(x + '^{' + expTex(aa, d) + '-(' + expTex(cc, d) + ')} = ' + pwR(x, inX[0], inX[1])) + ' and ' + T(y + '^{' + bb + '-(' + ee + ')} = ' + pw(y, bb - ee)) + '.',
+          'Multiply each exponent by ' + T('-' + k) + ': ' + T(negForm(1, 1, [[x, Xn, d], [y, Yv]])) + '.', 'Positive exponents only: ' + T(ans[0]) + '.'];
+      }
+      return { prompt: 'Simplify. Write the answer with <b>positive exponents only</b>.<br>' + T(expr), type: 'expr', answers: ans, check: 'exact',
+        hint: 'Work the brackets first: apply the outside exponent to every factor (root then power for the number; multiply exponents for the variables). Then combine base by base, and move any negative exponent across the fraction bar at the very end.',
+        solution: steps(sol) };
     },
-    function () { // find n: (3.2e-3)(5e7) = 1.6e n
-      var m1 = pick([3.2, 2.5, 4.8, 1.5, 6.4]), m2 = pick([5, 2, 4, 8, 3]), e1 = ri(-6, -1), e2 = ri(3, 9);
-      var prod = m1 * m2, e = e1 + e2; while (prod >= 10) { prod /= 10; e++; } prod = Math.round(prod * 1000) / 1000;
-      return { prompt: 'If ' + T('\\left(' + sci(m1, e1) + '\\right)\\left(' + sci(m2, e2) + '\\right) = ' + sci(prod, 'n')) + ', what is the value of ' + T('n') + '?', type: 'num', answers: [String(e)], tol: 0,
-        hint: 'Multiply the mantissas; if the result is 10 or more, move the decimal point and add 1 to the exponent.',
-        solution: steps([T(m1 + '\\times' + m2 + ' = ' + num(m1 * m2)) + ' and ' + T('10^{' + e1 + '}\\times10^{' + e2 + '} = 10^{' + (e1 + e2) + '}') + '.', (m1 * m2 >= 10 ? T(num(m1 * m2) + '\\times10^{' + (e1 + e2) + '} = ' + sci(prod, e)) + ', so ' : '') + T('n = ' + e) + '.']) };
+    function () { // solve an exponential equation by writing both sides with a common base (EP03 Q16, EP06 Q10, Q20)
+      var b = pick([2, 2, 3, 5]), maxP = b === 2 ? 5 : b === 3 ? 4 : 3, p = ri(2, maxP), q = ri(2, maxP); if (p === q) return R_MAS[2]();
+      var A = Math.pow(b, p), B = Math.pow(b, q), kind = ri(0, 3), N, D, eq, work;
+      function lin(r) { return r === 0 ? 'x' : 'x' + (r > 0 ? '+' : '-') + Math.abs(r); }
+      function tl(c, r) { return r === 0 ? c + 'x' : c + '(' + lin(r) + ')'; }
+      if (kind === 0) { var r = ri(-3, 3), s = ri(-3, 3); if (r === s) s = r + 1;
+        eq = A + '^{' + lin(r) + '} = ' + B + '^{' + lin(s) + '}'; N = q * s - p * r; D = p - q;
+        work = T(b + '^{' + tl(p, r) + '} = ' + b + '^{' + tl(q, s) + '}') + ', so ' + T(tl(p, r) + ' = ' + tl(q, s)) + ', which gives ' + T(coefTex(p - q) + 'x = ' + (q * s - p * r)) + '.'; }
+      else if (kind === 1) { var s1 = ri(1, 3), t1 = ri(4, 12);
+        eq = A + '^{x}\\cdot ' + B + '^{x-' + s1 + '} = ' + b + '^{' + t1 + '}'; N = t1 + q * s1; D = p + q;
+        work = T(b + '^{' + p + 'x}\\cdot ' + b + '^{' + q + '(x-' + s1 + ')} = ' + b + '^{' + t1 + '}') + ', so ' + T(p + 'x + ' + q + 'x - ' + q * s1 + ' = ' + t1) + ' and ' + T((p + q) + 'x = ' + (t1 + q * s1)) + '.'; }
+      else if (kind === 2) { var rr = pick([2, 3]), qq = ri(1, 2);
+        eq = '\\left(\\dfrac{1}{' + A + '}\\right)^{x} = ' + rootTex(rr, qq === 1 ? b : Math.pow(b, qq)); N = -qq; D = rr * p;
+        work = T('\\dfrac{1}{' + A + '} = ' + b + '^{-' + p + '}') + ' and ' + T(rootTex(rr, qq === 1 ? b : Math.pow(b, qq)) + ' = ' + b + '^{' + expTex(qq, rr) + '}') + ', so ' + T('-' + p + 'x = ' + expTex(qq, rr)) + '.'; }
+      else { var s2 = ri(1, 6), t2 = ri(1, 9);
+        eq = '\\dfrac{' + A + '^{x}}{' + b + '^{' + s2 + '}} = ' + b + '^{' + t2 + '}'; N = t2 + s2; D = p;
+        work = T(b + '^{' + p + 'x - ' + s2 + '} = ' + b + '^{' + t2 + '}') + ', so ' + T(p + 'x - ' + s2 + ' = ' + t2) + ' and ' + T(p + 'x = ' + (t2 + s2)) + '.'; }
+      if (D === 0 || N === 0) return R_MAS[2]();
+      var rr2 = rat(N, D), ans = frac(rr2[0], rr2[1]);
+      return { prompt: 'Solve for ' + T('x') + '. Give an exact answer (a fraction is fine).<br>' + T(eq), type: 'num', answers: [ans], tol: rr2[1] === 1 ? 0 : 0.01,
+        hint: 'Write every number as a power of ' + b + ' (for example ' + T(A + ' = ' + b + '^{' + p + '}') + '), simplify each side to a single power of ' + b + ', then set the exponents equal.',
+        solution: steps(['Write each side as a power of ' + b + ': ' + T(A + ' = ' + b + '^{' + p + '}') + (kind < 2 ? ', ' + T(B + ' = ' + b + '^{' + q + '}') : '') + '.', work, T('x = ' + ans) + '.']) };
     },
-    function () { // simplify (8x^6)^{2/3}
-      var pair = pick([[8, 2, 3], [27, 3, 3], [16, 2, 4], [32, 2, 5], [4, 2, 2], [9, 3, 2], [25, 5, 2], [64, 4, 3]]);
-      var n = pair[2], m = pick([1, 2, 3]); if (m === n || gcd(m, n) !== 1) m = 1;
-      var k = ri(1, 3) * n, v = pick(['x', 'y', 'm']);
-      var coef = Math.pow(pair[1], m), E = k * m / n;
-      return { prompt: 'Simplify: ' + T('\\left(' + pair[0] + v + '^{' + k + '}\\right)^{' + fracExp(m, n) + '}'), type: 'expr', answers: [mono(coef, [[v, E]])], check: 'exact',
-        hint: 'Apply the exponent to the coefficient (root then power) and to the variable (multiply exponents).',
-        solution: steps([T(pair[0] + '^{' + fracExp(m, n) + '} = ' + (m === 1 ? rootTex(n, pair[0]) + ' = ' + coef : '(' + rootTex(n, pair[0]) + ')^{' + m + '} = ' + pair[1] + '^{' + m + '} = ' + coef)) + '.', T('\\left(' + v + '^{' + k + '}\\right)^{' + fracExp(m, n) + '} = ' + v + '^{' + k + '\\times' + fracExp(m, n) + '} = ' + v + '^{' + E + '}') + '.', T('= ' + mono(coef, [[v, E]])) + '.']) };
+    function () { // two rational-power brackets multiplied or divided (EP06 Q8c, L5 Ex7g)
+      var P = [[16, 2, 4], [8, 2, 3], [27, 3, 3], [9, 3, 2], [25, 5, 2], [4, 2, 2], [64, 4, 3], [81, 3, 4], [36, 6, 2], [49, 7, 2]];
+      var p1 = pick(P), p2 = pick(P), v = pick(['t', 'x', 'k', 'm']);
+      var m1 = pick([1, 2, 3]); if (gcd(m1, p1[2]) !== 1 || Math.pow(p1[1], m1) > 81) m1 = pick([1, 2].filter(function (z) { return gcd(z, p1[2]) === 1 && Math.pow(p1[1], z) <= 81; }).concat([1]));
+      var k1 = p1[2] * ri(1, 3), k2 = ri(1, 5), n2 = p2[2], div = Math.random() < 0.6;
+      var c1 = Math.pow(p1[1], m1), c2 = p2[1], E = rat(k1 * m1 * n2 + (div ? -1 : 1) * k2 * p1[2], p1[2] * n2);
+      if (E[0] === 0 || (E[1] === 1 && Math.random() < 0.7)) return R_MAS[3]();
+      var cn = div ? c1 : c1 * c2, cd = div ? c2 : 1, ans = posForm(cn, cd, [[v, E[0], E[1]]]);
+      var e1 = fracExp(m1, p1[2]), e2 = fracExp(1, n2), b1 = '\\left(' + p1[0] + pw(v, k1) + '\\right)^{' + e1 + '}', b2 = '\\left(' + p2[0] + pw(v, k2) + '\\right)^{' + e2 + '}';
+      var s1 = mono(c1, [[v, k1 * m1 / p1[2]]]), r2 = rat(k2, n2), s2 = c2 + pwR(v, r2[0], r2[1]);
+      return { prompt: 'Simplify. Write the answer with a <b>positive exponent</b>.<br>' + T(b1 + (div ? '\\div ' : '\\times ') + b2), type: 'expr', answers: ans, check: 'exact',
+        hint: 'Simplify each bracket on its own first (root then power for the number, multiply exponents for the variable). Then ' + (div ? 'divide the coefficients and subtract' : 'multiply the coefficients and add') + ' the exponents, using a common denominator.',
+        solution: steps([T(b1 + ' = ' + s1) + '.', T(b2 + ' = ' + s2) + '.', T(s1 + (div ? '\\div ' : '\\times ') + s2 + ' = ' + negForm(cn, cd, [[v, E[0], E[1]]]) + (negForm(cn, cd, [[v, E[0], E[1]]]) !== ans[0] ? ' = ' + ans[0] : '')) + '.']) };
     },
-    function () { // nth root of a monomial: \sqrt[4]{16a^8}
-      var pair = pick([[16, 2, 4], [81, 3, 4], [8, 2, 3], [27, 3, 3], [64, 4, 3], [32, 2, 5], [25, 5, 2], [49, 7, 2]]);
-      var n = pair[2], k = ri(1, 3) * n, v = pick(['a', 'x', 't']);
-      var rad = (n === 2 ? '\\sqrt{' : '\\sqrt[' + n + ']{') + pair[0] + v + '^{' + k + '}}';
-      return { prompt: 'Simplify: ' + T(rad), type: 'expr', answers: [mono(pair[1], [[v, k / n]])], check: 'exact',
-        hint: 'Write the root as a rational exponent, ' + T('\\frac{1}{' + n + '}') + ', and apply it to the number and to the variable.',
-        solution: steps([T(rad + ' = \\left(' + pair[0] + v + '^{' + k + '}\\right)^{\\frac{1}{' + n + '}}') + '.', T(rootTex(n, pair[0]) + ' = ' + pair[1]) + ' and ' + T(v + '^{' + k + '\\times\\frac{1}{' + n + '}} = ' + pw(v, k / n)) + '.', T('= ' + mono(pair[1], [[v, k / n]])) + '.']) };
+    function () { // radical of a monomial -> a·x^n with n rational; sometimes a root of a root (L5 Ex10–11, Q17–18)
+      var v = pick(['x', 'y', 't', 'w']), rad, r, N, D, sol;
+      if (Math.random() < 0.65) {
+        var pair = pick([[8, 2, 3], [27, 3, 3], [64, 4, 3], [125, 5, 3], [16, 2, 4], [81, 3, 4], [32, 2, 5], [-8, -2, 3], [-27, -3, 3], [-125, -5, 3], [-32, -2, 5], [36, 6, 2], [144, 12, 2]]);
+        var n = pair[2], k = ri(1, 3 * n); if (k % n === 0 && Math.random() < 0.7) k += 1;
+        rad = rootTex(n, pair[0] + pw(v, k)); r = pair[1]; N = k; D = n;
+        sol = [T(rad + ' = \\left(' + pair[0] + pw(v, k) + '\\right)^{\\frac{1}{' + n + '}}') + '.', T(rootTex(n, pair[0]) + ' = ' + r) + ' and ' + T(v + '^{' + k + '\\times\\frac{1}{' + n + '}} = ' + pwR(v, k, n)) + '.'];
+      } else {
+        var nest = pick([[2, 3, 64, 2], [2, 3, 729, 3], [3, 2, 64, 2], [2, 2, 16, 2], [2, 2, 81, 3], [2, 2, 625, 5]]), I = nest[0] * nest[1], kk = ri(1, 3 * I); if (kk % I === 0) kk += 1;
+        rad = rootTex(nest[0], rootTex(nest[1], nest[2] + pw(v, kk))); r = nest[3]; N = kk; D = I;
+        sol = ['A root of a root is a single root: the indices multiply, ' + T(nest[0] + '\\times' + nest[1] + ' = ' + I) + ', so ' + T(rad + ' = \\left(' + nest[2] + pw(v, kk) + '\\right)^{\\frac{1}{' + I + '}}') + '.', T(rootTex(I, nest[2]) + ' = ' + r) + ' and ' + T(v + '^{' + kk + '\\times\\frac{1}{' + I + '}} = ' + pwR(v, kk, I)) + '.'];
+      }
+      var ans = coefTex(r) + pwR(v, N, D);
+      sol.push('Answer: ' + T(ans) + '.');
+      return { prompt: 'Write in the form ' + T('a' + v + '^{n}') + ', where ' + T('a') + ' is an integer and ' + T('n') + ' is rational:<br>' + T(rad), type: 'expr', answers: [ans], check: 'exact',
+        hint: 'Change the root to a rational exponent (index = denominator) and apply it to the number and to the variable separately.',
+        solution: steps(sol) };
     }
   ];
 

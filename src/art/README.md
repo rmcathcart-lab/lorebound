@@ -149,3 +149,27 @@ Made by Ryan with ChatGPT/Codex from the portraits and banners above ("Lorebound
 - `tools/pack_creatures.py <pack folder> [Hk] [Hmax] [quality]` → `cr-<sigil>.webp` + `src/creature_defs.js` (trimmed frames, anchors, animation lists). Current build: Hk 96, Hmax 124, quality 80, alpha 55.
 - `tools/pack_terrain.py <pack folder>` → `tr-l<N>.webp` (24 painted 64-px tiles: ground ×4, path, liquid ×3, 16 joining edges by N=1/E=2/S=4/W=8 mask) + `tr-l<N>-props.webp` + `src/terrain_defs.js`.
 - The hero still uses the starter pack's knight / wizard (`sheet-hd.webp`, `tools/pack_hd.py <starter pack>`); chests and the bonfire brazier come from the starter props.
+
+
+## Gear art (bonfire Gear section)
+
+| file | Canva |
+|---|---|
+| `gear-boots.jpg` | https://www.canva.com/M/MAHW_p_Xhjc |
+| `gear-cloak.jpg` | https://www.canva.com/M/MAHW_ka8eEM |
+| `gear-ghost.jpg` | https://www.canva.com/M/MAHW_qy2EdM |
+| `gear-sundial.jpg` | https://www.canva.com/M/MAHW_m6AGsU |
+| `gear-lichglass.jpg` | https://www.canva.com/M/MAHW_nJ8qCo |
+| `gear-stillness.jpg` | https://www.canva.com/M/MAHW_hYDelY |
+| `gear-shield.jpg` | https://www.canva.com/M/MAHW_uABmqY |
+| `gear-satchel.jpg` | https://www.canva.com/M/MAHW_mirR1A |
+| `gear-phoenix.jpg` | https://www.canva.com/M/MAHW_t8q7bU |
+| `gear-lantern.jpg` | https://www.canva.com/M/MAHW_tFa3s0 |
+| `gear-tome.jpg` | https://www.canva.com/M/MAHW_jrV-Zo |
+| `gear-sight.jpg` | https://www.canva.com/M/MAHW_hMoV5s |
+| `gear-blade.jpg` | https://www.canva.com/M/MAHW_n6yICg |
+| `gear-mark.jpg` | https://www.canva.com/M/MAHW_v-sE2M |
+| `gear-crown.jpg` | https://www.canva.com/M/MAHW_nnI9rY |
+| `gear-frame_ember.jpg` | https://www.canva.com/M/MAHW_s10iS0 |
+| `gear-frame_lore.jpg` | https://www.canva.com/M/MAHW_uCBhRM |
+| `gear-frame_gold.jpg` | https://www.canva.com/M/MAHW_gE7lhk |

@@ -1,9 +1,9 @@
 /* ===================== WORLD DATA ===================== */
 var LEVELS = {
-  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 90, color: 'var(--beg)' },
-  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 150, color: 'var(--prg)' },
-  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 240, color: 'var(--mas)' },
-  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 240, color: 'var(--boss)' }
+  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 68, color: 'var(--beg)' },
+  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 113, color: 'var(--prg)' },
+  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 180, color: 'var(--mas)' },
+  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 180, color: 'var(--boss)' }
 };
 
 var LANDS = [
@@ -49,7 +49,7 @@ var LANDS = [
     boss: { id: 'boss3', name: 'The Hollow Oak', level: 'BOSS', sigil: 'boss3', gens: ['AN4A_PRG', 'AN4B_PRG', 'AN4A_MAS', 'AN4B_MAS'], title: 'Thornbreaker',
       flavor: 'The heart of the Weald, awake and hungry. Four questions beneath its canopy, four hundred Lore if you walk out.' }
   },
-  { id: 'L4', unit: 4, name: 'Shattered Crypts', subject: 'Factoring', open: true, banner: 'banner-l4',
+  { id: 'L4', unit: 4, name: 'Shattered Crypts', subject: 'Factoring', open: true, explore: 2, banner: 'banner-l4',
     blurb: 'Vaults beneath the Weald where everything that was multiplied is pulled apart again. Every door is a product; the key is its factors.',
     outcomes: { AN5A: 'AN5 · Common factors, x² + bx + c and difference of squares', AN5B: 'AN5 · ax² + bx + c, perfect squares and solving by factoring' },
     creatures: [

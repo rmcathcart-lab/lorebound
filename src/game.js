@@ -581,7 +581,13 @@
       qp.appendChild(el('div', 'eyebrow', B.isBoss ? 'It speaks' : 'The creature asks'));
       if (B.deadline) qp.appendChild(el('div', 'qtimer', '<div class="fill"></div><span class="n"></span>')).id = 'qtimer';
       qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Build your answer in the box: the keypad makes fractions, powers and roots with boxes to fill in. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
-      if (B.phase === 'warn') qp.appendChild(el('div', 'result warn', '<h2>It staggers, but does not fall</h2><p>Your answer has the <b>right value</b> but is not in the <b>form the question asks for</b>. Write it that way. A second slip will be fatal.</p>'));
+      if (B.phase === 'warn') {
+        var ex = B.formEx;
+        qp.appendChild(el('div', 'result warn', '<h2>It staggers, but does not fall</h2><p>Your answer has the <b>right value</b> but is not in the <b>form the question asks for</b>. A second slip will be fatal.</p>' +
+          '<div class="form-help"><div class="eyebrow">You wrote</div><div class="fh-math">' + typedTex(B.lastRaw || '') + '</div>' +
+          (ex ? '<div class="eyebrow">The form it wants · an example with different numbers</div><div class="fh-math">' + tex(ex.answers[0]) + '</div>' : '') +
+          (q.note ? '<p class="muted fh-note">' + q.note + '</p>' : '') + '</div>'));
+      }
       if (B.phase === 'sight') {
         var sp = el('div', 'result lose', '<h2>Your answer was wrong</h2><p>Second Sight flickers. Spend its charge to try this question once more, or accept your fate.</p>');
         var row = el('div', 'actions');
@@ -626,7 +632,7 @@
     logAttempt(q, raw, r.ok ? 'correct' : r.reason);
     B.deadline = 0;
     if (r.ok) { exchange(true, !B.isBoss || B.i === B.qs.length - 1, win); return; }
-    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; exchange(true, false, function () { B.phase = 'warn'; armTimer(); sfx('wrong'); render(); }); return; }
+    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; try { B.formEx = QGen.makeLike(q); } catch (e) { B.formEx = null; } exchange(true, false, function () { B.phase = 'warn'; armTimer(); sfx('wrong'); render(); }); return; }
     loseExchange();
   }
   function loseExchange() { // a wrong answer (or the clock): the creature strikes, and what it costs depends on your gear
@@ -897,12 +903,13 @@
     var br = el('div', 'branches');
     [['Ward', 'survive'], ['Insight', 'understand'], ['Greed', 'profit'], ['Swiftness', 'outrun'], ['Patience', 'take your time'], ['Regalia', 'look the part']].forEach(function (pair) {
       var name = pair[0], col = el('div', 'branch'); col.appendChild(el('h3', null, name + ' · ' + pair[1]));
-      if (name === 'Regalia') col.appendChild(el('div', 'regalia-preview', heroPortrait('shop') + '<div class="muted" style="font-size:14px"><b>' + esc(S.hero ? S.hero.name : S.name) + '</b><br>' + esc(heroTitle()) + '<br><span style="font-size:13px">Your look upgrades on its own: any tier-2 item, then tier-3 plus a boss kill. Regalia is purely for show.</span></div>'));
+      if (name === 'Regalia') col.appendChild(el('div', 'regalia-preview', heroPortrait('regalia-pic') + '<div class="muted" style="font-size:14px"><b>' + esc(S.hero ? S.hero.name : S.name) + '</b><br>' + esc(heroTitle()) + '<br><span style="font-size:13px">Your look upgrades on its own: any tier-2 item, then tier-3 plus a boss kill. Regalia is purely for show.</span></div>'));
       GEAR.filter(function (g) { return g.branch === name; }).forEach(function (g) {
         var lock = gearLock(g), has = owns(g.id);
         var hardLock = lock && !/more Lore/.test(lock);
         var card = el('div', 'gear' + (has ? ' owned' : hardLock ? ' locked' : ''));
-        card.innerHTML = '<div class="tier">Tier ' + g.tier + (has ? ' · owned' : '') + '</div><div class="nm">' + esc(g.name) + '</div><div class="desc">' + esc(g.desc) + (g.use ? ' ' + esc(g.use) : '') + '</div>';
+        var gimg = window.ART_IMG && ART_IMG['gear-' + g.id];
+        card.innerHTML = '<div class="gear-top">' + (gimg ? '<img class="gear-img" src="' + gimg + '" alt="">' : '') + '<div><div class="tier">Tier ' + g.tier + (has ? ' · owned' : '') + '</div><div class="nm">' + esc(g.name) + '</div></div></div><div class="desc">' + esc(g.desc) + (g.use ? ' ' + esc(g.use) : '') + '</div>';
         if (!has) {
           card.appendChild(el('div', 'cost', n(g.cost) + ' Lore'));
           if (lock) card.appendChild(el('div', 'why', lock));

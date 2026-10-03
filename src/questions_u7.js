@@ -345,12 +345,17 @@
         hint: 'Find the ' + (xint ? 'x' : 'y') + '-intercept of the first line (set ' + (xint ? 'y' : 'x') + ' = 0). That same point must satisfy the second equation.',
         solution: steps(['First line, ' + (xint ? 'y = 0' : 'x = 0') + ': ' + T(xint ? A1 + 'x' + sgn(C1) + ' = 0' : B1 + 'y' + sgn(C1) + ' = 0') + ', so the intercept is ' + T(xint ? pt(v, 0) : pt(0, v)) + '.', 'Second line through that point: ' + T('a(' + v + ')' + sgn(C2) + ' = 0'), T('a = ' + a) + '.']) };
     },
-    function () { // (14b) decimal x: find k to the nearest tenth
-      var A = ri(1, 6), B = nz(-6, 6), C = nz(-20, 20), xd = nz(-120, 120) / 10; while (xd === Math.round(xd)) xd = nz(-120, 120) / 10;
-      var k = -(A * xd + C) / B, kr = Math.round(k * 10) / 10;
-      return { prompt: 'The point ' + T('(' + xd + ', k)') + ' lies on the line ' + T(gfDisp(A, B, C)) + '. Determine ' + T('k') + ' to the nearest tenth.', type: 'num', answers: [String(kr), num(k)], tol: 0.05,
-        hint: 'Substitute x = ' + xd + ' and y = k, then solve for k. Round only at the end.',
-        solution: steps([T(A + '(' + xd + ')' + (B < 0 ? ' - ' : ' + ') + Math.abs(B) + 'k' + sgn(C) + ' = 0'), T(B + 'k = ' + num(-(A * xd + C))), T('k = ' + num(k) + ' \\approx ' + kr) + '.']) };
+    function () { // (14b) decimal x on a line parallel / perpendicular to a general-form line through P: find k to the nearest tenth
+      var A, B, C, px, py, xd, par, mn, md, k, tries = 0;
+      do {
+        A = ri(1, 6); B = nz(-6, 6); C = nz(-20, 20); while (gcd(A, B) !== 1) { A = ri(1, 6); B = nz(-6, 6); }
+        px = nz(-6, 6); py = nz(-6, 6); xd = nz(-120, 120) / 10; par = Math.random() < 0.5;
+        mn = par ? -A : B; md = par ? B : A; k = py + mn * (xd - px) / md;
+      } while ((xd === Math.round(xd) || Math.abs(Math.abs(k * 10) % 1 - 0.5) < 0.02) && ++tries < 200);
+      var kr = Math.round(k * 10) / 10;
+      return { prompt: 'The point ' + T('(' + xd + ', k)') + ' lies on the line through ' + T('P' + pt(px, py)) + ' that is <b>' + (par ? 'parallel' : 'perpendicular') + '</b> to ' + T(gfDisp(A, B, C)) + '. Determine ' + T('k') + ' to the nearest tenth.', type: 'num', answers: [String(kr), num(k)], tol: 0.05,
+        hint: 'The slope of Ax + By + C = 0 is −A/B. ' + (par ? 'A parallel line has the same slope.' : 'A perpendicular line has the negative reciprocal slope.') + ' Write the new line in point-slope form through P, then substitute x = ' + xd + ' and y = k. Round only at the end.',
+        solution: steps([T('m_{\\text{given}} = ' + frac(-A, B)) + ', so the new line has ' + T('m = ' + frac(mn, md)) + '.', T(psDisp(mn, md, px, py)), 'Substitute: ' + T('k = ' + py + ' + \\left(' + frac(mn, md) + '\\right)(' + xd + ' - (' + px + ')) = ' + num(k) + ' \\approx ' + kr) + '.']) };
     },
     function () { // (15b) horizontal / vertical line in general form
       var x = nz(-9, 9), y = nz(-9, 9), vert = Math.random() < 0.5;
@@ -510,12 +515,14 @@
         hint: 'Two points: (S, E) = (' + c.s1 + ', ' + c.e1 + ') and (' + c.s2 + ', ' + c.e2 + '). Slope = change in earnings ÷ change in sales.',
         solution: c.model };
     },
-    function () { // rate of change in context: litres per km from two readings (negative)
-      var start = pick([60, 70, 80, 90]), rate = pick([0.08, 0.1, 0.12, 0.15]), k1 = pick([50, 100, 150]), k2 = k1 + pick([100, 150, 200, 250]);
-      var f1 = start - rate * k1, f2 = start - rate * k2;
-      return { prompt: 'A truck has ' + num(f1) + ' L of fuel after driving ' + k1 + ' km and ' + num(f2) + ' L after ' + k2 + ' km. Fuel use is linear. Determine the rate of change of the fuel, in litres per kilometre. (Number only; negative because the fuel is decreasing.)', type: 'num', answers: [String(-rate)], tol: 0.0005,
-        hint: 'Rate = change in fuel ÷ change in distance.',
-        solution: steps([T('\\dfrac{' + num(f2) + ' - ' + num(f1) + '}{' + k2 + ' - ' + k1 + '} = \\dfrac{' + num(f2 - f1) + '}{' + (k2 - k1) + '} = ' + (-rate)) + ' L/km.']) };
+    function () { // fuel model from two readings: when is the tank empty / how much fuel at the start
+      var rate, D, start, tries = 0;
+      do { rate = pick([0.08, 0.1, 0.12, 0.15, 0.2, 0.25]); D = pick([400, 500, 600, 750, 800, 1000]); start = Math.round(rate * D * 100) / 100; } while ((start < 50 || start > 200) && ++tries < 100);
+      var k1 = pick([50, 100, 150]), k2 = k1 + pick([100, 150, 200]), f1 = Math.round((start - rate * k1) * 100) / 100, f2 = Math.round((start - rate * k2) * 100) / 100, empty = Math.random() < 0.5;
+      var model = [T('m = \\dfrac{' + num(f2) + ' - ' + num(f1) + '}{' + k2 + ' - ' + k1 + '} = \\dfrac{' + num(f2 - f1) + '}{' + (k2 - k1) + '} = ' + num(-rate)) + ' L/km.', T(num(f1) + ' = ' + num(-rate) + '(' + k1 + ') + b') + ', so ' + T('b = ' + num(start)) + ': ' + T('F = ' + num(-rate) + 'd + ' + num(start)) + '.'];
+      return { prompt: 'A truck has ' + num(f1) + ' L of fuel after driving ' + k1 + ' km and ' + num(f2) + ' L after ' + k2 + ' km. Fuel use is linear. ' + (empty ? 'After how many kilometres in total will the tank be empty? (Number only.)' : 'How much fuel, in litres, was in the tank at the start of the trip (0 km)? (Number only.)'), type: 'num', answers: [num(empty ? D : start)], tol: 0.01,
+        hint: 'Find the rate of change (L per km, negative) from the two readings, then write F = md + b. ' + (empty ? 'The tank is empty when F = 0: solve for d.' : 'The fuel at the start is the value at d = 0, the F-intercept b.'),
+        solution: steps(model.concat(empty ? [T('0 = ' + num(-rate) + 'd + ' + num(start)) + ', so ' + T('d = \\dfrac{' + num(start) + '}{' + num(rate) + '} = ' + D) + ' km.'] : ['At the start the tank held ' + num(start) + ' L.'])) };
     },
     function () { // cost model from a rate and a point, then predict
       var ctx = pick([['A plumber charges a call-out fee plus $%r per hour. A %h-hour job costs $%c.', 'C', 'h', 'hours'], ['A phone plan charges a monthly fee plus $%r per gigabyte. A month with %h GB costs $%c.', 'C', 'g', 'gigabytes'], ['A tutor charges a booking fee plus $%r per session. %h sessions cost $%c.', 'C', 'n', 'sessions']]);
@@ -557,21 +564,24 @@
         hint: 'Find the x-intercept (set y = 0): that gives a second point (x, 0). Then it is a two-point problem.',
         solution: steps(['x-intercept of the given line: ' + T(A3 + 'x' + sgn(C3) + ' = 0') + ', so ' + T(pt(xi, 0)) + '.', T('m = \\dfrac{' + py + ' - 0}{' + px + ' - (' + xi + ')} = ' + frac(n, d)), T(psDisp(n, d, xi, 0)), T(gfSp(gf2.tex)) + '.']) };
     },
-    function () { // (18b) average speed over one leg of a journey graph
-      var speeds = [20, 30, 40, 50, 60, 80], t = [0], dist = [0], s = [];
-      for (var i = 0; i < 3; i++) { var dt = ri(1, 3), v = (i === 1 && Math.random() < 0.3) ? 0 : pick(speeds); t.push(t[i] + dt); dist.push(dist[i] + v * dt); s.push(v); }
+    function () { // (18b) journey graph: average speed for the whole trip, or the speed on the fastest leg
+      var speeds = [20, 30, 40, 50, 60, 80], t, dist, s, top;
+      do { t = [0]; dist = [0]; s = [];
+        for (var i = 0; i < 3; i++) { var dt = ri(1, 3), v = (i === 1 && Math.random() < 0.3) ? 0 : pick(speeds); t.push(t[i] + dt); dist.push(dist[i] + v * dt); s.push(v); }
+        top = Math.max.apply(null, s);
+      } while (s.filter(function (x) { return x === top; }).length !== 1);
       var names = ['O', 'P', 'Q', 'R'], pts = t.map(function (ti, j) { return [ti, dist[j], j === 0 ? 'O' : names[j] + ' (' + ti + ', ' + dist[j] + ')']; });
       var fig = Fig.pathGraph(pts, { xlabel: 'Time (h)', ylabel: 'Distance (km)', xticks: t.slice(1), yticks: dist.slice(1).filter(function (v, j, a) { return a.indexOf(v) === j; }) });
-      if (Math.random() < 0.25) { // whole trip
+      if (Math.random() < 0.5) { // whole trip
         var avg = dist[3] / t[3];
         return { prompt: 'The graph shows a cyclist\'s distance from home.' + fig + 'Calculate the average speed for the whole trip from ' + T('O') + ' to ' + T('R') + ', in km/h, to the nearest tenth. (Number only.)', type: 'num', answers: [tenth(avg), num(avg)], tol: 0.05,
           hint: 'Average speed = total distance ÷ total time, which is the slope of the line joining O and R.',
           solution: steps([T('\\dfrac{' + dist[3] + ' - 0}{' + t[3] + ' - 0} = ' + num(avg)) + (tenth(avg) === num(avg) ? '' : ' ' + T('\\approx ' + tenth(avg))) + ' km/h.']) };
       }
-      var legs = [0, 1, 2].filter(function (j) { return s[j] !== 0; }), j = pick(legs), a = names[j], b = names[j + 1];
-      return { prompt: 'The graph shows a cyclist\'s distance from home.' + fig + 'Calculate the average speed between ' + T(a) + ' and ' + T(b) + ', in km/h. (Number only.)', type: 'num', answers: [String(s[j])], tol: 0,
-        hint: 'Average speed = change in distance ÷ change in time = the slope of that segment.',
-        solution: steps([T('\\dfrac{' + dist[j + 1] + ' - ' + dist[j] + '}{' + t[j + 1] + ' - ' + t[j] + '} = \\dfrac{' + (dist[j + 1] - dist[j]) + '}{' + (t[j + 1] - t[j]) + '} = ' + s[j]) + ' km/h.']) };
+      var jt = s.indexOf(top), legName = function (j) { return names[j] + names[j + 1]; };
+      return { prompt: 'The graph shows a cyclist\'s distance from home.' + fig + 'On which leg (' + T('OP') + ', ' + T('PQ') + ' or ' + T('QR') + ') was the cyclist fastest? Enter the average speed on that leg, in km/h. (Number only.)', type: 'num', answers: [String(top)], tol: 0,
+        hint: 'The average speed on a leg is the slope of that segment: change in distance ÷ change in time. The legs take different amounts of time, so compute all three slopes before comparing.',
+        solution: steps([0, 1, 2].map(function (j) { return legName(j) + ': ' + T('\\dfrac{' + dist[j + 1] + ' - ' + dist[j] + '}{' + t[j + 1] + ' - ' + t[j] + '} = \\dfrac{' + (dist[j + 1] - dist[j]) + '}{' + (t[j + 1] - t[j]) + '} = ' + s[j]) + ' km/h.'; }).concat(['The fastest leg is ' + legName(jt) + ', at ' + top + ' km/h.'])) };
     },
     function () { // (19) commission data: rate as a percent, base salary, sales for a target
       var c = commission(), w = ri(0, 2);

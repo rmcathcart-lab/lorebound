@@ -18,7 +18,7 @@ for f in sorted(os.listdir('src/art')):
     if key.startswith(('sheet-', 'cr-', 'tr-')):   # pixel-art sprite sheets: lossless PNG, untouched
         raw=open('src/art/'+f,'rb').read(); ART[key]='data:image/'+('webp' if f.endswith('.webp') else 'png')+';base64,'+base64.b64encode(raw).decode(); print('sheet',key,len(raw)//1024,'KB'); continue
     im=Image.open('src/art/'+f).convert('RGB')
-    maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 400
+    maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 280 if key.startswith(('gear-','item-')) else 400
     if im.width<maxw*0.6:   # tiny preview: upscale smoothly so it survives 2x screens
         im=im.resize((im.width*2, im.height*2), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=2))
     if im.width>maxw: im=im.resize((maxw, round(im.height*maxw/im.width)), Image.LANCZOS)

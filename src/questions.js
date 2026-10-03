@@ -38,6 +38,18 @@ var QGen = (function () {
     var root = idx === 3 ? '\\sqrt[3]{' + radicand + '}' : '\\sqrt{' + radicand + '}';
     if (coef === 1) return root; if (coef === -1) return '-' + root; return coef + root;
   }
+  function radIdx(coef, radicand, idx) { // mixed radical of any index (2 = square root)
+    var root = idx === 2 ? '\\sqrt{' + radicand + '}' : '\\sqrt[' + idx + ']{' + radicand + '}';
+    if (coef === 1) return root; if (coef === -1) return '-' + root; return coef + root;
+  }
+  function facVariants(f) { // every way of writing a factorization: each prime as p^{e} or p×p×…
+    var out = [''];
+    f.forEach(function (pe) {
+      var forms = pe[1] === 1 ? [String(pe[0])] : [pe[0] + '^{' + pe[1] + '}', new Array(pe[1] + 1).join(pe[0] + '\\times').slice(0, -6)];
+      var next = []; out.forEach(function (o) { forms.forEach(function (fm) { next.push(o ? o + '\\times' + fm : fm); }); }); out = next;
+    });
+    return out;
+  }
   var SQFREE = [2, 3, 5, 6, 7, 10, 11, 13, 14, 15, 17, 19, 21, 22, 23];
   var CUBEFREE = [2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20];
   function T(s) { return '\\(' + s + '\\)'; }
@@ -52,7 +64,7 @@ var QGen = (function () {
       if (n < 24 || n > 900) return AN1_BEG[0]();
       return {
         prompt: 'Write ' + T(fmt(n)) + ' as a product of <b>prime factors</b>. Use exponents for repeated primes, for example ' + T('2^{3}\\times5') + '.',
-        type: 'expr', answers: [facLatex(f), facExpanded(f)], check: 'exact', requireOp: true,
+        type: 'expr', answers: facVariants(f), check: 'exact', requireOp: true,
         hint: 'Start a division ladder: divide by 2 as many times as you can, then 3, then 5, then 7.',
         solution: steps(['Divide by primes until you reach 1: ' + T(n + ' = ' + facExpanded(f)) + '.', 'Collect repeated primes as powers: ' + T(n + ' = ' + facLatex(f)) + '.'])
       };
@@ -79,17 +91,18 @@ var QGen = (function () {
         solution: steps([T(a + ' = ' + facLatex(factor(a))) + ', ' + T(b + ' = ' + facLatex(factor(b))) + '.', 'Highest power of each prime: ' + T('\\text{LCM} = ' + facLatex(factor(l)) + ' = ' + l) + '.'])
       };
     },
-    function () { // roots of perfect powers
-      if (Math.random() < 0.5) {
-        var k = ri(6, 25), n = k * k;
-        return { prompt: 'Evaluate <b>without a calculator</b>: ' + T('\\sqrt{' + fmt(n) + '}'), type: 'num', answers: [String(k)], tol: 0,
-          hint: 'Which whole number multiplied by itself gives ' + n + '? Try the prime factorization and pair up the primes.',
-          solution: steps([T(fmt(n) + ' = ' + facLatex(factor(n))) + '.', 'Take half of every exponent: ' + T('\\sqrt{' + fmt(n) + '} = ' + facLatex(factor(k)) + ' = ' + k) + '.']) };
-      }
-      var c = ri(2, 12), m = c * c * c;
-      return { prompt: 'Evaluate <b>without a calculator</b>: ' + T('\\sqrt[3]{' + fmt(m) + '}'), type: 'num', answers: [String(c)], tol: 0,
-        hint: 'Prime-factor the number and group the primes in threes.',
-        solution: steps([T(fmt(m) + ' = ' + facLatex(factor(m))) + '.', 'Take a third of every exponent: ' + T('\\sqrt[3]{' + fmt(m) + '} = ' + c) + '.']) };
+    function () { // root of a perfect power read straight off its exponents (u1_L02 §3-4, u1_EP02 Q10)
+      var cube = Math.random() < 0.4, idx = cube ? 3 : 2;
+      var ps = shuffle([2, 3, 5, 7, 11]).slice(0, ri(2, 3)).sort(function (a, b) { return a - b; });
+      var rootF = ps.map(function (p) { return [p, ri(1, 2)]; });
+      var nF = rootF.map(function (pe) { return [pe[0], pe[1] * idx]; });
+      var r = 1; rootF.forEach(function (pe) { r *= Math.pow(pe[0], pe[1]); });
+      var sym = cube ? '\\sqrt[3]{n}' : '\\sqrt{n}';
+      return { prompt: 'A number ' + T('n') + ' has the prime factorization ' + T('n = ' + facLatex(nF)) + '.<br>Write ' + T(sym) + ' as a <b>product of prime factors</b> (exponent form is fine).',
+        type: 'expr', answers: facVariants(rootF), check: 'exact', requireOp: true,
+        hint: cube ? 'In a perfect cube every exponent is a multiple of 3. The cube root keeps each prime and takes one third of its exponent.' : 'In a perfect square every exponent is even. The square root keeps each prime and takes half of its exponent.',
+        solution: steps(['Every exponent is a multiple of ' + idx + ', so ' + T('n') + ' is a perfect ' + (cube ? 'cube' : 'square') + '.',
+          (cube ? 'Divide each exponent by 3: ' : 'Halve each exponent: ') + T(sym + ' = ' + facLatex(rootF)) + (r < 100000 ? ', which is ' + T(fmt(r)) : '') + '.']) };
     },
     function () { // count primes in an interval
       var a = pick([10, 20, 30, 40, 50, 60, 70]), b = a + pick([10, 15, 20]);
@@ -119,8 +132,8 @@ var QGen = (function () {
         solution: steps([T(a + ' = ' + facLatex(factor(a))) + ', ' + T(b + ' = ' + facLatex(factor(b))) + '.', T('\\text{LCM} = ' + facLatex(factor(l)) + ' = ' + fmt(l)) + '.']) };
     },
     function () { // smallest multiplier to make a perfect square
-      var k = ri(2, 12), m = pick([2, 3, 5, 6, 7, 10]), n = k * k * m;
-      if (n > 3000) return AN1_PRG[2]();
+      var k = ri(2, 12), m = pick([2, 3, 5, 6, 7, 10, 14, 15, 21, 22, 30, 35]), n = k * k * m;
+      if (n > 4000 || n < 50) return AN1_PRG[2]();
       return { prompt: 'What is the <b>smallest</b> whole number that ' + T(fmt(n)) + ' can be multiplied by so that the product is a <b>perfect square</b>?', type: 'num', answers: [String(m)], tol: 0,
         hint: 'A perfect square has an even exponent on every prime. Which primes in the factorization have an odd exponent?',
         solution: steps([T(fmt(n) + ' = ' + facLatex(factor(n))) + '.', 'The primes with odd exponents are ' + T(facExpanded(factor(m))) + '; multiplying by ' + m + ' makes every exponent even.', T(fmt(n) + '\\times' + m + ' = ' + fmt(n * m) + ' = ' + (k * m) + '^{2}') + '.']) };
@@ -144,17 +157,14 @@ var QGen = (function () {
         hint: 'Equal pieces with nothing left over means the piece length divides both rope lengths. You want the greatest common factor.',
         solution: steps([T(a + ' = ' + facLatex(factor(a))) + ', ' + T(b + ' = ' + facLatex(factor(b))) + '.', T('\\text{GCF} = ' + g) + ', so each piece is ' + g + ' cm.']) };
     },
-    function () { // large perfect cube / square by factorization
-      if (Math.random() < 0.5) {
-        var c = pick([12, 14, 15, 16, 18, 20, 21, 24, 25]), n = c * c * c;
-        return { prompt: 'Use prime factorization to evaluate ' + T('\\sqrt[3]{' + fmt(n) + '}') + ' <b>without a calculator</b>.', type: 'num', answers: [String(c)], tol: 0,
-          hint: 'Factor fully, then take one third of every exponent.',
-          solution: steps([T(fmt(n) + ' = ' + facLatex(factor(n))) + '.', T('\\sqrt[3]{' + fmt(n) + '} = ' + facLatex(factor(c)) + ' = ' + c) + '.']) };
-      }
-      var k = pick([32, 36, 40, 42, 45, 48, 54, 56, 60, 63, 64, 72]), s = k * k;
-      return { prompt: 'Use prime factorization to evaluate ' + T('\\sqrt{' + fmt(s) + '}') + ' <b>without a calculator</b>.', type: 'num', answers: [String(k)], tol: 0,
-        hint: 'Factor fully, then take half of every exponent.',
-        solution: steps([T(fmt(s) + ' = ' + facLatex(factor(s))) + '.', T('\\sqrt{' + fmt(s) + '} = ' + facLatex(factor(k)) + ' = ' + k) + '.']) };
+    function () { // large perfect cube / square: the root as a product of primes (u1_L02 Ex 5-7, Q9)
+      var cube = Math.random() < 0.5, idx = cube ? 3 : 2;
+      var r = cube ? pick([12, 14, 15, 18, 20, 21, 24, 28, 30, 35, 36, 42, 45]) : pick([36, 42, 45, 48, 54, 56, 60, 63, 66, 70, 72, 78, 84, 90, 105, 126]);
+      var n = Math.pow(r, idx), sym = cube ? '\\sqrt[3]{' + fmt(n) + '}' : '\\sqrt{' + fmt(n) + '}';
+      return { prompt: T(fmt(n)) + ' is a perfect ' + (cube ? 'cube' : 'square') + '. Use its prime factorization to write ' + T(sym) + ' as a <b>product of prime factors</b>.',
+        type: 'expr', answers: facVariants(factor(r)), check: 'exact', requireOp: true,
+        hint: 'Factor ' + fmt(n) + ' completely with a division ladder, then ' + (cube ? 'divide every exponent by 3' : 'halve every exponent') + '.',
+        solution: steps([T(fmt(n) + ' = ' + facLatex(factor(n))) + '.', 'Every exponent is a multiple of ' + idx + ', so ' + (cube ? 'divide each by 3' : 'halve each') + ': ' + T(sym + ' = ' + facLatex(factor(r))) + '.', 'Check on your calculator: ' + T(facLatex(factor(r)) + ' = ' + r) + '.']) };
     }
   ];
 
@@ -215,13 +225,33 @@ var QGen = (function () {
         hint: 'Find the largest perfect square that divides ' + n + '.',
         solution: steps([T('\\sqrt{' + n + '} = \\sqrt{' + (a * a) + '\\times' + b + '} = \\sqrt{' + (a * a) + '}\\times\\sqrt{' + b + '}') + '.', T('= ' + rad(a, b)) + '.']) };
     },
-    function () { // estimate a square root
-      var n = ri(10, 140), r = Math.sqrt(n), k = Math.round(r);
-      if (k * k === n || Math.abs(r - Math.floor(r) - 0.5) < 0.12) return AN2_BEG[2]();
-      var lo = Math.floor(r), hi = lo + 1;
-      return { prompt: '<b>Without a calculator</b>, estimate ' + T('\\sqrt{' + n + '}') + ' to the nearest whole number.', type: 'num', answers: [String(k)], tol: 0,
-        hint: 'Find the two perfect squares on either side of ' + n + '.',
-        solution: steps([T(lo * lo + ' \\lt ' + n + ' \\lt ' + hi * hi) + ', so ' + T(lo + ' \\lt \\sqrt{' + n + '} \\lt ' + hi) + '.', n + ' is closer to ' + (k * k) + ', so ' + T('\\sqrt{' + n + '}\\approx ' + k) + ' (calculator: ' + r.toFixed(2) + ').']) };
+    function () { // how many number sets does it belong to? (u1_L04 Ex 1, u1_EP04 Q1-2)
+      var SETS = { nat: ['R', 'Q', 'I', 'W', 'N'], zero: ['R', 'Q', 'I', 'W'], neg: ['R', 'Q', 'I'], rat: ['R', 'Q'], irr: ['R', '\\overline{Q}'] };
+      var kind = pick(['nat', 'zero', 'neg', 'rat', 'irr']), x, why, k = ri(2, 12), c = ri(2, 6), p, q;
+      if (kind === 'nat') { var o = pick([0, 1, 2, 3]);
+        if (o === 0) { x = '\\sqrt{' + k * k + '}'; why = T(x + ' = ' + k) + ', a natural number'; }
+        else if (o === 1) { q = ri(2, 6); x = '\\frac{' + k * q + '}{' + q + '}'; why = T(x + ' = ' + k) + ', a natural number'; }
+        else if (o === 2) { x = '\\sqrt[3]{' + c * c * c + '}'; why = T(x + ' = ' + c) + ', a natural number'; }
+        else { x = String(ri(13, 60)); why = x + ' is a natural (counting) number'; } }
+      else if (kind === 'zero') { if (Math.random() < 0.5) { x = '\\sqrt{' + k * k + '} - ' + k; why = T(x + ' = 0') + '; zero is whole but not natural'; } else { x = '0'; why = 'zero is a whole number but not a natural number'; } }
+      else if (kind === 'neg') { var o2 = pick([0, 1, 2]);
+        if (o2 === 0) { x = '-\\sqrt{' + k * k + '}'; why = T(x + ' = -' + k) + ', a negative integer'; }
+        else if (o2 === 1) { x = '\\sqrt[3]{-' + c * c * c + '}'; why = T(x + ' = -' + c) + ', a negative integer'; }
+        else { x = '-' + ri(2, 40); why = x + ' is a negative integer'; } }
+      else if (kind === 'rat') { var o3 = pick([0, 1, 2, 3]);
+        if (o3 === 0) { p = ri(1, 9); q = pick([4, 5, 7, 8, 9, 11]); if (gcd(p, q) !== 1) p = 1; x = '\\frac{' + p + '}{' + q + '}'; why = T(x) + ' is a fraction of integers that is not an integer'; }
+        else if (o3 === 1) { x = '-0.\\overline{' + ri(1, 8) + '}'; why = 'a repeating decimal is a fraction of integers, but this one is not an integer'; }
+        else if (o3 === 2) { p = ri(1, 9); q = pick([2, 3, 4, 5, 6, 7, 10]); if (p % q === 0 || q % p === 0) p = q + 1; x = '\\sqrt{\\frac{' + p * p + '}{' + q * q + '}}'; var rf = reduce(p, q); why = T(x + ' = ' + fracLatex(rf[0], rf[1])) + ', rational but not an integer'; }
+        else { var dd = pick(['0.25', '0.49', '1.44', '2.25', '0.09']); x = '\\sqrt{' + dd + '}'; why = T(x + ' = ' + Math.sqrt(Number(dd)).toFixed(1)) + ', a terminating decimal that is not an integer'; } }
+      else { var o4 = pick([0, 1, 2, 3]);
+        if (o4 === 0) { var ns = pick([2, 3, 5, 6, 7, 8, 10, 11, 12, 13, 15, 17, 18, 20]); x = '\\sqrt{' + ns + '}'; why = ns + ' is not a perfect square, so ' + T(x) + ' is irrational'; }
+        else if (o4 === 1) { x = pick(['\\pi', '-\\pi', '2\\pi']); why = 'π is irrational (non-terminating, non-repeating)'; }
+        else if (o4 === 2) { var nc = pick([2, 4, 5, 9, 10, 20, 25, 30]); x = '-\\sqrt[3]{' + nc + '}'; why = nc + ' is not a perfect cube, so ' + T(x) + ' is irrational'; }
+        else { x = '0.101\\,001\\,000\\,1\\ldots'; why = 'the decimal never terminates and never repeats'; } }
+      var list = SETS[kind];
+      return { prompt: 'How many of the number sets ' + T('N,\\ W,\\ I,\\ Q,\\ \\overline{Q},\\ R') + ' does ' + T(x) + ' belong to?', type: 'num', answers: [String(list.length)], tol: 0,
+        hint: 'Simplify first. The sets nest: N inside W inside I inside Q, all inside R. The irrational numbers sit beside Q, also inside R.',
+        solution: steps([why + '.', 'So ' + T(x) + ' belongs to ' + T(list.join(',\\ ')) + ': <b>' + list.length + '</b> sets.']) };
     },
     function () { // count the irrationals
       var pool = [
@@ -234,17 +264,22 @@ var QGen = (function () {
         hint: 'Rational numbers can be written as a fraction of integers: perfect-square roots, terminating and repeating decimals all count. Roots that do not simplify, and π, are irrational.',
         solution: steps(items.map(function (x) { return T(x[0]) + ' is ' + (x[1] ? '<b>irrational</b>' : 'rational'); }).concat(['Total irrational: ' + count + '.'])) };
     },
-    function () { // root of a fraction or negative cube
-      if (Math.random() < 0.5) {
-        var p = pick([2, 3, 4, 5, 6, 7, 9]), q = pick([2, 3, 4, 5, 8, 10]); if (p === q) return AN2_BEG[4]();
-        return { prompt: 'Evaluate exactly: ' + T('\\sqrt{\\frac{' + p * p + '}{' + q * q + '}}'), type: 'num', answers: ['\\frac{' + p + '}{' + q + '}'], tol: 0,
-          hint: 'Take the square root of the top and the bottom separately.',
-          solution: steps([T('\\sqrt{\\frac{' + p * p + '}{' + q * q + '}} = \\frac{\\sqrt{' + p * p + '}}{\\sqrt{' + q * q + '}} = \\frac{' + p + '}{' + q + '}') + '.']) };
+    function () { // product or quotient as a single radical (u1_L05 Ex 5, Q9)
+      var x, ans, sol;
+      if (Math.random() < 0.55) {
+        var a = pick([2, 3, 5, 6, 7, 10, 11, 13, 14, 15]), b = pick([2, 3, 5, 6, 7, 10, 11, 13, 14, 15]), ab = a * b;
+        if (a === b || Math.sqrt(ab) % 1 === 0) return AN2_BEG[4]();
+        x = '\\sqrt{' + a + '}\\times\\sqrt{' + b + '}'; ans = ab;
+        sol = T(x + ' = \\sqrt{' + a + '\\times' + b + '} = \\sqrt{' + ab + '}');
+      } else {
+        var d = pick([2, 3, 5, 6, 7]), m = pick([2, 3, 5, 6, 7, 10, 11, 13]), top = d * m;
+        if (m === d) return AN2_BEG[4]();
+        x = '\\dfrac{\\sqrt{' + top + '}}{\\sqrt{' + d + '}}'; ans = m;
+        sol = T(x + ' = \\sqrt{\\dfrac{' + top + '}{' + d + '}} = \\sqrt{' + m + '}');
       }
-      var c = ri(2, 6);
-      return { prompt: 'Evaluate exactly: ' + T('\\sqrt[3]{-' + c * c * c + '}'), type: 'num', answers: [String(-c)], tol: 0,
-        hint: 'A cube root of a negative number is negative: (−a)³ is negative.',
-        solution: steps([T('(-' + c + ')^{3} = -' + c * c * c) + ', so ' + T('\\sqrt[3]{-' + c * c * c + '} = -' + c) + '.']) };
+      return { prompt: 'Write as a <b>single radical</b> in the form ' + T('\\sqrt{x}') + ':<br>' + T(x), type: 'expr', answers: ['\\sqrt{' + ans + '}'], check: 'exact',
+        hint: 'Product rule: √a × √b = √(ab). Quotient rule: √a ÷ √b = √(a ÷ b). Combine everything under one root sign.',
+        solution: steps([sol + '.', 'The value is the same; a calculator shows both sides are about ' + Math.sqrt(ans).toFixed(3) + '.']) };
     }
   ];
 
@@ -272,28 +307,40 @@ var QGen = (function () {
         hint: 'Simplify the root first, then multiply the coefficients together.',
         solution: steps([T('\\sqrt{' + rN + '} = \\sqrt{' + k * k + '\\times' + m + '} = ' + rad(k, m)) + '.', T(rad(c, rN) + ' = ' + c + '\\times' + rad(k, m) + ' = ' + rad(c * k, m)) + '.']) };
     },
-    function () { // ordering mixed radicals
+    function () { // ordering mixed radicals: answer in entire form (u1_L06 Ex 5, Q8)
       var cands = [], tries = 0;
-      while (cands.length < 3 && tries++ < 50) { var a = ri(2, 6), b = pick(SQFREE); var v = a * a * b; if (!cands.some(function (c) { return c[2] === v; })) cands.push([a, b, v]); }
+      while (cands.length < 4 && tries++ < 80) { var a = ri(2, 7), b = pick(SQFREE); var v = a * a * b; if (v <= 400 && !cands.some(function (c) { return c[2] === v || c[1] === b; })) cands.push([a, b, v]); }
+      if (cands.length < 4) return AN2_PRG[2]();
       var big = Math.random() < 0.5; var target = cands.reduce(function (p, c) { return big ? (c[2] > p[2] ? c : p) : (c[2] < p[2] ? c : p); });
-      return { prompt: 'Which of these is the <b>' + (big ? 'largest' : 'smallest') + '</b>? &nbsp;' + cands.map(function (c) { return T(rad(c[0], c[1])); }).join(', &nbsp; ') + '<br>Type your answer exactly as it is written.', type: 'expr', answers: [rad(target[0], target[1])], check: 'exact',
-        hint: 'Convert each one to an entire radical, then compare the numbers under the root.',
-        solution: steps(cands.map(function (c) { return T(rad(c[0], c[1]) + ' = \\sqrt{' + c[2] + '}'); }).concat(['The ' + (big ? 'largest' : 'smallest') + ' radicand is ' + target[2] + ', so the answer is ' + T(rad(target[0], target[1])) + '.'])) };
+      return { prompt: 'Which of these is the <b>' + (big ? 'largest' : 'smallest') + '</b>? &nbsp;' + cands.map(function (c) { return T(rad(c[0], c[1])); }).join(', &nbsp; ') + '<br>Give your answer as an <b>entire radical</b>.', type: 'expr', answers: ['\\sqrt{' + target[2] + '}'], check: 'exact',
+        hint: 'Convert every one to an entire radical (square the coefficient and multiply it in), then compare the numbers under the root.',
+        solution: steps(cands.map(function (c) { return T(rad(c[0], c[1]) + ' = \\sqrt{' + c[0] * c[0] + '\\times' + c[1] + '} = \\sqrt{' + c[2] + '}'); }).concat(['The ' + (big ? 'largest' : 'smallest') + ' radicand is ' + target[2] + ', so the answer is ' + T(rad(target[0], target[1]) + ' = \\sqrt{' + target[2] + '}') + '.'])) };
     },
-    function () { // repeating decimal -> fraction
-      var two = Math.random() < 0.6, d, den;
-      if (two) { d = ri(10, 98); if (d % 11 === 0) d = d + 1; den = 99; } else { d = ri(1, 8); den = 9; }
-      var f = reduce(d, den), same = f[1] === den, dec = '0.\\overline{' + (two ? String(d).replace(/^(\d)$/, '0$1') : d) + '}';
-      return { prompt: 'Write ' + T(dec) + ' as a <b>fraction in simplest form</b>.', type: 'expr', answers: [fracLatex(f[0], f[1])], check: 'exact',
-        hint: 'Let x equal the decimal, multiply by ' + (two ? '100' : '10') + ' so the repeating part lines up, and subtract.',
-        solution: steps(['Let ' + T('x = ' + dec) + '. Then ' + T((two ? '100' : '10') + 'x = ' + d + '.\\overline{' + (two ? d : d) + '}') + '.', 'Subtract: ' + T((two ? '99' : '9') + 'x = ' + d) + ', so ' + T('x = \\frac{' + d + '}{' + den + '}' + (same ? '' : ' = ' + fracLatex(f[0], f[1]))) + '.']) };
+    function () { // repeating decimal: set up the algebraic method (u1_L03 §5, Ex 5-6)
+      var L = pick([1, 2, 2, 3]), blk, w = pick([0, 0, 1, 2, 3]);
+      if (L === 1) blk = String(ri(1, 8));
+      else if (L === 2) { var d2 = ri(1, 98); if (d2 % 11 === 0) d2++; blk = (d2 < 10 ? '0' : '') + d2; }
+      else { var d3 = ri(101, 989); if (d3 % 111 === 0) d3 += 1; blk = String(d3); }
+      var P = Math.pow(10, L), k = P - 1, b = Number(blk), n = w * k + b, dec = w + '.\\overline{' + blk + '}';
+      var g = gcd(k, n), f = reduce(n, k), ans = [k + 'x=' + n]; if (g > 1) ans.push((k / g) + 'x=' + (n / g));
+      return { prompt: 'Use the <b>algebraic method</b> on ' + T('x = ' + dec) + ': multiply by the power of 10 that moves one full repeating block to the left of the decimal point, then subtract ' + T('x') + '.<br>Type the equation you get, in the form ' + T('kx = n') + '.',
+        type: 'expr', answers: ans, check: 'exact',
+        hint: 'The block has ' + L + ' digit' + (L > 1 ? 's' : '') + ', so multiply by ' + P + '. Line the two decimals up and subtract: the repeating tails cancel.',
+        solution: steps(['Let ' + T('x = ' + dec) + '. The block ' + blk + ' has ' + L + ' digit' + (L > 1 ? 's' : '') + ', so ' + T(P + 'x = ' + (w * P + b) + '.\\overline{' + blk + '}') + '.',
+          'Subtract: ' + T(P + 'x - x = ' + (w * P + b) + ' - ' + w) + ', so ' + T(k + 'x = ' + n) + '.',
+          '(Finishing: ' + T('x = \\frac{' + n + '}{' + k + '}' + (g > 1 ? ' = ' + fracLatex(f[0], f[1]) : '')) + '.)']) };
     },
-    function () { // exact cube root of a negative fraction
-      var p = ri(1, 5), q = pick([2, 3, 4, 5]); if (p === q) return AN2_PRG[4]();
-      var g = gcd(p, q); p /= g; q /= g;
-      return { prompt: 'Evaluate exactly: ' + T('\\sqrt[3]{-\\frac{' + p * p * p + '}{' + q * q * q + '}}'), type: 'expr', answers: [fracLatex(-p, q)], check: 'exact',
-        hint: 'Cube-root the top and bottom separately; the answer is negative.',
-        solution: steps([T('\\sqrt[3]{' + p * p * p + '} = ' + p) + ' and ' + T('\\sqrt[3]{' + q * q * q + '} = ' + q) + '.', T('\\sqrt[3]{-\\frac{' + p * p * p + '}{' + q * q * q + '}} = ' + fracLatex(-p, q)) + '.']) };
+    function () { // higher-index or negative entire radical -> mixed (u1_L06 Ex 7, Q17)
+      var idx = pick([3, 4, 5]), a, b, neg = false;
+      if (idx === 3) { a = pick([2, 3, 4, 5]); b = pick([2, 3, 4, 5, 6, 7, 9, 10]); neg = true; }
+      else if (idx === 4) { a = pick([2, 3]); b = pick([2, 3, 5, 6, 7, 10]); }
+      else { a = 2; b = pick([2, 3, 5, 6, 7, 10]); neg = Math.random() < 0.5; }
+      var n = Math.pow(a, idx) * b, inside = (neg ? '-' : '') + fmt(n), coef = neg ? -a : a;
+      var perf = Math.pow(a, idx);
+      return { prompt: 'Write ' + T('\\sqrt[' + idx + ']{' + inside + '}') + ' as a <b>mixed radical</b> in simplest form.', type: 'expr', answers: [radIdx(coef, b, idx)], check: 'exact',
+        hint: 'Look for the largest perfect ' + (idx === 3 ? 'cube' : idx === 4 ? 'fourth power' : 'fifth power') + ' that divides ' + fmt(n) + '.' + (neg ? ' With an odd index the negative sign comes out in front.' : ''),
+        solution: steps([T(fmt(n) + ' = ' + perf + '\\times' + b) + ' and ' + T(perf + ' = ' + a + '^{' + idx + '}') + '.',
+          T('\\sqrt[' + idx + ']{' + inside + '} = \\sqrt[' + idx + ']{' + (neg ? '-' : '') + perf + '}\\times\\sqrt[' + idx + ']{' + b + '} = ' + radIdx(coef, b, idx)) + '.']) };
     }
   ];
 
@@ -332,15 +379,22 @@ var QGen = (function () {
         hint: 'Combine everything under one root first: √a·√b/√c = √(ab/c). Then simplify.',
         solution: steps([T('\\sqrt{' + x + '}\\times\\sqrt{' + y + '} = \\sqrt{' + prod + '}') + '.', T('\\sqrt{' + prod + '}\\div\\sqrt{' + c + '} = \\sqrt{' + (prod / c) + '}') + '.', T('\\sqrt{' + (prod / c) + '} = \\sqrt{' + k * k + '\\times' + m + '} = ' + rad(k, m)) + '.']) };
     },
-    function () { // mixed repeating decimal -> fraction
-      var w = ri(0, 3), nr = ri(1, 9), rp = ri(10, 98); if (rp % 11 === 0 || rp % 10 === 0) rp += 1;
-      // value = w + (nr*100 + rp - nr) / 990... careful: 0.a\overline{bc}: x = (abc - a)/990
-      if (String(rp).charAt(0) === String(nr)) return AN2_MAS[3]();
-      var num = w * 990 + (nr * 100 + rp - nr), den = 990, f = reduce(num, den), same = f[1] === den;
-      var dec = w + '.' + nr + '\\overline{' + rp + '}';
-      return { prompt: 'Use the algebraic method to write ' + T(dec) + ' as ' + (w ? 'an <b>improper fraction</b>' : 'a <b>fraction</b>') + ' in simplest form.<br><i>(Only the ' + rp + ' repeats.)</i>', type: 'expr', answers: [fracLatex(f[0], f[1])], check: 'exact',
-        hint: 'Multiply x by 10 and by 1000 so both have the same repeating tail, then subtract.',
-        solution: steps(['Let ' + T('x = ' + dec) + '.', T('1000x = ' + (w * 1000 + nr * 100 + rp) + '.\\overline{' + rp + '}') + ' and ' + T('10x = ' + (w * 10 + nr) + '.\\overline{' + rp + '}') + '.', 'Subtract: ' + T('990x = ' + num) + ', so ' + T('x = \\frac{' + num + '}{990}' + (same ? '' : ' = ' + fracLatex(f[0], f[1]))) + '.']) };
+    function () { // repeating decimal with a non-repeating lead: the two-multiplier algebraic method (u1_L03 Steps 3-5, Ex 5; u1_EP03 Q9-11)
+      var w = ri(0, 3), p = pick([1, 1, 2]), q = pick([1, 2, 2]);
+      var lead = p === 1 ? String(ri(0, 9)) : String(ri(0, 9)) + String(ri(1, 9));
+      var blk = q === 1 ? String(ri(1, 8)) : String(ri(10, 98));
+      if (q === 2 && blk.charAt(0) === blk.charAt(1)) return AN2_MAS[3]();           // e.g. 44 is really a 1-digit block
+      if (lead.charAt(lead.length - 1) === blk.charAt(blk.length - 1)) return AN2_MAS[3](); // e.g. 0.1(21) is really 0.(12)
+      var big = Math.pow(10, p + q), small = Math.pow(10, p), k = big - small;
+      var bigInt = w * big + Number(lead + blk), smallInt = w * small + Number(lead), n = bigInt - smallInt;
+      var dec = w + '.' + lead + '\\overline{' + blk + '}', g = gcd(k, n), f = reduce(n, k);
+      var ans = [k + 'x=' + n]; if (g > 1) ans.push((k / g) + 'x=' + (n / g));
+      return { prompt: 'Use the <b>algebraic method</b> on ' + T('x = ' + dec) + ' (only the ' + blk + ' repeats).<br>Multiply ' + T('x') + ' by the power of 10 that moves one repeating block <b>left</b> of the decimal point, and by the power of 10 that puts the block <b>immediately right</b> of it. Subtract.<br>Type the equation you get, in the form ' + T('kx = n') + '.',
+        type: 'expr', answers: ans, check: 'exact',
+        hint: 'There ' + (p === 1 ? 'is 1 digit' : 'are 2 digits') + ' before the repeating block and ' + q + ' in it. Try ' + T(big + 'x') + ' and ' + T(small + 'x') + ': both end in the same repeating tail.',
+        solution: steps(['Let ' + T('x = ' + dec) + '.', T(big + 'x = ' + bigInt + '.\\overline{' + blk + '}') + ' and ' + T(small + 'x = ' + smallInt + '.\\overline{' + blk + '}') + '.',
+          'Subtract: ' + T(big + 'x - ' + small + 'x = ' + bigInt + ' - ' + smallInt) + ', so ' + T(k + 'x = ' + n) + '.',
+          '(Finishing: ' + T('x = \\frac{' + n + '}{' + k + '}' + (g > 1 ? ' = ' + fracLatex(f[0], f[1]) : '')) + '.)']) };
     },
     function () { // exact area of a rectangle with radical sides
       var a = ri(2, 4), b = pick([2, 3, 5, 6]), c = ri(2, 4), d = pick([2, 3, 5, 6, 10, 15]);
@@ -348,7 +402,7 @@ var QGen = (function () {
       var coef = a * c, sq = simpSqrt(b * d), ansCoef = coef * sq[0], ans = sq[1] === 1 ? String(ansCoef) : rad(ansCoef, sq[1]);
       return { prompt: 'A rectangular tomb lid measures ' + T(rad(a, b) + '\\text{ m}') + ' by ' + T(rad(c, d) + '\\text{ m}') + '.<br>Find its <b>exact</b> area in simplest form. (Type the number only.)', type: 'expr', answers: [ans], check: 'exact',
         hint: 'Multiply coefficients together and radicands together, then simplify the root.',
-        solution: steps([T('A = ' + rad(a, b) + '\\times' + rad(c, d) + ' = ' + coef + '\\sqrt{' + b * d + '}') + '.', (sq[1] === 1 ? T('\\sqrt{' + b * d + '} = ' + sq[0]) + ', so ' + T('A = ' + ans) : T('\\sqrt{' + b * d + '} = \\sqrt{' + sq[0] * sq[0] + '\\times' + sq[1] + '} = ' + rad(sq[0], sq[1])) + ', so ' + T('A = ' + ans)) + ' m².']) };
+        solution: steps([T('A = ' + rad(a, b) + '\\times' + rad(c, d) + ' = ' + coef + '\\sqrt{' + b * d + '}') + '.', (sq[1] === 1 ? T('\\sqrt{' + b * d + '} = ' + sq[0]) + ', so ' + T('A = ' + ans) : sq[0] === 1 ? T(b * d) + ' has no perfect-square factor, so ' + T('A = ' + ans) : T('\\sqrt{' + b * d + '} = \\sqrt{' + sq[0] * sq[0] + '\\times' + sq[1] + '} = ' + rad(sq[0], sq[1])) + ', so ' + T('A = ' + ans)) + ' m².']) };
     }
   ];
 
@@ -356,8 +410,13 @@ var QGen = (function () {
 
   function make(key) {
     var list = GENS[key]; if (!list) throw new Error('no generator ' + key);
-    var q = pick(list)(); q.key = key; if (q.tol == null) q.tol = 0; return q;
+    var ti = Math.floor(Math.random() * list.length), q = list[ti](); q.key = key; q.tpl = ti; if (q.tol == null) q.tol = 0; return q;
   }
-  return { make: make, GENS: GENS, _util: { factor: factor, simpSqrt: simpSqrt } };
+  function makeLike(q) { // another question from the same template: same answer form, different numbers
+    var list = GENS[q.key]; if (!list || q.tpl == null) return null;
+    for (var i = 0; i < 8; i++) { var r = list[q.tpl](); if (r && r.answers && r.answers[0] !== q.answers[0]) { r.key = q.key; r.tpl = q.tpl; return r; } }
+    return null;
+  }
+  return { make: make, makeLike: makeLike, GENS: GENS, _util: { factor: factor, simpSqrt: simpSqrt } };
 })();
 if (typeof module !== 'undefined') module.exports = QGen;

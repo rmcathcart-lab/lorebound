@@ -139,12 +139,16 @@
         hint: 'Rectangle area minus square area. Expand the rectangle first.',
         solution: steps([T(pTex(W) + '(' + pTex(L) + ') = ' + pTex(pMul(L, W))) + ' and ' + T('(' + pTex(s) + ')^{2} = ' + pTex(pMul(s, s))) + '.', T(pTex(pMul(L, W)) + ' - ' + pTex(pMul(s, s)) + ' = ' + pTex(area)) + '.']) };
     },
-    function () { // difference of two products with a monomial, then evaluate
-      var k = ri(2, 5), b1 = lin(ri(1, 4), rnz(-7, 7)), m = ri(2, 5), b2 = lin(ri(1, 4), rnz(-7, 7)), res = pSub(pMul(P([[k, 1, 0]]), b1), pMul(P([[m, 1, 0]]), b2));
-      var xv = ri(2, 5), val = pTerms(res).reduce(function (acc, t) { return acc + t.c * Math.pow(xv, t.a); }, 0);
-      return { prompt: 'Simplify ' + T(k + 'x(' + pTex(b1) + ') - ' + m + 'x(' + pTex(b2) + ')') + ', then evaluate your answer when ' + T('x = ' + xv) + '.', type: 'num', answers: [String(val)], tol: 0,
-        hint: 'Expand both, subtract, combine like terms, and only then substitute.',
-        solution: steps([T('= ' + pTex(pMul(P([[k, 1, 0]]), b1)) + ' - (' + pTex(pMul(P([[m, 1, 0]]), b2)) + ') = ' + (pTex(res) || '0')) + '.', 'At ' + T('x = ' + xv) + ': ' + T(val) + '.']) };
+    function () { // unknown coefficient: kx(x + c1) - mx(a2 x + c2) has no x term -> find k  (calculator-proof: needs the expansion)
+      var m = ri(2, 5), a2 = ri(1, 4), c2 = rnz(-7, 7), Pr = m * c2, divs = [];
+      for (var c = -9; c <= 9; c++) if (c !== 0 && Pr % c === 0 && Math.abs(Pr / c) <= 12) divs.push(c);
+      var c1 = pick(divs), k = Pr / c1;
+      if (k === m * a2) return A_MAS[4]();
+      var left = pMul(P([[k, 1, 0]]), lin(1, c1)), right = pMul(P([[m, 1, 0]]), lin(a2, c2)), res = pSub(left, right);
+      var disp = 'kx' + bin(1, c1) + ' - ' + m + 'x' + bin(a2, c2);
+      return { prompt: 'When ' + T(disp) + ' is expanded and simplified, the ' + T('x') + ' terms cancel and only an ' + T('x^{2}') + ' term is left. Determine the value of ' + T('k') + '.', type: 'num', answers: [String(k)], tol: 0,
+        hint: 'Expand both products, keeping k as a letter. Collect the x terms: their total coefficient must be 0.',
+        solution: steps([T('kx' + bin(1, c1) + ' = kx^{2} ' + (c1 < 0 ? '- ' + Math.abs(c1) : '+ ' + c1) + 'kx') + ' and ' + T(m + 'x' + bin(a2, c2) + ' = ' + pTex(right)) + '.', 'The x terms: ' + T((c1 === 1 ? '' : c1 === -1 ? '-' : c1) + 'kx ' + (c2 * m < 0 ? '+ ' + Math.abs(m * c2) : '- ' + (m * c2)) + 'x') + ' must total 0, so ' + T(c1 + 'k = ' + (m * c2)) + ' and ' + T('k = ' + k) + '.', 'Check: the expression simplifies to ' + T(pTex(res)) + '.']) };
     }
   ];
 

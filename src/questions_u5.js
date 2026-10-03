@@ -559,11 +559,12 @@
         hint: 'Rate of change = (change in the vertical value) ÷ (change in time) between the two points.',
         solution: steps(['From ' + labs[seg] + ' ' + T(pt(t[seg], vals[seg])) + ' to ' + labs[seg + 1] + ' ' + T(pt(t[seg + 1], vals[seg + 1])) + '.', T('\\text{rate} = \\dfrac{' + vals[seg + 1] + ' - ' + vals[seg] + '}{' + t[seg + 1] + ' - ' + t[seg] + '} = \\dfrac{' + (vals[seg + 1] - vals[seg]) + '}{2} = ' + rate) + ' ' + c[3] + '.']) };
     },
-    function () { // average rate of change from two data points
+    function () { // average rate of change from two data points, then use it: in what year is a target reached
       var y1 = pick([2012, 2014, 2015, 2016]), gap = pick([4, 5, 6, 8]), p1 = ri(20, 60) * 1000 + pick([0, 200, 400, 600, 800]), rate = pick([-450, -300, -250, 150, 200, 350, 500]), p2 = p1 + rate * gap;
-      return { prompt: 'A town had a population of ' + p1.toLocaleString('en-CA') + ' in ' + y1 + ' and ' + p2.toLocaleString('en-CA') + ' in ' + (y1 + gap) + '. Determine the average rate of change of the population, in people per year. (Number only; negative if it fell.)', type: 'num', answers: [String(rate)], tol: 0,
-        hint: 'Change in population ÷ number of years.',
-        solution: steps([T('\\dfrac{' + p2 + ' - ' + p1 + '}{' + (y1 + gap) + ' - ' + y1 + '} = \\dfrac{' + (p2 - p1) + '}{' + gap + '} = ' + rate) + ' people per year.']) };
+      var more = ri(2, 8), target = p2 + rate * more, yr = y1 + gap + more;
+      return { prompt: 'A town had a population of ' + p1.toLocaleString('en-CA') + ' in ' + y1 + ' and ' + p2.toLocaleString('en-CA') + ' in ' + (y1 + gap) + '. Assume the population keeps changing at the same average rate. In what year will the population be ' + target.toLocaleString('en-CA') + '?', type: 'num', answers: [String(yr)], tol: 0,
+        hint: 'Find the average rate of change (people per year) first. Then work out how many years it takes to change from ' + p2.toLocaleString('en-CA') + ' to ' + target.toLocaleString('en-CA') + ' at that rate.',
+        solution: steps([T('\\text{rate} = \\dfrac{' + p2 + ' - ' + p1 + '}{' + (y1 + gap) + ' - ' + y1 + '} = \\dfrac{' + (p2 - p1) + '}{' + gap + '} = ' + rate) + ' people per year.', 'Change still needed: ' + T(target + ' - ' + p2 + ' = ' + (target - p2)) + '.', 'Years needed: ' + T('\\dfrac{' + (target - p2) + '}{' + rate + '} = ' + more) + ', so the year is ' + T((y1 + gap) + ' + ' + more + ' = ' + yr) + '.']) };
     },
     function () { // linear function from two values: write f(x)
       var m = pick([2, 3, 4, -2, -3, 5]), b = nz(-9, 9), x1 = nz(-5, 5), x2 = x1 + pick([2, 3, 4, 5]); var nm = pick(['f', 'g']);
@@ -578,11 +579,12 @@
         hint: 'Read the y-value of the point above or below each x, then add.',
         solution: steps([T('f(' + a[0] + ') = ' + a[1]) + ' and ' + T('f(' + b2[0] + ') = ' + b2[1]) + '.', T(a[1] + ' + (' + b2[1] + ') = ' + (a[1] + b2[1])) + '.']) };
     },
-    function () { // interpreting a model: cost for a distance / meaning
-      var base = pick([150, 200, 240, 300]), rate = pick([0.25, 0.3, 0.4, 0.5]), n = pick([600, 800, 1000, 1200, 1500]);
-      return { prompt: 'A moving company charges ' + T('C(n) = ' + base + ' + ' + rate + 'n') + ' dollars for a move of ' + T('n') + ' km. Determine ' + T('C(' + n + ')') + ', the cost of a ' + n + ' km move, in dollars (number only).', type: 'num', answers: [num(base + rate * n)], tol: 0,
-        hint: 'Substitute n = ' + n + '. The ' + base + ' is the fixed charge; ' + rate + ' is the cost per km.',
-        solution: steps([T('C(' + n + ') = ' + base + ' + ' + rate + '(' + n + ') = ' + base + ' + ' + num(rate * n) + ' = ' + num(base + rate * n)) + ' dollars.']) };
+    function () { // interpreting two cost models: the distance at which they charge the same
+      var rs = shuffle([0.25, 0.3, 0.4, 0.5, 0.6]).slice(0, 2).sort(function (a, b) { return b - a; }), r1 = rs[0], r2 = rs[1];
+      var n = pick([400, 500, 600, 800, 1000, 1200, 1500]), b1 = pick([100, 120, 150, 180, 200]), b2 = b1 + Math.round((r1 - r2) * n);
+      return { prompt: 'Two moving companies charge ' + T('A(n) = ' + b1 + ' + ' + r1 + 'n') + ' and ' + T('B(n) = ' + b2 + ' + ' + r2 + 'n') + ' dollars for a move of ' + T('n') + ' km. For what distance do the two companies charge the same amount? (km, number only)', type: 'num', answers: [String(n)], tol: 0,
+        hint: 'The charges are equal when A(n) = B(n). Set the two expressions equal and solve for n.',
+        solution: steps([T(b1 + ' + ' + r1 + 'n = ' + b2 + ' + ' + r2 + 'n'), T(num(r1 - r2) + 'n = ' + (b2 - b1)), T('n = \\dfrac{' + (b2 - b1) + '}{' + num(r1 - r2) + '} = ' + n) + ' km. (Company B has the higher fixed fee but the lower rate, so it is cheaper for longer moves.)']) };
     },
     function () { // where two function values are equal
       var m1 = pick([2, 3, 4, 5]), m2 = pick([-1, -2, -3, 1]), x = nz(-5, 6); while (m2 === m1) m2 = pick([-1, -2, -3]);
@@ -597,7 +599,7 @@
         hint: 'a^{1/2} means √a, and squaring a square root undoes it: (√a)² = a. Substitute x = a^{1/2} and solve for a.',
         solution: steps([T('p\\left(a^{1/2}\\right) = ' + c + ' - \\left(a^{1/2}\\right)^{2} = ' + c + ' - a'), T(c + ' - a = ' + k), T('a = ' + c + ' - (' + k + ') = ' + a) + ' (and ' + a + ' is indeed a perfect square).']) };
     },
-    function () { // f(t) = k with a radical answer, or f(45) = k sqrt5 numeric
+    function () { // f(t) = k with a radical answer, or f(45) for f(x) = a sqrt(x) in simplest radical form
       if (Math.random() < 0.5) {
         var s = pick([2, 3, 4, 5]), r = pick([2, 3, 5, 6, 7, 10]), n = s * s * r, c = ri(1, 20), k = n - c, nm = pick(['f', 'g']);
         return { prompt: 'Let ' + T(nm + '(x) = x^{2} - ' + c) + '. If ' + T(nm + '(t) = ' + k) + ' and ' + T('t > 0') + ', determine ' + T('t') + ' in simplest radical form.', type: 'expr', answers: [s + '\\sqrt{' + r + '}'], check: 'exact', note: 'Type a mixed radical, e.g. ' + T('2\\sqrt{3}') + '.',
@@ -605,9 +607,9 @@
           solution: steps([T('t^{2} - ' + c + ' = ' + k), T('t^{2} = ' + n), T('t = \\sqrt{' + n + '} = \\sqrt{' + (s * s) + ' \\times ' + r + '} = ' + s + '\\sqrt{' + r + '}') + ' (positive root only, since t > 0).']) };
       }
       var a = ri(2, 9), s2 = pick([2, 3, 4, 5]), r2 = pick([2, 3, 5, 6, 7]), x = s2 * s2 * r2;
-      return { prompt: 'The function ' + T('f(x) = ' + a + '\\sqrt{x}') + ' has ' + T('f(' + x + ') = k\\sqrt{' + r2 + '}') + '. Determine ' + T('k') + '.', type: 'num', answers: [String(a * s2)], tol: 0,
-        hint: 'Substitute x = ' + x + ', then simplify √' + x + ' by pulling out its largest perfect-square factor.',
-        solution: steps([T('f(' + x + ') = ' + a + '\\sqrt{' + x + '} = ' + a + '\\sqrt{' + (s2 * s2) + ' \\times ' + r2 + '} = ' + a + ' \\times ' + s2 + '\\sqrt{' + r2 + '} = ' + (a * s2) + '\\sqrt{' + r2 + '}'), T('k = ' + (a * s2)) + '.']) };
+      return { prompt: 'Let ' + T('f(x) = ' + a + '\\sqrt{x}') + '. Determine ' + T('f(' + x + ')') + ' as an exact value in simplest radical form.', type: 'expr', answers: [(a * s2) + '\\sqrt{' + r2 + '}'], check: 'exact', note: 'Type a mixed radical, e.g. ' + T('6\\sqrt{5}') + '.',
+        hint: 'Substitute x = ' + x + ', then simplify √' + x + ' by pulling out its largest perfect-square factor, and multiply by ' + a + '.',
+        solution: steps([T('f(' + x + ') = ' + a + '\\sqrt{' + x + '} = ' + a + '\\sqrt{' + (s2 * s2) + ' \\times ' + r2 + '} = ' + a + ' \\times ' + s2 + '\\sqrt{' + r2 + '} = ' + (a * s2) + '\\sqrt{' + r2 + '}') + '.']) };
     },
     function () { // real-world path graph: hours increasing, or which point starts the steepest segment
       var ctxs = [['the number of cars in a parking lot', 'Time (hours)', 'Cars'], ['the number of hikers on a trail', 'Time (hours)', 'Hikers'], ['the number of people in a swimming pool', 'Time (hours)', 'People']];
