@@ -279,9 +279,10 @@ var Overworld = (function () {
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]]) start = fireAt; }
     R = { container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
-      player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0 }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
+      player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0, clock: 0, act: null }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
+    if (ret && map.v2 && ret.outcome === 'won' && ret.inst != null) { var jk = ret.ref.id + '#' + ret.inst; R.ents.forEach(function (e) { if (e.kind === 'corpse' && e.key === jk) { e.dieT0 = 0.15; var fa = w.fightAt; e.dir = fa && start.x < e.x ? -1 : 1; } }); }
     if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
     if (ret && map.v2 && ret.outcome === 'died' && !opts.title) say('You wake at the bonfire. The dead have risen again.');
     if (opts.title) R.frozen = true; // hold still while the splash shows
@@ -301,7 +302,7 @@ var Overworld = (function () {
     var ents = [];
     w.dead = w.dead || [];
     map.lairs.forEach(function (p, k) {
-      var key = p.ref.id + '#' + (p.n || 0), base = { ref: p.ref, key: key, n: p.n || 0, x: p.x * T + T / 2, y: p.y * T + T / 2, hx: p.x, hy: p.y, dir: 1, anim: Math.random() * 10, level: p.ref.level };
+      var key = p.ref.id + '#' + (p.n || 0), base = { ref: p.ref, key: key, n: p.n || 0, x: p.x * T + T / 2, y: p.y * T + T / 2, hx: p.x, hy: p.y, dir: 1, anim: Math.random() * 10, clock: Math.random() * 3, level: p.ref.level };
       if (map.v2 && w.dead.indexOf(key) >= 0) { base.kind = 'corpse'; var at = w.deadAt && w.deadAt[key]; if (at) { base.x = at.x; base.y = at.y; } ents.push(base); return; }
       base.kind = 'creature'; base.wander = 0; base.state = 'idle'; base.lost = 0; base.stun = 0; ents.push(base);
     });
@@ -371,6 +372,8 @@ var Overworld = (function () {
     if (k.left) dx -= 1; if (k.right) dx += 1; if (k.up) dy -= 1; if (k.down) dy += 1;
     if (R.stickVec) { dx = R.stickVec.x; dy = R.stickVec.y; }
     var d = Math.hypot(dx, dy); if (d > 1) { dx /= d; dy /= d; }
+    p.clock += dt;
+    if (R.cut) { R.cut.t -= dt; if (R.cut.t <= 0) { var cf = R.cut.fn; R.cut = null; cf(); } return; } // a short attack before a fight
     var speed = R.opts.heroSpeed || 58; p.moving = d > 0.05;
     if (p.moving) {
       if (Math.abs(dx) > 0.2) p.dir = dx < 0 ? -1 : 1;
@@ -383,7 +386,7 @@ var Overworld = (function () {
     if (R.contactCool > 0) R.contactCool -= dt;
     R.ents.forEach(function (e) {
       if (!R) return; // a contact fight unmounted the world mid-loop
-      e.anim += dt * 6;
+      e.anim += dt * 6; e.clock = (e.clock || 0) + dt;
       if (e.kind !== 'creature') return;
       if (R.map.v2) {
         if (e.stun > 0) { e.stun -= dt; return; }
@@ -392,7 +395,7 @@ var Overworld = (function () {
         var sees = !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
         if (sees) { if (e.state !== 'chase' && window.Sfx) Sfx.play('alert'); e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
         if (e.state === 'chase') {
-          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); return; }
+          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); e.dir = pdx < 0 ? -1 : 1; p.dir = -e.dir; cutscene(e, 'creature', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); }); return; }
           var cs = (e.level === 'MAS' ? 46 : e.level === 'PRG' ? 44 : 40) * dt, mx = e.x + pdx / (pd || 1) * cs, my = e.y + pdy / (pd || 1) * cs;
           if (!blocked(mx, e.y)) e.x = mx; if (!blocked(e.x, my)) e.y = my; e.dir = pdx < 0 ? -1 : 1; e.moving = true; return;
         }
@@ -434,8 +437,19 @@ var Overworld = (function () {
     if (R.near.fire) { persist(); if (R.opts.onBonfire) R.opts.onBonfire(); return; }
     if (!R.near.e) return;
     var e = R.near.e; persist();
-    if (e.kind === 'boss') { if (R.opts.onBattle) R.opts.onBattle(e.ref, true); }
-    else { R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); }
+    if (R.cut) return;
+    R.player.dir = e.x < R.player.x ? -1 : 1; if (e.kind === 'creature') { e.dir = -R.player.dir; e.state = 'idle'; e.tx = null; }
+    if (e.kind === 'boss') cutscene(e, 'hero', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, true); });
+    else { R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); cutscene(e, 'hero', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); }); }
+  }
+  /* the opening blow: whoever started the fight plays its attack, then the battle screen takes over */
+  function cutscene(e, who, fn) {
+    var p = R.player, d = SP.actor && SP.actor(who === 'hero' ? SP.actorFor({ kind: 'hero', cls: R.opts.heroClass }) : SP.actorFor(e));
+    var len = d ? Math.min(0.75, SP.animLength(d, 'attack')) : 0;
+    if (!len) { fn(); return; }
+    if (who === 'hero') p.act = { anim: 'attack', t0: R.t }; else e.act = { anim: 'attack', t0: R.t };
+    if (window.Sfx) Sfx.play('strike');
+    R.keys = {}; R.stickVec = null; R.cut = { t: len, fn: function () { p.act = null; e.act = null; fn(); } };
   }
   function lineOfSight(x0, y0, x1, y1) { // tile-stepping ray; blocked by solid tiles
     var steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6), last = -1;
@@ -461,7 +475,7 @@ var Overworld = (function () {
     }
     if (SP.ready && SP.overlay) SP.overlay(ctx, th, x0, y0, x1, y1, camx, camy, R.map.tiles, R.seen, R.t);
     // entities sorted by y
-    var list = R.ents.slice(); list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving, anim: p.anim, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
+    var list = R.ents.slice(); list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving && !R.cut, anim: p.anim, clock: p.clock, act: p.act, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
     list.sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (e) { if (e.kind !== 'hero' && !R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'corpse') drawCorpse(ctx, e, e.x - camx, e.y - camy); else drawEnt(ctx, e, e.x - camx, e.y - camy); });
     // dropped lore marker
@@ -531,6 +545,8 @@ var Overworld = (function () {
     else if (t === G.GROUND2) { ctx.fillStyle = 'rgba(0,0,0,.08)'; ctx.fillRect(x + v * 3, y + v * 2, 2, 1); }
   }
   function drawCorpse(ctx, e, x, y) {
+    var cid = SP.actorFor && SP.actorFor(e), cd = cid && SP.actor(cid);
+    if (cd && SP.drawActor(ctx, cd, 'death', e.dieT0 != null ? R.t - e.dieT0 : 99, x, y + 5, e.dir < 0, { alpha: 0.92 })) return;
     ctx.fillStyle = 'rgba(60,20,30,.55)'; ctx.beginPath(); ctx.ellipse(x, y + 5, 9, 3.5, 0, 0, 7); ctx.fill();
     var hdc = SP.ready && SP.corpseFor && SP.corpseFor(e); if (hdc && spr(hdc)) { ctx.save(); ctx.globalAlpha = 0.85; drawSprite(ctx, hdc, x, y + 1, 0, e.dir < 0); ctx.restore(); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor({ kind: 'creature', ref: e.ref, tx: null, x: 0, y: 0 }, R.L) : null, d = name && spr(name);
@@ -538,6 +554,14 @@ var Overworld = (function () {
     var f = d.frames[0]; ctx.save(); ctx.translate(x, y + 3); ctx.rotate(e.dir < 0 ? Math.PI / 2 : -Math.PI / 2); ctx.globalAlpha = 0.8; ctx.drawImage(d.img || SP.img, f.x, f.y, f.w, f.h, -f.w / 2, -f.h + 2, f.w, f.h); ctx.restore();
   }
   function drawEnt(ctx, e, x, y) {
+    var aid = SP.actorFor && SP.actorFor(e), ad = aid && SP.actor(aid);
+    if (ad) {
+      var big = e.kind === 'boss', moving = e.moving || (e.kind === 'creature' && e.tx != null && Math.hypot(e.tx - e.x, e.ty - e.y) > 1);
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 5, big ? 14 : 7, big ? 5 : 2.6, 0, 0, 7); ctx.fill();
+      var an = e.act ? e.act.anim : moving ? 'walk' : 'idle', at = e.act ? R.t - e.act.t0 : (e.clock || 0);
+      var tint = e.kind === 'hero' && e.stage > 1 ? (e.stage === 3 ? 'rgba(255,200,80,.22)' : 'rgba(140,210,255,.2)') : null;
+      if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
+    }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
     if (name) { if (e.kind === 'hero' || e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, e.kind === 'boss' ? 10 : 6, e.kind === 'boss' ? 4 : 2.5, 0, 0, 7); ctx.fill(); }
       else if (e.kind === 'key' || e.kind === 'page') { y += Math.sin(e.anim) * 1.5; }

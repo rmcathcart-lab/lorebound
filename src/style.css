@@ -422,3 +422,18 @@ body.in-world #app { padding: 0; max-width: none; }
 .fig-table { border-collapse: collapse; margin: 8px 0; font-size: 16px; }
 .fig-table td { border: 1px solid var(--edge); padding: 4px 12px; text-align: center; min-width: 36px; }
 .fig-table td.hd { font-style: italic; color: var(--lore); background: rgba(143,211,255,.06); }
+
+/* ---- battle stage: painted fighters ---- */
+.arena.staged { display: block; }
+.bstage { position: relative; isolation: isolate; height: 214px; border-radius: 6px; overflow: hidden; border: 1px solid var(--edge); background: #0c0a10 center 62% / cover no-repeat; }
+.bstage::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(12,10,16,.55) 0%, rgba(12,10,16,.35) 45%, rgba(12,10,16,.9) 88%); }
+.bstage-cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.bstage-cap { position: absolute; top: 10px; max-width: 46%; text-shadow: 0 1px 8px rgba(0,0,0,.95); }
+.bstage-cap.hero { left: 14px; }
+.bstage-cap.foe { right: 14px; text-align: right; }
+.bstage-cap .nm { display: block; font-family: var(--font-display); font-size: 20px; line-height: 1.15; color: var(--bone); }
+.bstage-cap .tag { display: block; font-family: var(--font-ui); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--bone-dim); }
+.bstage-cap.foe .boss-progress { justify-content: flex-end; margin-top: 6px; }
+@media (max-width: 640px) { .bstage { height: 180px; } .bstage-cap .nm { font-size: 16px; } }
+/* keep the two fighters in view while you work on the answer (tall enough screens only) */
+@media (min-height: 700px) { .battle > .panel:first-child { position: sticky; top: 52px; z-index: 6; padding: 8px; background: var(--ash, #15121a); } html:has(.battle) { scroll-padding-top: 280px; } }

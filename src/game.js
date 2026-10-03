@@ -508,11 +508,51 @@
     var B = UI.battle, q = B.qs[B.i]; B.deadline = 0;
     logAttempt(q, '(out of time)', 'wrong'); B.lastRaw = '';
     toast('Too slow. The creature strikes first.');
-    if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; render(); return; }
-    if (charges('shield') > 0) { shieldBreak(); return; }
-    if (itemCount('draught') > 0) { shieldBreak('draught'); return; }
-    die();
+    if (B.busy) return;
+    loseExchange();
   }
+  /* ---------- battle stage: the hero and the creature, painted, facing each other ---------- */
+  var Stage = { cv: null, battle: null, raf: 0 };
+  function nowS() { return performance.now() / 1000; }
+  function stageCanvas(B) {
+    if (!Stage.cv || Stage.battle !== B) {
+      Stage.cv = document.createElement('canvas'); Stage.cv.className = 'bstage-cv'; Stage.battle = B;
+      Stage.hero = { id: 'hero:' + (heroClass().id === 'sorcerer' ? 'wizard' : 'knight'), anim: 'idle', t0: nowS(), hurt: -9 };
+      Stage.foe = { id: 'cr:' + (B.foe.sigil || B.foe.id), anim: 'idle', t0: nowS() + Math.random(), hurt: -9 };
+    }
+    if (!Stage.raf) Stage.raf = requestAnimationFrame(stageFrame);
+    return Stage.cv;
+  }
+  function stagePlay(who, anim) { var a = Stage[who]; if (!a) return; a.anim = anim; a.t0 = nowS(); }
+  function stageHurt(who) { var a = Stage[who]; if (a) a.hurt = nowS(); }
+  function stageFrame() {
+    Stage.raf = 0; var cv = Stage.cv; if (!cv || !document.body.contains(cv) || !window.Overworld || !Overworld.SP.actor) return;
+    Stage.raf = requestAnimationFrame(stageFrame);
+    var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    var ctx = cv.getContext('2d'), SP = Overworld.SP; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    var hd = SP.actor(Stage.hero.id), fd = SP.actor(Stage.foe.id), t = nowS();
+    function tall(d) { if (!d) return 26; var f = d.anims.idle.frames[0]; return f.h * d.scale; }
+    var ground = H - 24, k = Math.min(4.2, (H - 44) / Math.max(tall(hd), tall(fd))), hx = W * 0.3, fx = W * 0.7, gap = fx - hx;
+    [['hero', hd, hx, false, 1], ['foe', fd, fx, true, -1]].forEach(function (row) {
+      var st = Stage[row[0]], d = row[1]; if (!d) return;
+      var len = SP.animLength(d, st.anim), el2 = t - st.t0;
+      if ((st.anim === 'attack') && el2 > len) { st.anim = 'idle'; st.t0 = t; el2 = 0; }       // attacks return to guard; deaths hold
+      var lunge = st.anim === 'attack' ? Math.sin(Math.PI * Math.min(1, el2 / Math.max(0.01, len))) * gap * 0.22 * row[4] : 0;
+      var fl = Math.max(0, 1 - (t - st.hurt) / 0.4), shake = fl ? Math.sin(t * 70) * 3 * fl : 0;
+      ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(row[2] + lunge, ground + 2, Math.min(60, tall(d) * k * 0.32), 7, 0, 0, 7); ctx.fill();
+      SP.drawActor(ctx, d, st.anim, el2, row[2] + lunge + shake, ground, row[3], { mul: k, flash: fl, tint: row[0] === 'hero' && heroStage() > 1 ? (heroStage() === 3 ? 'rgba(255,200,80,.18)' : 'rgba(140,210,255,.16)') : null });
+    });
+  }
+  /* one exchange of blows, then the result: the attacker lunges, the defender flinches or falls */
+  function exchange(heroWins, fatal, then) {
+    var B = UI.battle; B.busy = true;
+    var atk = heroWins ? 'hero' : 'foe', def = heroWins ? 'foe' : 'hero';
+    stagePlay(atk, 'attack');
+    setTimeout(function () { if (fatal) stagePlay(def, 'death'); else stageHurt(def); sfx(heroWins ? 'strike' : 'wrong'); }, 320);
+    setTimeout(function () { B.busy = false; if (UI.battle === B) then(); }, fatal ? 760 : 600);
+  }
+
   function screenBattle() {
     var B = UI.battle; if (!B) { go('land'); return; }
     var q = B.qs[B.i], foe = B.foe, lvlColor = LEVELS[foe.level].color;
@@ -522,9 +562,18 @@
     var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
     foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + (B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + n(LEVELS[foe.level].lore) + ' Lore</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
-    arena.appendChild(el('div', 'hero-side', heroPortrait('at-arena') + '<div class="hero-cap"><span class="nm">' + esc(S.hero ? S.hero.name : S.name) + '</span><span class="tag">' + esc(heroTitle()) + '</span></div>'));
-    arena.appendChild(el('div', 'vs', '<span>⚔</span>'));
-    arena.appendChild(foeEl);
+    if (window.Overworld && Overworld.SP.actor && Overworld.SP.actor('cr:' + (foe.sigil || foe.id))) {
+      var stage = el('div', 'bstage'), bnr = B.land && (B.land.banner || 'title');
+      if (bnr && window.ART_IMG && ART_IMG[bnr]) stage.style.backgroundImage = 'url(' + ART_IMG[bnr] + ')';
+      stage.appendChild(stageCanvas(B));
+      stage.appendChild(el('div', 'bstage-cap hero', '<span class="nm">' + esc(S.hero ? S.hero.name : S.name) + '</span><span class="tag">' + esc(heroTitle()) + '</span>'));
+      stage.appendChild(el('div', 'bstage-cap foe', '<div class="tag" style="color:' + lvlColor + '">' + (B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + n(LEVELS[foe.level].lore) + ' Lore</div><span class="nm">' + esc(foe.name) + '</span>' + prog));
+      arena.className = 'arena staged'; arena.appendChild(stage);
+    } else {
+      arena.appendChild(el('div', 'hero-side', heroPortrait('at-arena') + '<div class="hero-cap"><span class="nm">' + esc(S.hero ? S.hero.name : S.name) + '</span><span class="tag">' + esc(heroTitle()) + '</span></div>'));
+      arena.appendChild(el('div', 'vs', '<span>⚔</span>'));
+      arena.appendChild(foeEl);
+    }
     head.appendChild(arena); wrap.appendChild(head);
 
     if (B.phase === 'ask' || B.phase === 'sight' || B.phase === 'warn') {
@@ -537,7 +586,7 @@
         var sp = el('div', 'result lose', '<h2>Your answer was wrong</h2><p>Second Sight flickers. Spend its charge to try this question once more, or accept your fate.</p>');
         var row = el('div', 'actions');
         var use = el('button', 'btn lore', 'Use Second Sight (1 charge)'); use.type = 'button'; use.onclick = function () { S.gear.sight.charges--; B.sightUsed = true; B.phase = 'ask'; armTimer(); render(); };
-        var no = el('button', 'btn ghost', 'Accept fate'); no.type = 'button'; no.onclick = function () { die(); };
+        var no = el('button', 'btn ghost', 'Accept fate'); no.type = 'button'; no.onclick = function () { stagePlay('hero', 'death'); die(); };
         row.appendChild(use); row.appendChild(no); sp.appendChild(row); qp.appendChild(sp);
       }
       if (B.hintShown) qp.appendChild(el('div', 'aid', '<div class="eyebrow">' + (B.freeHint ? 'Scholar\'s Lens' : 'Lantern of Hints') + '</div>' + esc(q.hint)));
@@ -567,7 +616,7 @@
   }
 
   function submit(raw) {
-    var B = UI.battle, q = B.qs[B.i];
+    var B = UI.battle, q = B.qs[B.i]; if (!B || B.busy) return;
     if (/\\placeholder/.test(raw)) { toast('There is an empty box in your answer. Fill it in, or press ⌫ to remove it.'); return; }
     var r = gradeAnswer(q, raw);
     B.lastRaw = raw;
@@ -575,12 +624,17 @@
     sfx('strike');
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
     logAttempt(q, raw, r.ok ? 'correct' : r.reason);
-    if (r.ok) { win(); return; }
-    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; B.phase = 'warn'; sfx('wrong'); render(); return; }
-    if (charges('sight') > 0 && !B.sightUsed) { B.phase = 'sight'; sfx('wrong'); render(); return; }
-    if (charges('shield') > 0) { shieldBreak(); return; }
-    if (itemCount('draught') > 0) { shieldBreak('draught'); return; }
-    die();
+    B.deadline = 0;
+    if (r.ok) { exchange(true, !B.isBoss || B.i === B.qs.length - 1, win); return; }
+    if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; exchange(true, false, function () { B.phase = 'warn'; armTimer(); sfx('wrong'); render(); }); return; }
+    loseExchange();
+  }
+  function loseExchange() { // a wrong answer (or the clock): the creature strikes, and what it costs depends on your gear
+    var B = UI.battle;
+    if (charges('sight') > 0 && !B.sightUsed) { exchange(false, false, function () { B.phase = 'sight'; render(); }); return; }
+    if (charges('shield') > 0) { exchange(false, false, function () { shieldBreak(); }); return; }
+    if (itemCount('draught') > 0) { exchange(false, false, function () { shieldBreak('draught'); }); return; }
+    exchange(false, true, die);
   }
   function youTyped(B) { return B.lastRaw ? '<div class="you-typed">You wrote: ' + typedTex(B.lastRaw) + '</div>' : ''; }
   function solutionBlock(q) { return '<div class="solution"><div class="eyebrow">The question</div><div class="question" style="font-size:17px">' + q.prompt + '</div><div class="eyebrow" style="margin-top:12px">How it is done</div>' + q.solution + '<p class="muted" style="margin-top:8px">Answer: ' + tex(q.answers[0]) + '</p></div>'; }
@@ -664,7 +718,7 @@
     }
     inp.addEventListener('input', update);
     inp.addEventListener('focus', function () { try { inp.setAttribute('inputmode', window.matchMedia('(pointer: coarse)').matches ? 'none' : 'text'); } catch (e) {} });
-    obj.node = wrap; obj.value = function () { return inp.value; }; obj.focus = function () { inp.focus(); }; obj.set = function (v) { inp.value = v; update(); };
+    obj.node = wrap; obj.value = function () { return inp.value; }; obj.focus = function () { inp.focus({ preventScroll: true }); }; obj.set = function (v) { inp.value = v; update(); };
     obj.onEnter = function (fn) { inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); fn(); } }); };
     function insertAt(text, back) {
       var st = inp.selectionStart == null ? inp.value.length : inp.selectionStart, en = inp.selectionEnd == null ? st : inp.selectionEnd;
@@ -690,7 +744,7 @@
     wrap.appendChild(mf); setTimeout(noPhoneKeyboard, 0);
     obj.node = wrap; obj.math = true;
     obj.value = function () { return mf.value; };
-    obj.focus = function () { try { mf.focus(); } catch (e) {} };
+    obj.focus = function () { try { mf.focus({ preventScroll: true }); } catch (e) {} };
     obj.set = function (v) { try { mf.value = /\\/.test(v) ? v : latexFromTyped(v); } catch (e) { mf.value = v; } };
     obj.onEnter = function (fn) { mf.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); fn(); } }); };
     obj.press = function (k) {

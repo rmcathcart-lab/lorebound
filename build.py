@@ -15,14 +15,14 @@ ART={}
 for f in sorted(os.listdir('src/art')):
     if not f.lower().endswith(('.jpg','.jpeg','.png','.webp')): continue
     key=os.path.splitext(f)[0]
-    if key.startswith('sheet-'):   # pixel-art sprite sheets: lossless PNG, untouched
+    if key.startswith(('sheet-', 'cr-', 'tr-')):   # pixel-art sprite sheets: lossless PNG, untouched
         raw=open('src/art/'+f,'rb').read(); ART[key]='data:image/'+('webp' if f.endswith('.webp') else 'png')+';base64,'+base64.b64encode(raw).decode(); print('sheet',key,len(raw)//1024,'KB'); continue
     im=Image.open('src/art/'+f).convert('RGB')
-    maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 480
+    maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 400
     if im.width<maxw*0.6:   # tiny preview: upscale smoothly so it survives 2x screens
         im=im.resize((im.width*2, im.height*2), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=2))
     if im.width>maxw: im=im.resize((maxw, round(im.height*maxw/im.width)), Image.LANCZOS)
-    buf=io.BytesIO(); im.save(buf,'JPEG',quality=84,optimize=True)
+    buf=io.BytesIO(); im.save(buf,'JPEG',quality=80,optimize=True,progressive=True)
     ART[key]='data:image/jpeg;base64,'+base64.b64encode(buf.getvalue()).decode()
     print('art',key,im.size,len(buf.getvalue())//1024,'KB')
 import json
@@ -30,7 +30,7 @@ art_js='var ART_IMG = '+json.dumps(ART)+';'
 html=src('index.html')
 html=html.replace('/*KATEX_CSS*/',css).replace('/*GAME_CSS*/',src('style.css'))
 html=html.replace('/*KATEX_JS*/',open(K+'/katex.min.js').read()).replace('/*AUTORENDER_JS*/',open(K+'/contrib/auto-render.min.js').read())
-for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('QUESTIONS_U5_JS','questions_u5.js'),('QUESTIONS_U6_JS','questions_u6.js'),('QUESTIONS_U7_JS','questions_u7.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('HD_DEFS_JS','hd_defs.js'),('SPRITES_JS','sprites.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
+for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('QUESTIONS_U5_JS','questions_u5.js'),('QUESTIONS_U6_JS','questions_u6.js'),('QUESTIONS_U7_JS','questions_u7.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('HD_DEFS_JS','hd_defs.js'),('CREATURE_DEFS_JS','creature_defs.js'),('TERRAIN_DEFS_JS','terrain_defs.js'),('SPRITES_JS','sprites.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
     html=html.replace('/*%s*/'%tag, js(f))
 html=html.replace('/*ART_IMG_JS*/', art_js)
 os.makedirs('dist',exist_ok=True)

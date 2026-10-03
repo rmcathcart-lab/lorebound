@@ -9,7 +9,7 @@
   var dt = new Image(), ken = new Image(), loaded = 0;
   /* HD painted sprites (ChatGPT starter pack, packed by tools/pack_hd.py): smooth-scaled, drawn at device resolution */
   var HD = window.HD_DEFS, hd = new Image(), hdp = new Image(), hdOK = false, propOK = false, propTinted = {};
-  var HD_CREATURE = { knight: 'skeleton', cryptknight: 'skeleton', barksprite: 'goblin', rootbound: 'troll', briargolem: 'troll' }; // creature id -> HD sheet (more as art arrives)
+  var HD_CREATURE = {}; // every creature now has its own painted sheet (SP.actor); kept for older stand-in mappings
   var PROP_SIZE = { living_tree: 0.1, dead_tree: 0.1, mossy_boulders: 0.075, ferns: 0.06, stone_wall: 0.08, wall_corner: 0.08, wall_ruin: 0.08, oak_doorway: 0.08, chest_closed: 0.068, chest_open: 0.068, barrel: 0.07, crate: 0.064, brazier_lit: 0.085, brazier_unlit: 0.08, grave_marker: 0.072, signpost: 0.07 }; // logical px per source px
   var PROPS = { marsh: ['dead_tree', 'dead_tree', 'mossy_boulders', 'grave_marker', 'ferns'], fen: ['dead_tree', 'mossy_boulders', 'ferns', 'dead_tree'], forest: ['living_tree', 'living_tree', 'dead_tree', 'mossy_boulders', 'ferns'], thorn: ['living_tree', 'dead_tree', 'mossy_boulders', 'wall_ruin', 'signpost'],
     volcano: ['dead_tree', 'mossy_boulders', 'brazier_unlit', 'wall_ruin'], crypt: ['wall_ruin', 'grave_marker', 'barrel', 'crate', 'brazier_unlit', 'wall_corner'], coast: ['wall_ruin', 'barrel', 'crate', 'dead_tree', 'mossy_boulders'], wild: ['living_tree', 'mossy_boulders'] };
@@ -61,6 +61,7 @@
 
   /* called by the overworld for every visible tile; return true when drawn */
   SP.tiles = function (ctx, th, t, tx, ty, x, y, tiles) {
+    var TS = terrainFor(th.name); if (TS) return drawTerrainTile(ctx, TS, t, tx, ty, x, y, tiles);
     var G = Overworld.G, MW = Overworld.MW, tab = TERRAIN[th.name] || TERRAIN.wild, sheet = tinted[th.name] || tinted.wild, raw = ken, r = h2(tx, ty);
     var ground = tab.ground[Math.floor(r * tab.ground.length)];
     if (t === G.WALL || t === G.EDGE) { ctx.fillStyle = tab.wallBase || '#0b0e0c'; ctx.fillRect(x, y, 16, 16); }   // solid ground under thickets/rock: unmistakably not walkable
@@ -109,6 +110,82 @@
   };
   function keyImg() { var cv = document.createElement('canvas'); cv.width = 8; cv.height = 14; var c = cv.getContext('2d'); c.fillStyle = '#b8862b'; c.fillRect(1, 0, 6, 6); c.fillRect(3, 6, 2, 8); c.fillRect(5, 11, 2, 1); c.fillRect(5, 13, 2, 1); c.fillStyle = '#ffd27a'; c.fillRect(2, 1, 4, 4); c.fillRect(3, 6, 1, 7); c.fillStyle = '#3a2a10'; c.fillRect(3, 2, 2, 2); return cv; }
 
+  /* ---------- actors: painted creatures (one sheet each) and the hero, with idle / walk / attack / death ---------- */
+  var actorCache = {}, scratch = null;
+  function fo(f) { return { x: f[0], y: f[1], w: f[2], h: f[3], ax: f[4], ay: f[5] }; }
+  SP.actor = function (id) { // 'hero:knight' | 'hero:wizard' | 'cr:<sigil>'
+    if (actorCache[id]) return actorCache[id];
+    var d = null;
+    if (id.indexOf('hero:') === 0) {
+      var c = hdOK && HD && HD.chars[id.slice(5)];
+      if (c) { d = { img: hd, scale: c.scale, anims: {} }; Object.keys(c.anims).forEach(function (k) { var a = c.anims[k]; d.anims[k] = { fps: a.fps, loop: k === 'idle' || k === 'walk', frames: a.frames.map(fo) }; }); }
+    } else {
+      var nm = id.slice(3), cd = window.CREATURE_DEFS && CREATURE_DEFS[nm];
+      if (cd && ART_IMG['cr-' + nm]) {
+        var img = new Image(); img.src = ART_IMG['cr-' + nm];
+        d = { img: img, scale: cd.scale, anims: {}, label: cd.label };
+        Object.keys(cd.anims).forEach(function (k) { var a = cd.anims[k]; d.anims[k] = { fps: a.fps, loop: a.loop !== false, frames: a.frames.map(function (i) { return fo(cd.frames[i]); }) }; });
+      }
+    }
+    if (d) actorCache[id] = d; return d;
+  };
+  SP.actorFor = function (e) { // the actor id for an overworld entity
+    if (e.kind === 'hero') return 'hero:' + (e.cls === 'sorcerer' ? 'wizard' : 'knight');
+    if ((e.kind === 'creature' || e.kind === 'boss' || e.kind === 'corpse') && e.ref) return 'cr:' + (e.ref.sigil || e.ref.id);
+    return null;
+  };
+  SP.animLength = function (d, anim) { var a = d && d.anims[anim]; return a ? a.frames.length / a.fps : 0; };
+  /* draw an actor with its feet at (x, y). o: { mul (extra scale), tint (css colour laid over the body), flash (0..1 red hurt flash), alpha } */
+  SP.drawActor = function (ctx, d, anim, t, x, y, flip, o) {
+    o = o || {}; var a = d.anims[anim] || d.anims.idle; if (!a || !d.img.complete || !d.img.naturalWidth) return false;
+    var n = a.frames.length, i = Math.floor(t * a.fps); i = a.loop ? ((i % n) + n) % n : Math.max(0, Math.min(n - 1, i));
+    var f = a.frames[i], s = d.scale * (o.mul || 1), img = d.img, sx = f.x, sy = f.y;
+    if (o.tint || o.flash) { // colour the body only (source-atop on a scratch canvas)
+      scratch = scratch || document.createElement('canvas'); if (scratch.width < f.w || scratch.height < f.h) { scratch.width = Math.max(scratch.width, f.w); scratch.height = Math.max(scratch.height, f.h); }
+      var sc = scratch.getContext('2d'); sc.clearRect(0, 0, scratch.width, scratch.height); sc.globalCompositeOperation = 'source-over'; sc.drawImage(d.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+      sc.globalCompositeOperation = 'source-atop'; if (o.tint) { sc.fillStyle = o.tint; sc.fillRect(0, 0, f.w, f.h); } if (o.flash) { sc.fillStyle = 'rgba(255,60,40,' + (0.55 * o.flash) + ')'; sc.fillRect(0, 0, f.w, f.h); }
+      img = scratch; sx = 0; sy = 0;
+    }
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; if (o.alpha != null) ctx.globalAlpha *= o.alpha;
+    if (flip) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.drawImage(img, sx, sy, f.w, f.h, -f.ax * s, y - f.ay * s, f.w * s, f.h * s); }
+    else ctx.drawImage(img, sx, sy, f.w, f.h, x - f.ax * s, y - f.ay * s, f.w * s, f.h * s);
+    ctx.restore(); return true;
+  };
+
+  /* ---------- painted terrain per land (tools/pack_terrain.py) ---------- */
+  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7' }, terr = {};
+  function terrainFor(th) {
+    var id = TSET[th]; if (!id || !window.TERRAIN_DEFS || !TERRAIN_DEFS[id]) return null;
+    var t = terr[id]; if (t) return t.ready ? t : null;
+    var def = TERRAIN_DEFS[id], n = id.slice(1); t = terr[id] = { def: def, ready: false, tiles: [], props: new Image(), propsOK: false };
+    var im = new Image(); im.onload = function () { // one canvas per tile, so smoothing never bleeds from the neighbouring tile in the atlas
+      var edges = {}; Object.keys(def.edgeByMask).forEach(function (k) { edges[def.edgeByMask[k]] = 1; });
+      def.frames.forEach(function (f, i) { var c = document.createElement('canvas'); c.width = f[2]; c.height = f[3]; var cx = c.getContext('2d'); cx.drawImage(im, f[0], f[1], f[2], f[3], 0, 0, f[2], f[3]);
+        if (edges[i]) { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = 'rgb(92,88,100)'; cx.fillRect(0, 0, f[2], f[3]); } // impassable ground sits clearly darker than the paths you can walk
+        t.tiles.push(c); });
+      t.ready = true; };
+    im.src = ART_IMG['tr-l' + n]; t.props.onload = function () { t.propsOK = true; }; t.props.src = ART_IMG['tr-l' + n + '-props'];
+    return null;
+  }
+  SP.terrainFor = terrainFor;
+  function isWallT(tt) { var G = Overworld.G; return tt === G.WALL || tt === G.EDGE; }
+  function drawTerrainTile(ctx, ts, t, tx, ty, x, y, tiles) {
+    var G = Overworld.G, MW = Overworld.MW, MH = Overworld.MH, def = ts.def, r = h2(tx, ty);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    function put(i) { ctx.drawImage(ts.tiles[i], x, y, 16, 16); }
+    if (t === G.WALL || t === G.EDGE) {
+      var at = function (dx, dy) { var nx = tx + dx, ny = ty + dy; return nx < 0 || ny < 0 || nx >= MW || ny >= MH || isWallT(tiles[ny * MW + nx]); };
+      var m = (at(0, -1) ? 1 : 0) | (at(1, 0) ? 2 : 0) | (at(0, 1) ? 4 : 0) | (at(-1, 0) ? 8 : 0);
+      put(def.edgeByMask[m]); ctx.imageSmoothingEnabled = false; return true;
+    }
+    if (t === G.WATER) { var lf = def.liquid; put(lf[Math.floor(Overworld.time() * (def.liquidFps || 4)) % lf.length]); ctx.imageSmoothingEnabled = false; return true; }
+    put(t === G.PATH ? def.path : def.ground[Math.floor(r * def.ground.length)]);
+    ctx.imageSmoothingEnabled = false;
+    if (t === G.GATE || t === G.GATE_OPEN) { var open = Overworld.gateOpen(); var d = DT_DEFS[open ? 'doors_leaf_open' : 'doors_leaf_closed'][0]; ctx.drawImage(dt, d[0], d[1], d[2], d[3], x - 8, y - 16, 32, 32); }
+    return true;
+  }
+  function landProp(ctx, ts, i, x, y, flip) { var p = ts.def.props[i], f = p.f; drawHD(ctx, { img: ts.props, scale: ts.def.propScale, frames: [{ x: f[0], y: f[1], w: f[2], h: f[3], ax: f[4], ay: f[5] }] }, 0, x, y, flip); }
+
   /* HD corpse: the last frame of the creature's death animation */
   SP.corpseFor = function (e) { var c = e.ref && HD_CREATURE[e.ref.id]; return c ? hdName(c, 'death') : null; };
 
@@ -116,6 +193,8 @@
   var WALK = {}; [0, 1, 2, 5, 7, 8].forEach(function (t) { WALK[t] = 1; });
   function fernAt(th, tx, ty) { return propOK && (th.name === 'forest' || th.name === 'thorn' || th.name === 'fen' || th.name === 'marsh') && h2(tx * 3 + 7, ty * 5 + 1) < 0.35; }
   SP.overlay = function (ctx, th, x0, y0, x1, y1, camx, camy, tiles, seen, t) {
+    var TS = terrainFor(th.name);
+    if (TS) return landOverlay(ctx, TS, th, x0, y0, x1, y1, camx, camy, tiles, seen, t);
     if (!propOK) return; var G = Overworld.G, MW = Overworld.MW, MH = Overworld.MH, list = PROPS[th.name] || PROPS.wild, sheet = propSheet(th.name);
     for (var ty = Math.max(0, y0 - 1); ty <= Math.min(MH - 1, y1 + 2); ty++) for (var tx = Math.max(0, x0 - 2); tx <= Math.min(MW - 1, x1 + 2); tx++) {
       var i = ty * MW + tx, tt = tiles[i]; if (!seen[i]) continue;
@@ -133,6 +212,34 @@
       drawHD(ctx, propDef(nm, sheet), 0, x, y, h2(tx * 2, ty * 2 + 9) < 0.5);
     }
   };
+  function landOverlay(ctx, TS, th, x0, y0, x1, y1, camx, camy, tiles, seen, t) {
+    var G = Overworld.G, MW = Overworld.MW, MH = Overworld.MH, props = TS.def.props, tall = [], flat = [], wet = [];
+    props.forEach(function (p, i) { if (p.water) wet.push(i); else if (p.flat) flat.push(i); else tall.push(i); });
+    if (!flat.length) flat = []; if (!tall.length) tall = flat;
+    // 1. contact shadows where walls meet open ground, so the edge of the walkable area reads at a glance
+    for (var ty = Math.max(0, y0); ty <= Math.min(MH - 1, y1 + 1); ty++) for (var tx = Math.max(0, x0); tx <= Math.min(MW - 1, x1 + 1); tx++) {
+      var i = ty * MW + tx, tt = tiles[i]; if (!seen[i] || !WALK[tt]) continue;
+      var x = tx * 16 - camx, y = ty * 16 - camy, g;
+      if (ty > 0 && isWallT(tiles[i - MW])) { g = ctx.createLinearGradient(0, y, 0, y + 7); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y, 16, 7); }
+      if (tx > 0 && isWallT(tiles[i - 1])) { g = ctx.createLinearGradient(x, 0, x + 5, 0); g.addColorStop(0, 'rgba(0,0,0,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y, 5, 16); }
+      if (tx < MW - 1 && isWallT(tiles[i + 1])) { g = ctx.createLinearGradient(x + 16, 0, x + 11, 0); g.addColorStop(0, 'rgba(0,0,0,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x + 11, y, 5, 16); }
+      if (ty < MH - 1 && isWallT(tiles[i + MW])) { g = ctx.createLinearGradient(0, y + 16, 0, y + 12); g.addColorStop(0, 'rgba(0,0,0,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y + 12, 16, 4); }
+    }
+    if (!TS.propsOK) return;
+    // 2. scenery: tall pieces along the faces of walls, flat ones on scattered ground, lily pads on water
+    for (ty = Math.max(0, y0 - 1); ty <= Math.min(MH - 1, y1 + 3); ty++) for (tx = Math.max(0, x0 - 2); tx <= Math.min(MW - 1, x1 + 2); tx++) {
+      i = ty * MW + tx; tt = tiles[i]; if (!seen[i]) continue;
+      x = tx * 16 - camx + 8; y = ty * 16 - camy + 15;
+      if (tt === G.FIRE) { var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, rg = ctx.createRadialGradient(x, y - 10, 1, x, y - 10, 30);
+        rg.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); rg.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = rg; ctx.fillRect(x - 30, y - 40, 60, 60); if (propOK) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue; }
+      if (tt === G.DECO && flat.length) { if (h2(tx * 3 + 7, ty * 5 + 1) < 0.6) landProp(ctx, TS, flat[Math.floor(h2(tx, ty * 7) * flat.length)], x, y, h2(tx, ty * 3) < 0.5); continue; }
+      if (tt === G.WATER && wet.length) { if (h2(tx * 13 + 1, ty * 3 + 4) < 0.07) landProp(ctx, TS, wet[0], x, y - 3, h2(tx, ty) < 0.5); continue; }
+      if (tt !== G.WALL || ty + 1 >= MH || !WALK[tiles[i + MW]]) continue;
+      if (h2(tx * 11 + 3, ty * 7 + 5) > 0.22) continue;
+      if (tx > 0 && tiles[i - 1] === G.WALL && WALK[tiles[i - 1 + MW]] && h2((tx - 1) * 11 + 3, ty * 7 + 5) <= 0.22) continue;
+      landProp(ctx, TS, tall[Math.floor(h2(tx * 5 + 1, ty * 9 + 2) * tall.length)], x, y, h2(tx * 2, ty * 2 + 9) < 0.5);
+    }
+  }
   function drawHD(ctx, d, fi, x, y, flip) { var f = d.frames[fi], s = d.scale; ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     if (flip) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.drawImage(d.img, f.x, f.y, f.w, f.h, -f.ax * s, y - f.ay * s, f.w * s, f.h * s); } else ctx.drawImage(d.img, f.x, f.y, f.w, f.h, x - f.ax * s, y - f.ay * s, f.w * s, f.h * s);
     ctx.restore(); }

@@ -6,7 +6,7 @@ from PIL import Image
 P = sys.argv[1]
 CHAR_SCALE = 0.6        # packed pixels per source pixel
 PROP_SCALE = 0.5
-CHARS = [n for n in ['knight', 'wizard', 'skeleton', 'goblin', 'troll'] + sys.argv[2:] if os.path.exists(f'{P}/metadata/{n}.json')]
+CHARS = [n for n in (sys.argv[2:] or ['knight', 'wizard']) if os.path.exists(f'{P}/metadata/{n}.json')]   # the hero sheets (creatures now have their own pack)
 KNIGHT_H = 26.0         # logical height of the knight's idle frame in the world (one tile = 16)
 
 def shelf(items, width):
@@ -21,8 +21,9 @@ items = []
 for n in CHARS:
     m = json.load(open(f'{P}/metadata/{n}.json')); sheet = Image.open(f'{P}/sheets/{n}.png').convert('RGBA')
     world = m.get('suggestedDisplayScale', 0.5) / 0.5 * KNIGHT_H / 222.0 / CHAR_SCALE   # logical px per packed px
-    anims = {'idle': m['animations']['idle']['frames'], 'walk': m['animations']['walk']['frames'], 'death': m['animations']['death']['frames'][-1:]}
-    fps = {'idle': m['animations']['idle']['fps'], 'walk': m['animations']['walk']['fps'], 'death': 1}
+    AN = dict(m['animations']); AN.setdefault('attack', AN.get('cast'))   # the wizard 'casts'
+    anims = {k: AN[k]['frames'] for k in ('idle', 'walk', 'attack', 'death')}
+    fps = {k: AN[k]['fps'] for k in ('idle', 'walk', 'attack', 'death')}
     defs['chars'][n] = {'scale': round(world, 5), 'anims': {}}
     for a, idxs in anims.items():
         for i in idxs:

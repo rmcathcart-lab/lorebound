@@ -142,3 +142,10 @@ Used for: the hero (knight / wizard for the Sorcerer), Hollow Knight + Crypt Kni
 - `metadata/<name>.json`: `{ "frames": [{ "name", "rect": {x,y,w,h}, "anchor": {x,y} }...], "animations": { "idle": {"frames":[0..5],"fps":5}, "walk": {...}, "attack": {...}, "death": {...} }, "suggestedDisplayScale": 0.5 }` — anchor = the point between the feet, in rect coordinates; suggestedDisplayScale 0.5 = knight-sized.
 - Facing south-east (the game mirrors it for west).
 - Then map the creature id to the sheet name in `HD_CREATURE` (src/sprites.js).
+
+
+## Painted creature and terrain pack (cr-*.webp, tr-*.webp)
+Made by Ryan with ChatGPT/Codex from the portraits and banners above ("Lorebound Creatures and Terrain" pack: 49 creatures × idle/walk/attack/death, 7 terrain sets with 8 props each).
+- `tools/pack_creatures.py <pack folder> [Hk] [Hmax] [quality]` → `cr-<sigil>.webp` + `src/creature_defs.js` (trimmed frames, anchors, animation lists). Current build: Hk 96, Hmax 124, quality 80, alpha 55.
+- `tools/pack_terrain.py <pack folder>` → `tr-l<N>.webp` (24 painted 64-px tiles: ground ×4, path, liquid ×3, 16 joining edges by N=1/E=2/S=4/W=8 mask) + `tr-l<N>-props.webp` + `src/terrain_defs.js`.
+- The hero still uses the starter pack's knight / wizard (`sheet-hd.webp`, `tools/pack_hd.py <starter pack>`); chests and the bonfire brazier come from the starter props.
