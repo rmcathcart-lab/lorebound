@@ -128,13 +128,13 @@ var Fig = (function () {
   /* a real-world piecewise graph: pts = [[x,y,label]], joined in order; axes labelled */
   function pathGraph(pts, o) {
     o = o || {}; var xmax = o.xmax || Math.max.apply(null, pts.map(function (p) { return p[0]; })), ymax = o.ymax || Math.max.apply(null, pts.map(function (p) { return p[1]; }));
-    var W = 340, H = 220, pad = 40, X = function (x) { return pad + x / xmax * (W - pad - 20); }, Y = function (y) { return H - pad + 10 - y / ymax * (H - pad - 20); };
+    var W = 380, H = 240, pad = 44, X = function (x) { return pad + x / xmax * (W - pad - 34); }, Y = function (y) { return H - 32 - y / ymax * (H - 32 - 30); };
     var s = '<line x1="' + pad + '" y1="' + Y(0) + '" x2="' + (W - 10) + '" y2="' + Y(0) + '" stroke="' + INK + '" stroke-width="1.4"/><line x1="' + pad + '" y1="' + Y(0) + '" x2="' + pad + '" y2="' + (Y(ymax) - 6) + '" stroke="' + INK + '" stroke-width="1.4"/>';
     var xs = o.xticks || [], ys = o.yticks || [];
-    xs.forEach(function (v) { s += '<line x1="' + X(v) + '" y1="' + (Y(0) - 3) + '" x2="' + X(v) + '" y2="' + (Y(0) + 3) + '" stroke="' + INK + '"/>' + text(X(v), Y(0) + 15, v, 'middle', ' font-size="11"'); });
+    xs.forEach(function (v) { s += '<line x1="' + X(v) + '" y1="' + (Y(0) - 3) + '" x2="' + X(v) + '" y2="' + (Y(0) + 3) + '" stroke="' + INK + '"/>' + text(X(v), Y(0) + 14, v, 'middle', ' font-size="11"'); });
     ys.forEach(function (v) { s += '<line x1="' + (pad - 3) + '" y1="' + Y(v) + '" x2="' + (pad + 3) + '" y2="' + Y(v) + '" stroke="' + INK + '"/>' + text(pad - 6, Y(v) + 4, v, 'end', ' font-size="11"'); });
     s += '<polyline points="' + pts.map(function (p) { return X(p[0]) + ',' + Y(p[1]); }).join(' ') + '" fill="none" stroke="' + STROKE + '" stroke-width="2.4"/>';
-    pts.forEach(function (p) { s += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="3.5" fill="' + STROKE + '"/>'; if (p[2]) s += text(X(p[0]) + (p[0] === xmax ? -4 : 0), Y(p[1]) - 9, p[2], 'middle', ' font-size="12" font-weight="700"'); });
+    pts.forEach(function (p) { s += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="3.5" fill="' + STROKE + '"/>'; if (p[2]) { var end = p[0] === xmax && String(p[2]).length > 2, st = p[0] === 0 && p[1] === 0; s += text(X(p[0]) + (end ? 4 : st ? 7 : 0), Y(p[1]) - (st ? 6 : 9), p[2], end ? 'end' : st ? 'start' : 'middle', ' font-size="12" font-weight="700"'); } });
     s += text(W / 2, H - 4, o.xlabel || '', 'middle', ' font-size="12"') + '<text transform="translate(12 ' + (H / 2) + ') rotate(-90)" text-anchor="middle" ' + FONT + ' font-size="12">' + lab(o.ylabel || '') + '</text>';
     return svg(W, H, s, 'graph');
   }

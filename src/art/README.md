@@ -86,3 +86,13 @@ name from `world.js` as the file name.
 | warden.jpg | Warden of the Pass (Land 7, RF7 · MAS) | https://www.canva.com/M/MAHW6NjHIbc |
 | boss7.jpg | Lord Bramblehart of Thornhold (Land 7 boss) | https://www.canva.com/M/MAHW6FKQGcA |
 | banner-l7.jpg | Land 7 banner (Slopes of Thornhold) | https://www.canva.com/M/MAHW6HdK_Hk |
+
+## HD painted sprites (sheet-hd.webp, sheet-hdprops.webp)
+Made by Ryan with ChatGPT ("fantasy starter pack": knight, wizard, skeleton, goblin, troll, 16 world props), packed by `tools/pack_hd.py <pack folder> [extra character names]`.
+Used for: the hero (knight / wizard for the Sorcerer), Hollow Knight + Crypt Knight (skeleton), Bark Sprite (goblin), Rootbound Horror + Briar Golem (troll), chests, the bonfire brazier, and props along room edges.
+
+### Format the packer expects for new characters
+- `sheets/<name>.png`: transparent PNG, one row per animation: idle ×6, walk ×6, attack ×6, death ×6 (last death frame = the corpse).
+- `metadata/<name>.json`: `{ "frames": [{ "name", "rect": {x,y,w,h}, "anchor": {x,y} }...], "animations": { "idle": {"frames":[0..5],"fps":5}, "walk": {...}, "attack": {...}, "death": {...} }, "suggestedDisplayScale": 0.5 }` — anchor = the point between the feet, in rect coordinates; suggestedDisplayScale 0.5 = knight-sized.
+- Facing south-east (the game mirrors it for west).
+- Then map the creature id to the sheet name in `HD_CREATURE` (src/sprites.js).

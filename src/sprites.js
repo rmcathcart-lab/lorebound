@@ -7,6 +7,27 @@
 (function () {
   if (!window.ART_IMG || !ART_IMG['sheet-dt'] || !ART_IMG['sheet-kenney'] || !window.Overworld) return;
   var dt = new Image(), ken = new Image(), loaded = 0;
+  /* HD painted sprites (ChatGPT starter pack, packed by tools/pack_hd.py): smooth-scaled, drawn at device resolution */
+  var HD = window.HD_DEFS, hd = new Image(), hdp = new Image(), hdOK = false, propOK = false, propTinted = {};
+  var HD_CREATURE = { knight: 'skeleton', cryptknight: 'skeleton', barksprite: 'goblin', rootbound: 'troll', briargolem: 'troll' }; // creature id -> HD sheet (more as art arrives)
+  var PROP_SIZE = { living_tree: 0.1, dead_tree: 0.1, mossy_boulders: 0.075, ferns: 0.06, stone_wall: 0.08, wall_corner: 0.08, wall_ruin: 0.08, oak_doorway: 0.08, chest_closed: 0.068, chest_open: 0.068, barrel: 0.07, crate: 0.064, brazier_lit: 0.085, brazier_unlit: 0.08, grave_marker: 0.072, signpost: 0.07 }; // logical px per source px
+  var PROPS = { marsh: ['dead_tree', 'dead_tree', 'mossy_boulders', 'grave_marker', 'ferns'], fen: ['dead_tree', 'mossy_boulders', 'ferns', 'dead_tree'], forest: ['living_tree', 'living_tree', 'dead_tree', 'mossy_boulders', 'ferns'], thorn: ['living_tree', 'dead_tree', 'mossy_boulders', 'wall_ruin', 'signpost'],
+    volcano: ['dead_tree', 'mossy_boulders', 'brazier_unlit', 'wall_ruin'], crypt: ['wall_ruin', 'grave_marker', 'barrel', 'crate', 'brazier_unlit', 'wall_corner'], coast: ['wall_ruin', 'barrel', 'crate', 'dead_tree', 'mossy_boulders'], wild: ['living_tree', 'mossy_boulders'] };
+  function hdName(ch, anim) {
+    if (!hdOK || !HD.chars[ch] || !HD.chars[ch].anims[anim]) return null;
+    var nm = 'hd:' + ch + ':' + anim; if (!SP.defs[nm]) { var c = HD.chars[ch], a = c.anims[anim]; SP.defs[nm] = { img: hd, hd: true, scale: c.scale, fps: a.fps, frames: a.frames.map(function (f) { return { x: f[0], y: f[1], w: f[2], h: f[3], ax: f[4], ay: f[5] }; }) }; }
+    return nm;
+  }
+  function propDef(name, img) { var f = HD.props[name]; return { img: img || hdp, hd: true, scale: PROP_SIZE[name] / HD.propScale, fps: 1, frames: [{ x: f[0], y: f[1], w: f[2], h: f[3], ax: f[4], ay: f[5] }] }; }
+  function tintImage(img, tint, mix, mul) { // same treatment as the Kenney terrain, gentler: painted props are already dark
+    var cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; var cx = cv.getContext('2d'); cx.drawImage(img, 0, 0);
+    var id = cx.getImageData(0, 0, cv.width, cv.height), d = id.data;
+    for (var i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; var r = d[i], g = d[i + 1], b = d[i + 2], gr = 0.3 * r + 0.59 * g + 0.11 * b; d[i] = Math.min(255, (gr * mix + r * (1 - mix)) * mul * tint[0]); d[i + 1] = Math.min(255, (gr * mix + g * (1 - mix)) * mul * tint[1]); d[i + 2] = Math.min(255, (gr * mix + b * (1 - mix)) * mul * tint[2]); }
+    cx.putImageData(id, 0, 0); return cv;
+  }
+  function propSheet(th) { if (propTinted[th]) return propTinted[th]; var t = TINTS[th] || TINTS.wild; propTinted[th] = tintImage(hdp, t[0].map(function (v) { return 0.45 + v * 0.55; }), t[1] * 0.5, Math.min(1, t[2] + 0.3)); return propTinted[th]; }
+  if (HD && ART_IMG['sheet-hd']) { hd.onload = function () { hdOK = true; }; hd.src = ART_IMG['sheet-hd']; }
+  if (HD && ART_IMG['sheet-hdprops']) { hdp.onload = function () { propOK = true; }; hdp.src = ART_IMG['sheet-hdprops']; }
   var SP = Overworld.SP, tinted = {}, tintCache = {};
   function K(c, r) { return [c * 17, r * 17, 16, 16]; }
   function kdef(img, cells, fps) { return { img: img, frames: cells.map(function (c) { return { x: c[0], y: c[1], w: c[2], h: c[3] }; }), fps: fps || 4 }; }
@@ -47,6 +68,7 @@
     if (t === G.GROUND || t === G.GROUND2) return true;
     if (t === G.PATH) { drawCell(ctx, cell(tab.path[Math.floor(r * tab.path.length)], sheet), x, y, sheet); return true; }
     if (t === G.WATER) { var fr = tab.water, f = fr[(Math.floor(Overworld.time() * 1.5) + Math.floor(r * 2)) % fr.length]; var c = cell(f, tab.waterRaw ? raw : sheet); if (c && c.img !== dt) { ctx.drawImage(tab.waterRaw ? raw : sheet, c.x, c.y, 16, 16, x, y, 16, 16); } else drawCell(ctx, c, x, y, sheet); return true; }
+    if (t === G.DECO && fernAt(th, tx, ty)) return true;
     if (t === G.DECO) { drawCell(ctx, cell(tab.deco[Math.floor(r * tab.deco.length)], sheet), x, y, sheet); return true; }
     if (t === G.WALL || t === G.EDGE) {
       if (tab.wall === 'dtwall') { var below = ty + 1 < Overworld.MH ? tiles[(ty + 1) * MW + tx] : G.WALL; var solidBelow = below === G.WALL || below === G.EDGE; drawCell(ctx, cell(solidBelow ? 'dt:wall_top_mid' : 'dt:wall_mid'), x, y, sheet); return true; }
@@ -56,6 +78,7 @@
       return true;
     }
     if (t === G.GATE || t === G.GATE_OPEN) { var open = Overworld.gateOpen(); var d = DT_DEFS[open ? 'doors_leaf_open' : 'doors_leaf_closed'][0]; ctx.drawImage(dt, d[0], d[1], d[2], d[3], x - 8, y - 16, 32, 32); return true; }
+    if (t === G.FIRE && propOK) return true;
     if (t === G.FIRE) { var ff = Math.floor(Overworld.time() * 6) % 2 ? K(13, 0) : K(14, 0); ctx.drawImage(raw, ff[0], ff[1], 16, 16, x, y, 16, 16); return true; }
     return true;
   };
@@ -73,6 +96,9 @@
   SP.defs = {};
   function def(name) { if (SP.defs[name]) return SP.defs[name]; var d = ddef(name, 8); if (d) SP.defs[name] = d; return d; }
   SP.nameFor = function (e, L) {
+    if (e.kind === 'hero' && hdOK) { var hn = hdName(e.cls === 'sorcerer' ? 'wizard' : 'knight', e.moving ? 'walk' : 'idle'); if (hn) { if (e.stage > 1) { var hk = hn + ':s' + e.stage, hdd = SP.defs[hn]; if (!SP.defs[hk]) SP.defs[hk] = Object.assign({}, hdd, { tint: e.stage === 3 ? 'rgba(255,200,80,.30)' : 'rgba(140,210,255,.26)' }); return hk; } return hn; } }
+    if (e.kind === 'creature' && hdOK && HD_CREATURE[e.ref.id]) { var cmv = e.moving || (e.tx != null && Math.hypot(e.tx - e.x, e.ty - e.y) > 1); var cn = hdName(HD_CREATURE[e.ref.id], cmv ? 'walk' : 'idle'); if (cn) return cn; }
+    if (e.kind === 'chest' && propOK) { if (!SP.defs['hdp:chest']) SP.defs['hdp:chest'] = propDef('chest_closed'); return 'hdp:chest'; }
     if (e.kind === 'hero') { var base = e.cls === 'sorcerer' ? 'wizzard_m' : 'knight_m'; var nm = animName(base, e.moving); var d = def(nm); if (d && e.stage > 1) { var key = nm + ':s' + e.stage; if (!SP.defs[key]) SP.defs[key] = { img: d.img, frames: d.frames, fps: d.fps, tint: e.stage === 3 ? 'rgba(255,200,80,.42)' : 'rgba(140,210,255,.38)' }; return key; } return nm; }
     if (e.kind === 'creature') { var b = CREATURE[e.ref.sigil] || CREATURE[e.ref.id] || 'skelet'; var mv = e.moving || (e.tx != null && Math.hypot(e.tx - e.x, e.ty - e.y) > 1); var an = animName(b, mv); def(an); return an; }
     if (e.kind === 'boss') { var bb = BOSS[L.id] || ['big_zombie', 1]; var bn = animName(bb[0], false); var bd = def(bn); if (bd && bb[1] !== 1) { var bk = bn + ':x' + bb[1]; if (!SP.defs[bk]) SP.defs[bk] = { img: bd.img, frames: bd.frames, fps: 6, scale: bb[1], tint: L.id === 'L4' ? 'rgba(255,200,80,.3)' : null }; return bk; } return bn; }
@@ -83,9 +109,38 @@
   };
   function keyImg() { var cv = document.createElement('canvas'); cv.width = 8; cv.height = 14; var c = cv.getContext('2d'); c.fillStyle = '#b8862b'; c.fillRect(1, 0, 6, 6); c.fillRect(3, 6, 2, 8); c.fillRect(5, 11, 2, 1); c.fillRect(5, 13, 2, 1); c.fillStyle = '#ffd27a'; c.fillRect(2, 1, 4, 4); c.fillRect(3, 6, 1, 7); c.fillStyle = '#3a2a10'; c.fillRect(3, 2, 2, 2); return cv; }
 
+  /* HD corpse: the last frame of the creature's death animation */
+  SP.corpseFor = function (e) { var c = e.ref && HD_CREATURE[e.ref.id]; return c ? hdName(c, 'death') : null; };
+
+  /* painted props along the edges of rooms and corridors, drawn after the tiles and before creatures */
+  var WALK = {}; [0, 1, 2, 5, 7, 8].forEach(function (t) { WALK[t] = 1; });
+  function fernAt(th, tx, ty) { return propOK && (th.name === 'forest' || th.name === 'thorn' || th.name === 'fen' || th.name === 'marsh') && h2(tx * 3 + 7, ty * 5 + 1) < 0.35; }
+  SP.overlay = function (ctx, th, x0, y0, x1, y1, camx, camy, tiles, seen, t) {
+    if (!propOK) return; var G = Overworld.G, MW = Overworld.MW, MH = Overworld.MH, list = PROPS[th.name] || PROPS.wild, sheet = propSheet(th.name);
+    for (var ty = Math.max(0, y0 - 1); ty <= Math.min(MH - 1, y1 + 2); ty++) for (var tx = Math.max(0, x0 - 2); tx <= Math.min(MW - 1, x1 + 2); tx++) {
+      var i = ty * MW + tx, tt = tiles[i]; if (!seen[i]) continue;
+      var x = tx * 16 - camx + 8, y = ty * 16 - camy + 15;
+      if (tt === G.FIRE) { // the bonfire: a lit brazier with a breathing glow
+        var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, g = ctx.createRadialGradient(x, y - 10, 1, x, y - 10, 30);
+        g.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); g.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = g; ctx.fillRect(x - 30, y - 40, 60, 60);
+        drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue;
+      }
+      if (tt === G.DECO && fernAt(th, tx, ty)) { drawHD(ctx, propDef('ferns', sheet), 0, x, y, h2(tx, ty * 3) < 0.5); continue; }
+      if (tt !== G.WALL || ty + 1 >= MH || !WALK[tiles[i + MW]]) continue;            // only walls with open ground in front of them
+      if (h2(tx * 11 + 3, ty * 7 + 5) > 0.2) continue;
+      if (tx > 0 && tiles[i - 1] === G.WALL && WALK[tiles[i - 1 + MW]] && h2((tx - 1) * 11 + 3, ty * 7 + 5) <= 0.2) continue; // no two props side by side
+      var nm = list[Math.floor(h2(tx * 5 + 1, ty * 9 + 2) * list.length)];
+      drawHD(ctx, propDef(nm, sheet), 0, x, y, h2(tx * 2, ty * 2 + 9) < 0.5);
+    }
+  };
+  function drawHD(ctx, d, fi, x, y, flip) { var f = d.frames[fi], s = d.scale; ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    if (flip) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.drawImage(d.img, f.x, f.y, f.w, f.h, -f.ax * s, y - f.ay * s, f.w * s, f.h * s); } else ctx.drawImage(d.img, f.x, f.y, f.w, f.h, x - f.ax * s, y - f.ay * s, f.w * s, f.h * s);
+    ctx.restore(); }
+  SP.drawHD = drawHD;
+
   /* tinted frame cache (hero stages, golden boss) */
   SP.tintedFrame = function (d, fi) {
-    var key = (d.img === dt ? 'dt' : 'k') + ':' + fi + ':' + d.frames[fi].x + ':' + d.frames[fi].y + ':' + d.tint, c = tintCache[key]; if (c) return c;
+    var key = (d.img === dt ? 'dt' : d.img === hd ? 'hd' : 'k') + ':' + fi + ':' + d.frames[fi].x + ':' + d.frames[fi].y + ':' + d.tint, c = tintCache[key]; if (c) return c;
     var f = d.frames[fi], cv = document.createElement('canvas'); cv.width = f.w; cv.height = f.h; var cx = cv.getContext('2d');
     cx.drawImage(d.img, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h); cx.globalCompositeOperation = 'source-atop'; cx.fillStyle = d.tint; cx.fillRect(0, 0, f.w, f.h);
     tintCache[key] = cv; return cv;

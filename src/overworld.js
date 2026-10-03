@@ -459,6 +459,7 @@ var Overworld = (function () {
       var i = y * MW + x; if (!R.seen[i]) continue;
       drawTile(ctx, x, y, R.map.tiles[i], x * T - camx, y * T - camy, th);
     }
+    if (SP.ready && SP.overlay) SP.overlay(ctx, th, x0, y0, x1, y1, camx, camy, R.map.tiles, R.seen, R.t);
     // entities sorted by y
     var list = R.ents.slice(); list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving, anim: p.anim, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
     list.sort(function (a, b) { return a.y - b.y; });
@@ -504,6 +505,7 @@ var Overworld = (function () {
   function drawSprite(ctx, name, x, y, frameT, flip) { // x,y = feet centre
     var d = spr(name); if (!d) return false;
     var n = d.frames.length, fi = ((Math.floor(frameT * (d.fps || 8)) % n) + n) % n, f = d.frames[fi]; if (!f) { if (!SP._warned) { SP._warned = 1; console.warn('bad frame', name, frameT, fi, d.frames.length); } return false; }
+    if (d.hd) { var img2 = d.img, sx2 = f.x, sy2 = f.y; if (d.tint && SP.tintedFrame) { img2 = SP.tintedFrame(d, fi); sx2 = 0; sy2 = 0; } SP.drawHD(ctx, { img: img2, scale: d.scale, frames: [{ x: sx2, y: sy2, w: f.w, h: f.h, ax: f.ax, ay: f.ay }] }, 0, x, y + 5, flip); return true; }
     var sc = d.scale || 1, w = f.w * sc, h = f.h * sc;
     var dx = Math.round(x - w / 2), dy = Math.round(d.anchorBottom === false ? y - h / 2 : y + 6 - h);
     var img = d.img || SP.img, sx = f.x, sy = f.y;
@@ -530,6 +532,7 @@ var Overworld = (function () {
   }
   function drawCorpse(ctx, e, x, y) {
     ctx.fillStyle = 'rgba(60,20,30,.55)'; ctx.beginPath(); ctx.ellipse(x, y + 5, 9, 3.5, 0, 0, 7); ctx.fill();
+    var hdc = SP.ready && SP.corpseFor && SP.corpseFor(e); if (hdc && spr(hdc)) { ctx.save(); ctx.globalAlpha = 0.85; drawSprite(ctx, hdc, x, y + 1, 0, e.dir < 0); ctx.restore(); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor({ kind: 'creature', ref: e.ref, tx: null, x: 0, y: 0 }, R.L) : null, d = name && spr(name);
     if (!d) { ctx.fillStyle = '#3a3030'; ctx.fillRect(x - 6, y, 12, 4); return; }
     var f = d.frames[0]; ctx.save(); ctx.translate(x, y + 3); ctx.rotate(e.dir < 0 ? Math.PI / 2 : -Math.PI / 2); ctx.globalAlpha = 0.8; ctx.drawImage(d.img || SP.img, f.x, f.y, f.w, f.h, -f.w / 2, -f.h + 2, f.w, f.h); ctx.restore();

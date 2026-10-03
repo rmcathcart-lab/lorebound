@@ -165,7 +165,7 @@
   }
 
   /* ---------- screens ---------- */
-  function go(screen, opts) { closeSatchel(); closeModal(); UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
+  function go(screen, opts) { closeSatchel(); closeModal(); if (screen === 'bonfire' && UI.screen !== 'bonfire') UI.bonfireTab = 'camp'; UI.screen = screen; if (opts && opts.land) UI.land = opts.land; render(); window.scrollTo(0, 0); }
   function render() {
     migrate();
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
@@ -788,21 +788,54 @@
     if (S.lore < g.cost) return 'Need ' + n(g.cost - S.lore) + ' more Lore';
     return null;
   }
+  var CAMP_ICONS = {
+    gear: '<path d="M12 3l2 3h4l-1 4 3 2-3 2 1 4h-4l-2 3-2-3H6l1-4-3-2 3-2-1-4h4z"/><circle cx="12" cy="12" r="3"/>',
+    level: '<path d="M12 20V6"/><path d="M6 12l6-6 6 6"/><path d="M4 20h16"/>',
+    shop: '<path d="M5 9h14l-1 11H6z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/>',
+    book: '<path d="M4 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z"/><path d="M20 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z"/>',
+    chronicle: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"/><path d="M12 17h.01"/>'
+  };
+  function campIcon(id) { return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + CAMP_ICONS[id] + '</svg>'; }
+  function campStatus(id) { // the one line under each camp tile
+    if (id === 'gear') {
+      var all = GEAR.filter(function (g) { return !g.cosmetic; }), have = all.filter(function (g) { return owns(g.id); }).length;
+      var buyable = GEAR.filter(function (g) { return !owns(g.id) && !gearLock(g); }).length;
+      return have + ' of ' + all.length + ' owned' + (buyable ? ' · <b>' + buyable + ' you can buy now</b>' : '');
+    }
+    if (id === 'level') { var lv = S.level || 1; if (lv >= LEVEL.max) return 'Level ' + lv + ' · the top of the ladder'; var c = LEVEL.cost(lv); return 'Level ' + lv + ' · next costs ' + n(c) + ' Lore' + (S.lore >= c ? ' · <b>ready</b>' : ''); }
+    if (id === 'shop') { var cnt = 0; ITEMS.forEach(function (it) { cnt += itemCount(it.id); }); var cheap = ITEMS.filter(function (it) { return S.lore >= it.cost; }).length; return cnt + (cnt === 1 ? ' item' : ' items') + ' in your Satchel' + (cheap ? ' · ' + cheap + ' kinds within reach' : ''); }
+    if (id === 'book') { var found = 0, total = 0; LANDS.forEach(function (L) { if (!L.open || !LOREBOOK[L.id]) return; total += LOREBOOK[L.id].length; found += (((S.world && S.world[L.id]) || {}).pages || []).length; }); return found + ' of ' + total + ' pages found'; }
+    if (id === 'chronicle') return 'Legend ' + n(S.legend) + ' · ' + n(S.deaths) + (S.deaths === 1 ? ' death' : ' deaths') + ' · save code';
+    return 'How Lore, death and the lands work';
+  }
   function screenBonfire() {
-    var tab = UI.bonfireTab || 'gear', Lc = landById(UI.land || S.lastLand || 'L1');
-    var head = el('div', 'land-head');
-    head.appendChild(el('div', 'row', portrait('fire', 'square hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>Rest, and spend</h1><p class="muted" style="margin:6px 0 0">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>'));
-    var hb = el('div', 'bonfire-actions');
-    var back = el('button', 'btn big', 'Return to the land'); back.type = 'button'; back.onclick = function () { go('land'); }; hb.appendChild(back);
-    var travel = el('button', 'btn ghost', 'World map · travel'); travel.type = 'button'; travel.onclick = function () { go('map'); }; hb.appendChild(travel);
-    head.appendChild(hb); app.appendChild(head);
-    var menu = el('div', 'bonfire-menu');
-    [['gear', 'Gear'], ['level', 'Level up'], ['shop', 'Provisions'], ['book', 'Lorebook'], ['chronicle', 'Chronicle'], ['help', 'Rules']].forEach(function (t) {
-      var b = el('button', 'tab' + (tab === t[0] ? ' on' : ''), t[1]); b.type = 'button';
-      b.onclick = function () { if (t[0] === 'chronicle' || t[0] === 'help') { go(t[0]); return; } UI.bonfireTab = t[0]; render(); };
-      menu.appendChild(b);
-    });
-    app.appendChild(menu);
+    var tab = UI.bonfireTab || 'camp', Lc = landById(UI.land || S.lastLand || 'L1');
+    if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book') {} else tab = 'camp';
+    var head = el('div', 'camp-head');
+    if (Lc && Lc.banner && window.ART_IMG && ART_IMG[Lc.banner]) { var bn = el('div', 'banner-img'); bn.style.backgroundImage = 'url(' + ART_IMG[Lc.banner] + ')'; head.appendChild(bn); }
+    head.appendChild(el('div', 'who', portrait('fire', 'square camp-fire') + '<div><div class="eyebrow">Bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>You rest a while</h1><p class="muted">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>'));
+    var nav = el('div', 'camp-nav');
+    var back = el('button', 'btn', 'Return to ' + esc(Lc ? theLand(Lc) : 'the land')); back.type = 'button'; back.onclick = function () { go('land'); }; nav.appendChild(back);
+    var travel = el('button', 'btn ghost', 'World map'); travel.type = 'button'; travel.onclick = function () { go('map'); }; nav.appendChild(travel);
+    head.appendChild(nav); app.appendChild(head);
+    var TILES = [['gear', 'Gear', 'Permanent upgrades, six branches.'], ['level', 'Level up', 'Spend Lore on your character.'], ['shop', 'Provisions', 'One-use items for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
+    if (tab === 'camp') {
+      var grid = el('div', 'camp-grid');
+      TILES.forEach(function (t) {
+        var b = el('button', 'camp-tile', campIcon(t[0]) + '<div><div class="nm">' + t[1] + '</div><div class="desc">' + t[2] + '</div><div class="st">' + campStatus(t[0]) + '</div></div>'); b.type = 'button';
+        b.onclick = function () { if (t[0] === 'chronicle' || t[0] === 'help') { go(t[0]); return; } UI.bonfireTab = t[0]; render(); window.scrollTo(0, 0); };
+        grid.appendChild(b);
+      });
+      app.appendChild(grid);
+      return;
+    }
+    var sub = el('div', 'camp-sub'), cur = TILES.filter(function (t) { return t[0] === tab; })[0];
+    var bk = el('button', 'btn ghost small', '◀ Camp'); bk.type = 'button'; bk.onclick = function () { UI.bonfireTab = 'camp'; render(); }; sub.appendChild(bk);
+    sub.appendChild(el('h2', null, campIcon(tab) + cur[1]));
+    var tabs = el('div', 'camp-tabs');
+    TILES.slice(0, 4).forEach(function (t) { if (t[0] === tab) return; var b = el('button', 'tab', t[1]); b.type = 'button'; b.onclick = function () { UI.bonfireTab = t[0]; render(); }; tabs.appendChild(b); });
+    sub.appendChild(tabs); app.appendChild(sub);
     if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else bonfireBook();
   }
   function bonfireGear() {
