@@ -64,7 +64,7 @@ var QGen = (function () {
       if (n < 24 || n > 900) return AN1_BEG[0]();
       return {
         prompt: 'Write ' + T(fmt(n)) + ' as a product of <b>prime factors</b>. Use exponents for repeated primes, for example ' + T('2^{3}\\times5') + '.',
-        type: 'expr', answers: facVariants(f), check: 'exact', requireOp: true,
+        type: 'expr', answers: facVariants(f), check: 'exact', requireOp: true, primeOnly: true,
         hint: 'Start a division ladder: divide by 2 as many times as you can, then 3, then 5, then 7.',
         solution: steps(['Divide by primes until you reach 1: ' + T(n + ' = ' + facExpanded(f)) + '.', 'Collect repeated primes as powers: ' + T(n + ' = ' + facLatex(f)) + '.'])
       };
@@ -99,7 +99,7 @@ var QGen = (function () {
       var r = 1; rootF.forEach(function (pe) { r *= Math.pow(pe[0], pe[1]); });
       var sym = cube ? '\\sqrt[3]{n}' : '\\sqrt{n}';
       return { prompt: 'A number ' + T('n') + ' has the prime factorization ' + T('n = ' + facLatex(nF)) + '.<br>Write ' + T(sym) + ' as a <b>product of prime factors</b> (exponent form is fine).',
-        type: 'expr', answers: facVariants(rootF), check: 'exact', requireOp: true,
+        type: 'expr', answers: facVariants(rootF), check: 'exact', requireOp: true, primeOnly: true,
         hint: cube ? 'In a perfect cube every exponent is a multiple of 3. The cube root keeps each prime and takes one third of its exponent.' : 'In a perfect square every exponent is even. The square root keeps each prime and takes half of its exponent.',
         solution: steps(['Every exponent is a multiple of ' + idx + ', so ' + T('n') + ' is a perfect ' + (cube ? 'cube' : 'square') + '.',
           (cube ? 'Divide each exponent by 3: ' : 'Halve each exponent: ') + T(sym + ' = ' + facLatex(rootF)) + (r < 100000 ? ', which is ' + T(fmt(r)) : '') + '.']) };
@@ -162,7 +162,7 @@ var QGen = (function () {
       var r = cube ? pick([12, 14, 15, 18, 20, 21, 24, 28, 30, 35, 36, 42, 45]) : pick([36, 42, 45, 48, 54, 56, 60, 63, 66, 70, 72, 78, 84, 90, 105, 126]);
       var n = Math.pow(r, idx), sym = cube ? '\\sqrt[3]{' + fmt(n) + '}' : '\\sqrt{' + fmt(n) + '}';
       return { prompt: T(fmt(n)) + ' is a perfect ' + (cube ? 'cube' : 'square') + '. Use its prime factorization to write ' + T(sym) + ' as a <b>product of prime factors</b>.',
-        type: 'expr', answers: facVariants(factor(r)), check: 'exact', requireOp: true,
+        type: 'expr', answers: facVariants(factor(r)), check: 'exact', requireOp: true, primeOnly: true,
         hint: 'Factor ' + fmt(n) + ' completely with a division ladder, then ' + (cube ? 'divide every exponent by 3' : 'halve every exponent') + '.',
         solution: steps([T(fmt(n) + ' = ' + facLatex(factor(n))) + '.', 'Every exponent is a multiple of ' + idx + ', so ' + (cube ? 'divide each by 3' : 'halve each') + ': ' + T(sym + ' = ' + facLatex(factor(r))) + '.', 'Check on your calculator: ' + T(facLatex(factor(r)) + ' = ' + r) + '.']) };
     }
