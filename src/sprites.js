@@ -19,7 +19,7 @@
     for (var i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; var r = d[i], g = d[i + 1], b = d[i + 2], gr = 0.3 * r + 0.59 * g + 0.11 * b; r = (gr * mix + r * (1 - mix)) * mul * tint[0]; g = (gr * mix + g * (1 - mix)) * mul * tint[1]; b = (gr * mix + b * (1 - mix)) * mul * tint[2]; d[i] = Math.min(255, r); d[i + 1] = Math.min(255, g); d[i + 2] = Math.min(255, b); }
     cx.putImageData(id, 0, 0); tinted[key] = cv; return cv;
   }
-  var TINTS = { marsh: [[0.72, 0.8, 0.8], 0.45, 0.62], forest: [[0.62, 0.8, 0.62], 0.35, 0.66], volcano: [[0.95, 0.7, 0.62], 0.4, 0.62], crypt: [[0.62, 0.6, 0.7], 0.5, 0.5], wild: [[0.75, 0.78, 0.72], 0.4, 0.62] };
+  var TINTS = { marsh: [[0.72, 0.8, 0.8], 0.45, 0.62], forest: [[0.62, 0.8, 0.62], 0.35, 0.66], volcano: [[0.95, 0.7, 0.62], 0.4, 0.62], crypt: [[0.62, 0.6, 0.7], 0.5, 0.5], wild: [[0.75, 0.78, 0.72], 0.4, 0.62], fen: [[0.62, 0.78, 0.9], 0.5, 0.58], coast: [[0.66, 0.8, 0.86], 0.45, 0.6], thorn: [[0.9, 0.78, 0.58], 0.4, 0.62] };
 
   /* terrain tables per theme: Kenney cells (col,row), or 0x72 names prefixed with 'dt:' */
   var TERRAIN = {
@@ -32,6 +32,7 @@
     crypt: { wallBase: '#15131a', ground: ['dt:floor_1', 'dt:floor_2', 'dt:floor_3', 'dt:floor_4', 'dt:floor_5', 'dt:floor_1', 'dt:floor_1'], path: ['dt:floor_8', 'dt:floor_7'], water: ['dt:hole'], wall: 'dtwall', deco: ['dt:skull', 'dt:crate', K(49, 9), K(51, 11)] },
     wild: { ground: [K(5, 0), K(5, 1), K(0, 16)], path: [K(6, 0)], water: [K(0, 0), K(1, 0)], wall: [{ base: K(13, 9) }, { base: K(16, 10) }], deco: [K(49, 9)] }
   };
+  TERRAIN.fen = TERRAIN.marsh; TERRAIN.thorn = TERRAIN.forest; TERRAIN.coast = Object.assign({}, TERRAIN.volcano, { water: TERRAIN.marsh.water, waterRaw: false, wallBase: '#0b1014' }); // new lands reuse the tile sets with their own tints
   function cell(src, name) { if (typeof src === 'string') { var f = DT_DEFS[src.slice(3)]; return f ? { img: dt, x: f[0][0], y: f[0][1], w: f[0][2], h: f[0][3] } : null; } return { img: name, x: src[0], y: src[1], w: src[2], h: src[3] }; }
   function h2(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 
@@ -60,11 +61,14 @@
   };
 
   /* creature and item sprite names */
-  var CREATURE = { rat: 'tiny_zombie', skeleton: 'skelet', wight: 'zombie', wisp: 'angel', knight: 'ice_zombie', lich: 'necromancer',
+  var CREATURE = { toad: 'tiny_slug', heron: 'angel', naga: 'lizard_f', lantern: 'wogol', wraith: 'doc', hydra: 'big_demon',
+    crab: 'tiny_zombie', sailor: 'zombie', kraken: 'ogre', harpy: 'imp', brineknight: 'ice_zombie', siren: 'elf_f',
+    goat: 'goblin', holdsentry: 'orc_warrior', briargolem: 'muddy', raven: 'chort', archer: 'elf_m', warden: 'masked_orc',
+    rat: 'tiny_zombie', skeleton: 'skelet', wight: 'zombie', wisp: 'angel', knight: 'ice_zombie', lich: 'necromancer',
     imp: 'imp', hound: 'chort', wyrm: 'lizard_m', sprite: 'wogol', golem: 'muddy', drake: 'lizard_f',
     thornling: 'slug', mosswight: 'swampy', treant: 'orc_shaman', barksprite: 'goblin', shade: 'doc', rootbound: 'ogre',
     scarab: 'tiny_slug', ghoul: 'zombie', reliquary: 'chest_mimic_open', spider: 'skelet', cryptknight: 'masked_orc', sentinel: 'big_zombie' };
-  var BOSS = { L1: ['necromancer', 2], L2: ['big_demon', 1], L3: ['big_zombie', 1.5], L4: ['skelet', 2.5] };
+  var BOSS = { L1: ['necromancer', 2], L2: ['big_demon', 1], L3: ['big_zombie', 1.5], L4: ['skelet', 2.5], L5: ['wizzard_f', 2], L6: ['knight_f', 2], L7: ['orc_warrior', 2] };
   function animName(base, moving) { if (DT_DEFS[base + '_idle_anim']) return base + (moving ? '_run_anim' : '_idle_anim'); if (DT_DEFS[base + '_anim']) return base + '_anim'; return base; }
   SP.defs = {};
   function def(name) { if (SP.defs[name]) return SP.defs[name]; var d = ddef(name, 8); if (d) SP.defs[name] = d; return d; }

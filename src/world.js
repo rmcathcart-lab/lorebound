@@ -63,9 +63,48 @@ var LANDS = [
     boss: { id: 'boss4', name: 'Vaultkeeper Ossirion', level: 'BOSS', sigil: 'boss4', gens: ['AN5A_PRG', 'AN5B_PRG', 'AN5A_MAS', 'AN5B_MAS'], title: 'Cryptbreaker',
       flavor: 'Keeper of every key the Crypts have swallowed. Four locks, four questions, four hundred Lore.' }
   },
-  { id: 'L5', unit: 5, name: 'Mirrorfen', subject: 'Relations and Functions' },
-  { id: 'L6', unit: 6, name: 'The Drowned Causeway', subject: 'Characteristics of Linear Relations' },
-  { id: 'L7', unit: 7, name: 'Slopes of Thornhold', subject: 'Equations of Linear Relations' },
+  { id: 'L5', unit: 5, name: 'Mirrorfen', subject: 'Relations and Functions', open: true, explore: 2, banner: 'banner-l5',
+    blurb: 'A still fen where every pool is a mirror and every mirror answers one thing for each thing you show it. Inputs go in; outputs come back. Some pools lie.',
+    outcomes: { RF2: 'RF2 · Relations: patterns, intercepts, domain and range', RF8: 'RF8 · Functions: notation, graphs and rates of change' },
+    creatures: [
+      { id: 'toad', name: 'Fen Toad', outcome: 'RF2', group: 'RF2', level: 'BEG', sigil: 'toad', gen: 'RF2_BEG', flavor: 'It croaks a pattern and waits. Give it the rule and it swells with pride; give it the wrong rule and it swallows you.' },
+      { id: 'heron', name: 'Mirror Heron', outcome: 'RF2', group: 'RF2', level: 'PRG', sigil: 'heron', gen: 'RF2_PRG', flavor: 'It stands where the water meets the axis and asks where you cross. Intercepts, ranges, the set of everything a thing can be.' },
+      { id: 'naga', name: 'Glass Naga', outcome: 'RF2', group: 'RF2', level: 'MAS', sigil: 'naga', gen: 'RF2_MAS', flavor: 'Coiled in a circle of exact radius. It knows how high a thrown thing goes and when it lands, and it will ask.' },
+      { id: 'lantern', name: 'Bog Lantern', outcome: 'RF8', group: 'RF8', level: 'BEG', sigil: 'lantern', gen: 'RF8_BEG', flavor: 'A light in a cage that shows one output for every input. Read it: f of something.' },
+      { id: 'wraith', name: 'Reflection Wraith', outcome: 'RF8', group: 'RF8', level: 'PRG', sigil: 'wraith', gen: 'RF8_PRG', flavor: 'Your own shape, shifted sideways. It asks what the function becomes when x is not x any more.' },
+      { id: 'hydra', name: 'Fen Hydra', outcome: 'RF8', group: 'RF8', level: 'MAS', sigil: 'hydra', gen: 'RF8_MAS', flavor: 'Seven heads, one for every hour of the morning, and it wants to know how fast the count changed between them.' }
+    ],
+    boss: { id: 'boss5', name: 'Ilyra, the Mirror Queen', level: 'BOSS', sigil: 'boss5', gens: ['RF2_PRG', 'RF8_PRG', 'RF2_MAS', 'RF8_MAS'], title: 'Glasswalker',
+      flavor: 'She sits at the centre of the fen where every reflection meets. Four questions, each one a mirror, four hundred Lore.' }
+  },
+  { id: 'L6', unit: 6, name: 'The Drowned Causeway', subject: 'Characteristics of Linear Relations', open: true, explore: 2, banner: 'banner-l6',
+    blurb: 'A stone road that runs straight into the sea and does not stop. Everything here is measured: how far, how steep, and where the middle lies.',
+    outcomes: { RF3D: 'RF3 · Length of a segment, distance and midpoint', RF3S: 'RF3 · Slope, parallel, perpendicular and collinear' },
+    creatures: [
+      { id: 'crab', name: 'Tide Crab', outcome: 'RF3', group: 'RF3D', level: 'BEG', sigil: 'crab', gen: 'RF3D_BEG', flavor: 'It walks the causeway sideways and counts the stones. Straight runs, straight rises, and the odd right triangle.' },
+      { id: 'sailor', name: 'Drowned Sailor', outcome: 'RF3', group: 'RF3D', level: 'PRG', sigil: 'sailor', gen: 'RF3D_PRG', flavor: 'It still measures the distance to shore, exactly, in radicals, and never rounds.' },
+      { id: 'kraken', name: 'Kelp Kraken', outcome: 'RF3', group: 'RF3D', level: 'MAS', sigil: 'kraken', gen: 'RF3D_MAS', flavor: 'Its arms end in points you cannot see. Find them from the middle.' },
+      { id: 'harpy', name: 'Gull Harpy', outcome: 'RF3', group: 'RF3S', level: 'BEG', sigil: 'harpy', gen: 'RF3S_BEG', flavor: 'It rises and runs and screams the ratio. Keep the signs straight or it dives.' },
+      { id: 'brineknight', name: 'Brine Knight', outcome: 'RF3', group: 'RF3S', level: 'PRG', sigil: 'brineknight', gen: 'RF3S_PRG', flavor: 'Armour rusted at right angles. It knows what is parallel to it and what is perpendicular, and it checks.' },
+      { id: 'siren', name: 'Abyssal Siren', outcome: 'RF3', group: 'RF3S', level: 'MAS', sigil: 'siren', gen: 'RF3S_MAS', flavor: 'Three points in the dark water. Are they on one line? Where is the right angle? Answer, or follow it down.' }
+    ],
+    boss: { id: 'boss6', name: 'Admiral Veyle, the Drowned', level: 'BOSS', sigil: 'boss6', gens: ['RF3D_PRG', 'RF3S_PRG', 'RF3D_MAS', 'RF3S_MAS'], title: 'Tidebreaker',
+      flavor: 'He went down with the causeway and took the charts with him. Four bearings, four questions, four hundred Lore.' }
+  },
+  { id: 'L7', unit: 7, name: 'Slopes of Thornhold', subject: 'Equations of Linear Relations', open: true, explore: 2, banner: 'banner-l7',
+    blurb: 'A fortress on a hill whose every wall and road is a straight line with an equation carved into it. Learn the forms, or climb forever.',
+    outcomes: { RF6: 'RF6 · Forms of a line: slope-intercept, general, point-slope', RF7: 'RF7 · Writing the equation of a line' },
+    creatures: [
+      { id: 'goat', name: 'Thorn Goat', outcome: 'RF6', group: 'RF6', level: 'BEG', sigil: 'goat', gen: 'RF6_BEG', flavor: 'It climbs any slope and tells you where it crosses the axes. Then it butts.' },
+      { id: 'holdsentry', name: 'Hold Sentry', outcome: 'RF6', group: 'RF6', level: 'PRG', sigil: 'holdsentry', gen: 'RF6_PRG', flavor: 'It will not let you through until the equation is in the form the gate demands.' },
+      { id: 'briargolem', name: 'Briar Golem', outcome: 'RF6', group: 'RF6', level: 'MAS', sigil: 'briargolem', gen: 'RF6_MAS', flavor: 'Built of tangled lines that meet on the axes. Find the one unknown that holds it together.' },
+      { id: 'raven', name: 'Hill Raven', outcome: 'RF7', group: 'RF7', level: 'BEG', sigil: 'raven', gen: 'RF7_BEG', flavor: 'Give it a point and a slope and it writes the line in the air. Then it wants it in another form.' },
+      { id: 'archer', name: 'Thornhold Archer', outcome: 'RF7', group: 'RF7', level: 'PRG', sigil: 'archer', gen: 'RF7_PRG', flavor: 'Two points is all it needs. Parallel to that wall, perpendicular to this one.' },
+      { id: 'warden', name: 'Warden of the Pass', outcome: 'RF7', group: 'RF7', level: 'MAS', sigil: 'warden', gen: 'RF7_MAS', flavor: 'It keeps the ledgers of the hold: wages, fuel, populations. Everything that changes at a steady rate answers to it.' }
+    ],
+    boss: { id: 'boss7', name: 'Lord Bramblehart of Thornhold', level: 'BOSS', sigil: 'boss7', gens: ['RF6_PRG', 'RF7_PRG', 'RF6_MAS', 'RF7_MAS'], title: 'Highwarden',
+      flavor: 'The master of every line in the hold. Four equations, four questions, four hundred Lore.' }
+  },
   { id: 'L8', unit: 8, name: 'Twin Citadels', subject: 'Systems of Linear Equations' },
   { id: 'L9', unit: 9, name: 'Sundered Spire', subject: 'Trigonometry' },
   { id: 'L10', unit: 10, name: 'The Frozen Reach', subject: 'Measurement' }

@@ -303,6 +303,131 @@ var LOREBOOK = (function () {
         { fig: zeroFlow('x² + 3x = 10  →  x² + 3x − 10 = 0', '(x + 5)(x − 2) = 0', ['x + 5 = 0', 'x − 2 = 0'], 'x = −5', 'x = 2') },
         { p: 'For \\((x + 1)(x + 4) = 10\\) you must expand and rearrange first — the factors are not equal to zero. With a leading coefficient, \\(2x - 3 = 0\\) gives \\(x = \\tfrac{3}{2}\\).' }
       ] }
+  ],
+  L5: [
+    { title: 'What the Pools Answer', lore: 'Show a pool of the Mirrorfen a thing and it shows you one thing back. The old fen-folk called the thing you show the input and the thing shown back the output, and the pool itself they called a relation.',
+      math: [
+        { h: 'Relations' },
+        { p: 'A <b>relation</b> pairs inputs with outputs. The <b>independent</b> variable is the one you choose (usually on the horizontal axis); the <b>dependent</b> variable responds to it. A relation can be shown as words, a table, ordered pairs, a graph or an equation.' },
+        { fig: (typeof Fig !== 'undefined' ? Fig.table([1, 2, 3, 4], [5, 8, 11, 14], 'n', 'T') : '') },
+        { p: 'Each step adds 3, so \\(T = 3n + b\\); at \\(n = 1\\), \\(3 + b = 5\\) gives \\(b = 2\\).' },
+        { eq: 'T = 3n + 2' },
+        { cols: [['Join the dots?', 'Only when every in-between input makes sense (time, distance, volume). Counting things (people, tickets) stays as separate points.'], ['Input from an output', 'Set the equation equal to the output and solve: \\(29 = 4x - 7 \\Rightarrow x = 9\\).']] }
+      ] },
+    { title: 'Where the Water Meets the Axis', lore: 'The Mirror Heron stands exactly where the pool touches the stone edge of the fen. Two edges, two crossings. It will not tell you where; it will only tell you which number must be nothing.',
+      math: [
+        { h: 'Intercepts' },
+        { cols: [['x-intercept', 'where the graph crosses the x-axis, so <b>y = 0</b>. Written as \\((a, 0)\\).'], ['y-intercept', 'where it crosses the y-axis, so <b>x = 0</b>. Written as \\((0, b)\\).']] },
+        { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -4, xmax: 10, ymin: -4, ymax: 8, lines: [{ a: 3, b: -4, c: 24 }], points: [[-8, 0, '(−8, 0)'], [0, 6, '(0, 6)']] }) : '') },
+        { steps: ['3x - 4y + 24 = 0,\\ y = 0: \; 3x + 24 = 0 \\Rightarrow x = -8', 'x = 0: \; -4y + 24 = 0 \\Rightarrow y = 6'] },
+        { p: 'A curve can have more than one x-intercept: \\(y = x^{2} - 3x - 28 = (x - 7)(x + 4)\\) crosses at \\(x = 7\\) and \\(x = -4\\).' }
+      ] },
+    { title: 'Everything a Pool Can Show', lore: 'Ask a pool for every input it will accept and it gives you its domain; ask for every output it can return and it gives you its range. The Glass Naga is coiled in a perfect circle, and its range is exactly as tall as it is.',
+      math: [
+        { h: 'Domain and range' },
+        { cols: [['Domain', 'all the <b>x-values</b> (inputs) the relation uses'], ['Range', 'all the <b>y-values</b> (outputs) it produces']] },
+        { p: 'For a list of points, write the sets: for \\((-4, 6), (-1, 2), (0, 6), (3, -5)\\) the domain is \\(\\{-4, -1, 0, 3\\}\\) and the range is \\(\\{-5, 2, 6\\}\\) — each value once.' },
+        { p: 'For a continuous graph, use set notation with inequalities:' },
+        { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -5, xmax: 7, ymin: -4, ymax: 6, segments: [[-3, -2, 5, 4]], points: [[-3, -2], [5, 4]] }) : '') },
+        { eq: 'D: \\{x \\mid -3 \\le x \\le 5,\\ x \\in R\\} \\qquad R: \\{y \\mid -2 \\le y \\le 4,\\ y \\in R\\}' },
+        { p: 'A circle with centre \\((2, -5)\\) and radius 7 has range \\(\\{y \\mid -12 \\le y \\le 2\\}\\): centre minus radius up to centre plus radius. In a story, the domain is only the inputs that make sense (time from 0 until the ball lands).' }
+      ] },
+    { title: 'The Lantern\'s Rule', lore: 'A Bog Lantern shows exactly one output for every input. Show it the same thing twice and it will not change its answer. The fen-folk had a name for a pool that honest: a function.',
+      math: [
+        { h: 'Functions and function notation' },
+        { p: 'A <b>function</b> is a relation where each input has <b>exactly one</b> output. On a graph, no vertical line crosses it twice (the <b>vertical line test</b>).' },
+        { rule: 'f(x) \\text{ means “the output of } f \\text{ when the input is } x\\text{”} \\qquad f(x) = 2x^{2} - 3x + 1' },
+        { steps: ['f(-5) = 2(-5)^{2} - 3(-5) + 1 = 50 + 15 + 1 = 66', 'f(x - 2) = 2(x - 2)^{2} - 3(x - 2) + 1 = 2x^{2} - 11x + 15'] },
+        { p: '\\(f(4) = 2\\) is the same as “the point \\((4, 2)\\) is on the graph”. Solving \\(f(x) = 2\\) means finding every x where the graph is at height 2.' }
+      ] },
+    { title: 'Seven Heads, Seven Hours', lore: 'The Fen Hydra watches the causeway all morning and counts what passes. It does not care how many came. It cares how fast the number changed, and between which two hours.',
+      math: [
+        { h: 'Rate of change' },
+        { rule: '\\text{rate of change} = \\dfrac{\\text{change in the dependent variable}}{\\text{change in the independent variable}}' },
+        { fig: (typeof Fig !== 'undefined' ? Fig.pathGraph([[0, 100, 'P'], [2, 250, 'Q'], [4, 250, 'R'], [6, 150, 'S'], [8, 300, 'T']], { xlabel: 'Time (hours)', ylabel: 'Cars', xticks: [0, 2, 4, 6, 8], yticks: [0, 100, 200, 300] }) : '') },
+        { steps: ['R \\to S: \\dfrac{150 - 250}{6 - 4} = \\dfrac{-100}{2} = -50 \\text{ cars per hour}', 'Q \\to R: \\dfrac{250 - 250}{2} = 0 \\text{ (nothing changed)}', 'S \\to T: \\dfrac{300 - 150}{2} = 75 \\text{ cars per hour (the steepest, so the fastest)}'] },
+        { p: 'A steeper segment means a faster change; a flat one means no change; a falling one is a negative rate. The same idea gives an average rate between two data points: \\(\\dfrac{45\\,900 - 48\\,600}{2021 - 2015} = -450\\) people per year.' }
+      ] }
+  ],
+  L6: [
+    { title: 'Counting the Stones', lore: 'The causeway is laid in stones of exactly one unit, and the drowned still count them. Walk straight along it and the count is the distance. Walk across the water and you must count two ways and square them.',
+      math: [
+        { h: 'Length of a segment' },
+        { p: 'Horizontal or vertical: subtract the coordinates that differ. From \\((a - 3, b)\\) to \\((a + 5, b)\\) the length is \\((a + 5) - (a - 3) = 8\\).' },
+        { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -2, xmax: 8, ymin: -2, ymax: 7, segments: [[1, 1, 7, 1], [7, 1, 7, 5]], points: [[1, 1, 'A'], [7, 5, 'B'], [7, 1]], lines: [], curves: [], aria: 'run and rise' }) : '') },
+        { p: 'Diagonal: the run and the rise are the legs of a right triangle, so the length is the hypotenuse.' },
+        { eq: 'AB = \\sqrt{\\text{run}^{2} + \\text{rise}^{2}} = \\sqrt{6^{2} + 4^{2}} = \\sqrt{52} = 2\\sqrt{13}' }
+      ] },
+    { title: 'The Sailor\'s Reckoning', lore: 'The Drowned Sailor still works the distance to shore from where he lies, and the point exactly halfway, where he thought he would be safe. His numbers are exact. He never rounded, and it did not save him.',
+      math: [
+        { h: 'Distance and midpoint formulas' },
+        { rule: 'd = \\sqrt{(x_2 - x_1)^{2} + (y_2 - y_1)^{2}} \\qquad M = \\left(\\dfrac{x_1 + x_2}{2},\\ \\dfrac{y_1 + y_2}{2}\\right)' },
+        { steps: ['P(-3, 5),\\ Q(4, -9): \; d = \\sqrt{(4 - (-3))^{2} + (-9 - 5)^{2}} = \\sqrt{49 + 196} = \\sqrt{245} = 7\\sqrt{5}', 'M = \\left(\\dfrac{-3 + 4}{2},\\ \\dfrac{5 + (-9)}{2}\\right) = \\left(\\dfrac{1}{2},\\ -2\\right)'] },
+        { p: '<b>Working backwards:</b> if \\(M(3, -1)\\) is the midpoint of \\(AB\\) and \\(A = (-5, 4)\\), then \\(x_B = 2(3) - (-5) = 11\\) and \\(y_B = 2(-1) - 4 = -6\\): each coordinate of B is twice the midpoint minus A.' }
+      ] },
+    { title: 'Rise Over Run', lore: 'The Gull Harpy climbs the wind the way the causeway climbs the shore: so much up for so much along. Down is a negative up. Along is always counted to the right.',
+      math: [
+        { h: 'Slope' },
+        { rule: 'm = \\dfrac{\\text{rise}}{\\text{run}} = \\dfrac{y_2 - y_1}{x_2 - x_1}' },
+        { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -5, xmax: 5, ymin: -4, ymax: 5, segments: [[-3, 3, 1, -3]], points: [[-3, 3, 'E'], [1, -3, 'F']] }) : '') },
+        { steps: ['E(-3, 3) \\to F(1, -3): \; \\text{rise} = -6,\\ \\text{run} = 4,\\ m = \\dfrac{-6}{4} = -\\dfrac{3}{2}', '\\text{slope } -\\tfrac{3}{4},\\ \\text{rise } 15 \\Rightarrow \\text{run} = 15 \\div \\left(-\\tfrac{3}{4}\\right) = -20'] },
+        { cols: [['Positive slope', 'rises to the right'], ['Negative slope', 'falls to the right'], ['Zero slope', 'horizontal line (rise 0)'], ['Undefined slope', 'vertical line (run 0)']] },
+        { p: 'From \\((2, -1)\\) with slope \\(-\\tfrac{2}{5}\\), the next integer point to the right is \\((2 + 5,\\ -1 - 2) = (7, -3)\\).' }
+      ] },
+    { title: 'The Knight\'s Right Angles', lore: 'The Brine Knight was buried standing, and everything about him is square to the causeway. Lines that run with it never meet it; lines that cross it do so at a right angle, and their slopes betray them.',
+      math: [
+        { h: 'Parallel and perpendicular' },
+        { cols: [['Parallel', 'same slope: \\(m_1 = m_2\\)'], ['Perpendicular', 'negative reciprocals: \\(m_1 \\cdot m_2 = -1\\), so flip the fraction and change the sign']] },
+        { steps: ['P(-4, 7),\\ Q(8, -2): \; m_{PQ} = \\dfrac{-9}{12} = -\\dfrac{3}{4} \\Rightarrow m_{\\perp} = \\dfrac{4}{3}', '\\dfrac{3}{8} \\cdot \\dfrac{k}{6} = -1 \\Rightarrow \\dfrac{3k}{48} = -1 \\Rightarrow k = -16'] },
+        { p: 'To test for a right angle in a triangle, find the slope of every side; the right angle is at the vertex where two sides have slopes that multiply to −1.' }
+      ] },
+    { title: 'Three Points in Dark Water', lore: 'The Siren shows you three lights under the water and asks whether they lie on one line. Two slopes answer it. If they agree, the lights are collinear; if they do not, one of them is lying.',
+      math: [
+        { h: 'Collinear points and shapes on the grid' },
+        { p: 'Points are <b>collinear</b> when the slope between any two pairs is the same.' },
+        { steps: ['A(-5, -8),\\ B(-1, -2),\\ C(7, k): \; m_{AB} = \\dfrac{6}{4} = \\dfrac{3}{2}', 'm_{AC} = \\dfrac{k + 8}{12} = \\dfrac{3}{2} \\Rightarrow k + 8 = 18 \\Rightarrow k = 10'] },
+        { p: 'Slopes and lengths together classify a quadrilateral: opposite sides parallel → parallelogram; also four equal sides → rhombus; also right angles → square. The <b>fourth vertex</b> of a parallelogram repeats the run and rise of the opposite side.' },
+        { p: 'A circle\'s radius from the endpoints of a diameter: \\(A(-5, 4),\\ B(7, -2) \\Rightarrow AB = \\sqrt{144 + 36} = \\sqrt{180} = 6\\sqrt{5}\\), so \\(r = 3\\sqrt{5}\\).' }
+      ] }
+  ],
+  L7: [
+    { title: 'The Carved Walls', lore: 'Every wall of Thornhold has its equation cut into the stone, and the oldest ones are written the simplest way: how steep, and where they meet the gate road.',
+      math: [
+        { h: 'Slope-intercept form' },
+        { rule: 'y = mx + b \\qquad m = \\text{slope},\\quad b = y\\text{-intercept}' },
+        { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -4, xmax: 8, ymin: -4, ymax: 6, lines: [{ m: -1.5, b: 2 }], points: [[0, 2, '(0, 2)'], [2, -1, '(2, −1)']] }) : '') },
+        { p: 'Here \\(y = -\\tfrac{3}{2}x + 2\\): start at \\((0, 2)\\), then run 2 and fall 3. To find the x-intercept algebraically set \\(y = 0\\): \\(0 = -\\tfrac{3}{4}x + 6 \\Rightarrow x = 8\\).' },
+        { p: 'A line parallel to the x-axis is \\(y = c\\); one perpendicular to it (vertical) is \\(x = c\\).' }
+      ] },
+    { title: 'The Gate Demands a Form', lore: 'The Hold Sentry will not read an equation unless it is written the way the gate was built: everything on one side, nothing on the other, whole numbers only, and the first of them positive.',
+      math: [
+        { h: 'General form' },
+        { rule: 'Ax + By + C = 0 \\qquad A, B, C \\text{ integers, no common factor, } A > 0' },
+        { steps: ['y = \\tfrac{3}{4}x - \\tfrac{5}{6} \\quad\\text{multiply by 12:}\\quad 12y = 9x - 10', '9x - 12y - 10 = 0'] },
+        { p: 'Going back: \\(4x - 6y + 9 = 0 \\Rightarrow 6y = 4x + 9 \\Rightarrow y = \\tfrac{2}{3}x + \\tfrac{3}{2}\\). The slope of \\(Ax + By + C = 0\\) is always \\(-\\tfrac{A}{B}\\), and the y-intercept is \\(-\\tfrac{C}{B}\\).' }
+      ] },
+    { title: 'A Point and a Direction', lore: 'The Hill Raven only ever knows two things: where it is, and which way the wind leans. From those it draws the whole line without ever visiting the gate road.',
+      math: [
+        { h: 'Point-slope form' },
+        { rule: 'y - y_1 = m(x - x_1)' },
+        { steps: ['\\text{through } (-4, 7) \\text{ with slope } \\tfrac{2}{5}: \\quad y - 7 = \\tfrac{2}{5}(x + 4)', '\\text{to slope-intercept: } y = \\tfrac{2}{5}x + \\tfrac{8}{5} + 7 = \\tfrac{2}{5}x + \\tfrac{43}{5}'] },
+        { p: 'Watch the signs: \\(x - (-4)\\) becomes \\(x + 4\\). For the x-intercept of \\(y - 2 = 2(x + 3)\\), set \\(y = 0\\): \\(-2 = 2x + 6 \\Rightarrow x = -4\\).' }
+      ] },
+    { title: 'Two Points Make a Wall', lore: 'The Thornhold Archer needs only two marks on a wall to know its whole line, and can raise a second wall beside it, or square across it, from a single stone.',
+      math: [
+        { h: 'Writing equations' },
+        { cols: [['Two points', 'slope from the points, then substitute one point into \\(y = mx + b\\) to find b'], ['Parallel', 'borrow the slope; use the given point for b'], ['Perpendicular', 'flip and negate the slope; use the given point for b']] },
+        { steps: ['\\text{perpendicular to } y = \\tfrac{4}{3}x - 1 \\Rightarrow m = -\\tfrac{3}{4};\\ \\text{same y-intercept as } y = 2x + 5 \\Rightarrow b = 5', 'y = -\\tfrac{3}{4}x + 5'] },
+        { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -5, xmax: 7, ymin: -3, ymax: 7, lines: [{ m: 1 / 3, b: 2 }], points: [[-3, 1, '(−3, 1)'], [3, 3, '(3, 3)']] }) : '') },
+        { p: 'From the graph: \\(m = \\tfrac{3 - 1}{3 - (-3)} = \\tfrac{1}{3}\\), \\(b = 2\\), so \\(y = \\tfrac{1}{3}x + 2\\), or in general form \\(x - 3y + 6 = 0\\).' }
+      ] },
+    { title: 'The Warden\'s Ledgers', lore: 'The Warden of the Pass keeps every ledger of the hold, and in every one of them something changes by the same amount each day: wages by the sale, fuel by the mile, people by the year. A steady change is a straight line.',
+      math: [
+        { h: 'Slope as a rate of change' },
+        { p: 'When a quantity changes by the same amount for each unit of another, the relation is linear and the <b>slope is the rate</b>. The y-intercept is the starting amount (the fixed fee, the full tank, the base salary).' },
+        { steps: ['\\text{sales } 3000 \\to \\text{earned } 620;\\ \\text{sales } 7500 \\to \\text{earned } 800', 'm = \\dfrac{800 - 620}{7500 - 3000} = \\dfrac{180}{4500} = 0.04', '620 = 0.04(3000) + b \\Rightarrow b = 500 \\qquad E = 0.04S + 500'] },
+        { p: 'A rate of \\(-0.1\\) L per km says the fuel <b>falls</b> by a tenth of a litre every kilometre. Average rate of change of a population: \\(\\dfrac{45\\,900 - 48\\,600}{6} = -450\\) people per year, and the model predicts forward with it.' }
+      ] }
   ]
   };
 })();

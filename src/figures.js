@@ -74,5 +74,70 @@ var Fig = (function () {
     return svg(W, H, s, 'rectangular prism');
   }
 
-  return { rect: rect, lshape: lshape, cutout: cutout, triangle: triangle, prism: prism, lab: lab };
+  /* Coordinate grid. opts = { xmin, xmax, ymin, ymax, step (axis label step), points: [[x,y,label,open?]], segments: [[x1,y1,x2,y2,label]],
+   * lines: [{m,b,label} | {x: c} | {y: c} | {a,b,c}], curves: [{f: function(x), from, to, label}], arrows (on segments), size (px per unit) } */
+  function grid(o) {
+    o = o || {}; var xmin = o.xmin != null ? o.xmin : -6, xmax = o.xmax != null ? o.xmax : 6, ymin = o.ymin != null ? o.ymin : -6, ymax = o.ymax != null ? o.ymax : 6;
+    var u = o.size || Math.max(16, Math.min(26, Math.floor(300 / Math.max(xmax - xmin, ymax - ymin)))), pad = 28;
+    var W = (xmax - xmin) * u + pad * 2, H = (ymax - ymin) * u + pad * 2;
+    var X = function (x) { return pad + (x - xmin) * u; }, Y = function (y) { return pad + (ymax - y) * u; };
+    var s = '<defs><marker id="fig-ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0 0L8 4L0 8z" fill="' + STROKE + '"/></marker></defs>';
+    s += '<rect x="' + X(xmin) + '" y="' + Y(ymax) + '" width="' + (xmax - xmin) * u + '" height="' + (ymax - ymin) * u + '" fill="rgba(232,220,192,.03)"/>';
+    var gx, gy;
+    for (gx = xmin; gx <= xmax; gx++) s += '<line x1="' + X(gx) + '" y1="' + Y(ymin) + '" x2="' + X(gx) + '" y2="' + Y(ymax) + '" stroke="rgba(232,220,192,' + (gx === 0 ? '.6' : '.12') + ')" stroke-width="' + (gx === 0 ? 1.6 : 1) + '"/>';
+    for (gy = ymin; gy <= ymax; gy++) s += '<line x1="' + X(xmin) + '" y1="' + Y(gy) + '" x2="' + X(xmax) + '" y2="' + Y(gy) + '" stroke="rgba(232,220,192,' + (gy === 0 ? '.6' : '.12') + ')" stroke-width="' + (gy === 0 ? 1.6 : 1) + '"/>';
+    var st = o.step || ((xmax - xmin) > 12 ? 2 : 1), sm = ' font-size="11" fill="' + INK + '" opacity=".8"';
+    for (gx = Math.ceil(xmin / st) * st; gx <= xmax; gx += st) if (gx !== 0) s += '<text x="' + X(gx) + '" y="' + (Y(Math.max(0, ymin)) + (ymin <= 0 && ymax >= 0 ? 14 : -4)) + '" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"' + sm + '>' + gx + '</text>';
+    for (gy = Math.ceil(ymin / st) * st; gy <= ymax; gy += st) if (gy !== 0) s += '<text x="' + (X(Math.max(0, xmin)) - 5) + '" y="' + (Y(gy) + 4) + '" text-anchor="end" font-family="Helvetica, Arial, sans-serif"' + sm + '>' + gy + '</text>';
+    s += text(X(xmax) + 10, Y(Math.max(0, ymin)) + 5, o.xlabel || 'x', 'start', ' font-style="italic"') + text(X(Math.max(0, xmin)), Y(ymax) - 8, o.ylabel || 'y', 'middle', ' font-style="italic"');
+    function clipLine(m, b) { // y = m x + b within the window -> endpoints
+      var pts = [];
+      [[xmin, m * xmin + b], [xmax, m * xmax + b]].forEach(function (p) { if (p[1] >= ymin - 1e-9 && p[1] <= ymax + 1e-9) pts.push(p); });
+      if (m !== 0) [[(ymin - b) / m, ymin], [(ymax - b) / m, ymax]].forEach(function (p) { if (p[0] > xmin + 1e-9 && p[0] < xmax - 1e-9) pts.push(p); });
+      pts.sort(function (p, q) { return p[0] - q[0]; }); return pts.length >= 2 ? [pts[0], pts[pts.length - 1]] : null;
+    }
+    (o.lines || []).forEach(function (L) {
+      var e = null;
+      if (L.x != null) e = [[L.x, ymin], [L.x, ymax]]; else if (L.y != null) e = [[xmin, L.y], [xmax, L.y]];
+      else if (L.a != null) { if (L.b === 0) e = [[-L.c / L.a, ymin], [-L.c / L.a, ymax]]; else e = clipLine(-L.a / L.b, -L.c / L.b); }
+      else e = clipLine(L.m, L.b);
+      if (!e) return;
+      s += '<line x1="' + X(e[0][0]) + '" y1="' + Y(e[0][1]) + '" x2="' + X(e[1][0]) + '" y2="' + Y(e[1][1]) + '" stroke="' + (L.color || STROKE) + '" stroke-width="2.2"' + (L.dashed ? ' stroke-dasharray="6 4"' : '') + '/>';
+      if (L.label) s += text(X(e[1][0]) - 6, Y(e[1][1]) + (e[1][1] > e[0][1] ? 16 : -8), L.label, 'end', ' font-style="italic" fill="' + (L.color || STROKE) + '"');
+    });
+    (o.curves || []).forEach(function (C) {
+      var d = '', n = 60, f0 = C.from != null ? C.from : xmin, f1 = C.to != null ? C.to : xmax;
+      for (var i = 0; i <= n; i++) { var x = f0 + (f1 - f0) * i / n, y = C.f(x); if (y < ymin - 2 || y > ymax + 2) { d += ' M'; continue; } d += (d === '' || /M$/.test(d) ? (d.replace(/ M$/, '') + ' M') : ' L') + X(x) + ' ' + Y(y); }
+      s += '<path d="' + d.replace(/^ M/, 'M').replace(/ M M/g, ' M') + '" fill="none" stroke="' + (C.color || STROKE) + '" stroke-width="2.2"/>';
+    });
+    (o.segments || []).forEach(function (g) {
+      s += '<line x1="' + X(g[0]) + '" y1="' + Y(g[1]) + '" x2="' + X(g[2]) + '" y2="' + Y(g[3]) + '" stroke="' + STROKE + '" stroke-width="2.2"' + (o.arrows ? ' marker-end="url(#fig-ar)"' : '') + '/>';
+      if (g[4]) s += text((X(g[0]) + X(g[2])) / 2 + 8, (Y(g[1]) + Y(g[3])) / 2 - 6, g[4], 'start', ' font-style="italic"');
+    });
+    (o.points || []).forEach(function (p) {
+      s += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="4.5" fill="' + (p[3] ? '#0d0b0a' : (p[4] || STROKE)) + '" stroke="' + (p[4] || STROKE) + '" stroke-width="2"/>';
+      if (p[2]) s += text(X(p[0]) + 8, Y(p[1]) - 7, p[2], 'start', ' font-size="13"');
+    });
+    return svg(W, H, s, o.aria || 'coordinate grid');
+  }
+  /* table of values */
+  function table(xs, ys, xName, yName) {
+    var cell = function (v, hd) { return '<td class="' + (hd ? 'hd' : '') + '">' + lab(v) + '</td>'; };
+    return '<table class="fig-table"><tr>' + cell(xName || 'x', true) + xs.map(function (v) { return cell(v); }).join('') + '</tr><tr>' + cell(yName || 'y', true) + ys.map(function (v) { return cell(v); }).join('') + '</tr></table>';
+  }
+  /* a real-world piecewise graph: pts = [[x,y,label]], joined in order; axes labelled */
+  function pathGraph(pts, o) {
+    o = o || {}; var xmax = o.xmax || Math.max.apply(null, pts.map(function (p) { return p[0]; })), ymax = o.ymax || Math.max.apply(null, pts.map(function (p) { return p[1]; }));
+    var W = 340, H = 220, pad = 40, X = function (x) { return pad + x / xmax * (W - pad - 20); }, Y = function (y) { return H - pad + 10 - y / ymax * (H - pad - 20); };
+    var s = '<line x1="' + pad + '" y1="' + Y(0) + '" x2="' + (W - 10) + '" y2="' + Y(0) + '" stroke="' + INK + '" stroke-width="1.4"/><line x1="' + pad + '" y1="' + Y(0) + '" x2="' + pad + '" y2="' + (Y(ymax) - 6) + '" stroke="' + INK + '" stroke-width="1.4"/>';
+    var xs = o.xticks || [], ys = o.yticks || [];
+    xs.forEach(function (v) { s += '<line x1="' + X(v) + '" y1="' + (Y(0) - 3) + '" x2="' + X(v) + '" y2="' + (Y(0) + 3) + '" stroke="' + INK + '"/>' + text(X(v), Y(0) + 15, v, 'middle', ' font-size="11"'); });
+    ys.forEach(function (v) { s += '<line x1="' + (pad - 3) + '" y1="' + Y(v) + '" x2="' + (pad + 3) + '" y2="' + Y(v) + '" stroke="' + INK + '"/>' + text(pad - 6, Y(v) + 4, v, 'end', ' font-size="11"'); });
+    s += '<polyline points="' + pts.map(function (p) { return X(p[0]) + ',' + Y(p[1]); }).join(' ') + '" fill="none" stroke="' + STROKE + '" stroke-width="2.4"/>';
+    pts.forEach(function (p) { s += '<circle cx="' + X(p[0]) + '" cy="' + Y(p[1]) + '" r="3.5" fill="' + STROKE + '"/>'; if (p[2]) s += text(X(p[0]) + (p[0] === xmax ? -4 : 0), Y(p[1]) - 9, p[2], 'middle', ' font-size="12" font-weight="700"'); });
+    s += text(W / 2, H - 4, o.xlabel || '', 'middle', ' font-size="12"') + '<text transform="translate(12 ' + (H / 2) + ') rotate(-90)" text-anchor="middle" ' + FONT + ' font-size="12">' + lab(o.ylabel || '') + '</text>';
+    return svg(W, H, s, 'graph');
+  }
+
+  return { rect: rect, lshape: lshape, cutout: cutout, triangle: triangle, prism: prism, grid: grid, table: table, pathGraph: pathGraph, lab: lab };
 })();

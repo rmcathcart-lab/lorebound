@@ -315,7 +315,7 @@
       returnFrom: UI.returnFrom,
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
-      onBonfire: function () { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
+      onBonfire: function () { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
@@ -341,7 +341,7 @@
       bossOpen: function () { return bossOpen(L); },
       returnFrom: UI.returnFrom,
       onBattle: function (c, isBoss, inst) { startBattle(L, c, isBoss, inst); },
-      onBonfire: function () { if (L.explore === 2) { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); },
+      onBonfire: function () { if (L.explore === 2) { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); },
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
@@ -627,7 +627,7 @@
     S.dropped = drop > 0 ? { amount: drop, creature: foe.id, land: B.land.id, inst: B.inst } : null;
     S.lore = keep;
     B.done = true; B.phase = 'result'; B.outcome = 'died';
-    if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.pos = null; } }
+    if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.deadAt = {}; wd.pos = null; } }
     var html = '<h2>You died</h2>' + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(theLand(B.land)) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
       notes.map(function (t) { return '<p>' + t + '</p>'; }).join('') + youTyped(B) + solutionBlock(q);
     var res = el('div', 'result lose', html);
@@ -792,15 +792,14 @@
     var tab = UI.bonfireTab || 'gear', Lc = landById(UI.land || S.lastLand || 'L1');
     var head = el('div', 'land-head');
     head.appendChild(el('div', 'row', portrait('fire', 'square hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>Rest, and spend</h1><p class="muted" style="margin:6px 0 0">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>'));
-    app.appendChild(head);
+    var hb = el('div', 'bonfire-actions');
+    var back = el('button', 'btn big', 'Return to the land'); back.type = 'button'; back.onclick = function () { go('land'); }; hb.appendChild(back);
+    var travel = el('button', 'btn ghost', 'World map · travel'); travel.type = 'button'; travel.onclick = function () { go('map'); }; hb.appendChild(travel);
+    head.appendChild(hb); app.appendChild(head);
     var menu = el('div', 'bonfire-menu');
-    [['gear', 'Gear'], ['level', 'Level up'], ['shop', 'Provisions'], ['book', 'Lorebook'], ['chronicle', 'Chronicle'], ['help', 'Rules'], ['map', 'World map'], ['back', '← Return to the land']].forEach(function (t) {
-      var b = el('button', 'tab' + (tab === t[0] ? ' on' : '') + (t[0] === 'back' ? ' back' : ''), t[1]); b.type = 'button';
-      b.onclick = function () {
-        if (t[0] === 'chronicle' || t[0] === 'help' || t[0] === 'map') { go(t[0]); return; }
-        if (t[0] === 'back') { go('land'); return; }
-        UI.bonfireTab = t[0]; render();
-      };
+    [['gear', 'Gear'], ['level', 'Level up'], ['shop', 'Provisions'], ['book', 'Lorebook'], ['chronicle', 'Chronicle'], ['help', 'Rules']].forEach(function (t) {
+      var b = el('button', 'tab' + (tab === t[0] ? ' on' : ''), t[1]); b.type = 'button';
+      b.onclick = function () { if (t[0] === 'chronicle' || t[0] === 'help') { go(t[0]); return; } UI.bonfireTab = t[0]; render(); };
       menu.appendChild(b);
     });
     app.appendChild(menu);

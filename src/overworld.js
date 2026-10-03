@@ -23,6 +23,9 @@ var Overworld = (function () {
     L2: { name: 'volcano', ground: ['#3a2a24', '#33241f'], path: '#5a4a3a', wall: 'rock', water: '#c84a1e', deco: ['ember', 'bones', 'rock-small'], wallDensity: 0.32, waterDensity: 0.08, lava: true },
     L3: { name: 'forest', ground: ['#243a22', '#1f331e'], path: '#4a3c2a', wall: 'tree', water: '#1f3340', deco: ['mushroom', 'stump', 'fern'], wallDensity: 0.38, waterDensity: 0.04 },
     L4: { name: 'crypt', ground: ['#2d2a2e', '#282529'], path: '#3a3438', wall: 'wall', water: '#101018', deco: ['bones', 'coffin', 'skull'], wallDensity: 0.34, waterDensity: 0.03, indoor: true },
+    L5: { name: 'fen', ground: ['#243036', '#1f2a30'], path: '#4a4a3a', wall: 'tree-dead', water: '#1b3340', deco: ['reed', 'bones'], wallDensity: 0.3, waterDensity: 0.12 },
+    L6: { name: 'coast', ground: ['#2a3034', '#252b2f'], path: '#5a5648', wall: 'rock', water: '#1a3a4a', deco: ['bones', 'rock-small'], wallDensity: 0.32, waterDensity: 0.14 },
+    L7: { name: 'thorn', ground: ['#34301f', '#2e2a1c'], path: '#5a4e34', wall: 'tree', water: '#1f3340', deco: ['stump', 'rock-small'], wallDensity: 0.36, waterDensity: 0.03 },
     def: { name: 'wild', ground: ['#2e342c', '#293026'], path: '#4a4030', wall: 'tree', water: '#1b2b3a', deco: ['rock-small', 'bones'], wallDensity: 0.3, waterDensity: 0.05 }
   };
   function themeFor(L) { return THEMES[L.id] || THEMES.def; }
@@ -270,8 +273,8 @@ var Overworld = (function () {
     container.appendChild(wrap);
     var ret = opts.returnFrom || null, fireAt = { x: (map.spawn.x + 1) * T + T / 2, y: map.spawn.y * T + T / 2 };
     if (ret && map.v2) {
-      if (ret.outcome === 'won' && ret.inst != null && ret.inst >= 0 && !ret.isBoss) { var dk = ret.ref.id + '#' + ret.inst; if (w.dead.indexOf(dk) < 0) w.dead.push(dk); }
-      if (ret.outcome === 'died') { w.dead = []; w.pos = fireAt; }
+      if (ret.outcome === 'won' && ret.inst != null && ret.inst >= 0 && !ret.isBoss) { var dk = ret.ref.id + '#' + ret.inst; if (w.dead.indexOf(dk) < 0) w.dead.push(dk); w.deadAt = w.deadAt || {}; if (w.fightAt && w.fightAt.key === dk) w.deadAt[dk] = { x: w.fightAt.x, y: w.fightAt.y }; }
+      if (ret.outcome === 'died') { w.dead = []; w.deadAt = {}; w.pos = fireAt; }
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]]) start = fireAt; }
@@ -299,7 +302,7 @@ var Overworld = (function () {
     w.dead = w.dead || [];
     map.lairs.forEach(function (p, k) {
       var key = p.ref.id + '#' + (p.n || 0), base = { ref: p.ref, key: key, n: p.n || 0, x: p.x * T + T / 2, y: p.y * T + T / 2, hx: p.x, hy: p.y, dir: 1, anim: Math.random() * 10, level: p.ref.level };
-      if (map.v2 && w.dead.indexOf(key) >= 0) { base.kind = 'corpse'; ents.push(base); return; }
+      if (map.v2 && w.dead.indexOf(key) >= 0) { base.kind = 'corpse'; var at = w.deadAt && w.deadAt[key]; if (at) { base.x = at.x; base.y = at.y; } ents.push(base); return; }
       base.kind = 'creature'; base.wander = 0; base.state = 'idle'; base.lost = 0; base.stun = 0; ents.push(base);
     });
     ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
@@ -389,7 +392,7 @@ var Overworld = (function () {
         var sees = !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
         if (sees) { if (e.state !== 'chase' && window.Sfx) Sfx.play('alert'); e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
         if (e.state === 'chase') {
-          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); return; }
+          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); return; }
           var cs = (e.level === 'MAS' ? 46 : e.level === 'PRG' ? 44 : 40) * dt, mx = e.x + pdx / (pd || 1) * cs, my = e.y + pdy / (pd || 1) * cs;
           if (!blocked(mx, e.y)) e.x = mx; if (!blocked(e.x, my)) e.y = my; e.dir = pdx < 0 ? -1 : 1; e.moving = true; return;
         }
@@ -432,7 +435,7 @@ var Overworld = (function () {
     if (!R.near.e) return;
     var e = R.near.e; persist();
     if (e.kind === 'boss') { if (R.opts.onBattle) R.opts.onBattle(e.ref, true); }
-    else if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n);
+    else { R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); if (R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); }
   }
   function lineOfSight(x0, y0, x1, y1) { // tile-stepping ray; blocked by solid tiles
     var steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6), last = -1;
