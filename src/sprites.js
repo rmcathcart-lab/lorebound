@@ -40,7 +40,7 @@
     for (var i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; var r = d[i], g = d[i + 1], b = d[i + 2], gr = 0.3 * r + 0.59 * g + 0.11 * b; r = (gr * mix + r * (1 - mix)) * mul * tint[0]; g = (gr * mix + g * (1 - mix)) * mul * tint[1]; b = (gr * mix + b * (1 - mix)) * mul * tint[2]; d[i] = Math.min(255, r); d[i + 1] = Math.min(255, g); d[i + 2] = Math.min(255, b); }
     cx.putImageData(id, 0, 0); tinted[key] = cv; return cv;
   }
-  var TINTS = { marsh: [[0.72, 0.8, 0.8], 0.45, 0.62], forest: [[0.62, 0.8, 0.62], 0.35, 0.66], volcano: [[0.95, 0.7, 0.62], 0.4, 0.62], crypt: [[0.62, 0.6, 0.7], 0.5, 0.5], wild: [[0.75, 0.78, 0.72], 0.4, 0.62], fen: [[0.62, 0.78, 0.9], 0.5, 0.58], coast: [[0.66, 0.8, 0.86], 0.45, 0.6], thorn: [[0.9, 0.78, 0.58], 0.4, 0.62] };
+  var TINTS = { citadel: [[0.8, 0.78, 0.74], 0.5, 0.6], spire: [[0.7, 0.72, 0.85], 0.5, 0.58], frost: [[0.85, 0.92, 1.0], 0.55, 0.75], marsh: [[0.72, 0.8, 0.8], 0.45, 0.62], forest: [[0.62, 0.8, 0.62], 0.35, 0.66], volcano: [[0.95, 0.7, 0.62], 0.4, 0.62], crypt: [[0.62, 0.6, 0.7], 0.5, 0.5], wild: [[0.75, 0.78, 0.72], 0.4, 0.62], fen: [[0.62, 0.78, 0.9], 0.5, 0.58], coast: [[0.66, 0.8, 0.86], 0.45, 0.6], thorn: [[0.9, 0.78, 0.58], 0.4, 0.62] };
 
   /* terrain tables per theme: Kenney cells (col,row), or 0x72 names prefixed with 'dt:' */
   var TERRAIN = {
@@ -53,7 +53,7 @@
     crypt: { wallBase: '#15131a', ground: ['dt:floor_1', 'dt:floor_2', 'dt:floor_3', 'dt:floor_4', 'dt:floor_5', 'dt:floor_1', 'dt:floor_1'], path: ['dt:floor_8', 'dt:floor_7'], water: ['dt:hole'], wall: 'dtwall', deco: ['dt:skull', 'dt:crate', K(49, 9), K(51, 11)] },
     wild: { ground: [K(5, 0), K(5, 1), K(0, 16)], path: [K(6, 0)], water: [K(0, 0), K(1, 0)], wall: [{ base: K(13, 9) }, { base: K(16, 10) }], deco: [K(49, 9)] }
   };
-  TERRAIN.fen = TERRAIN.marsh; TERRAIN.thorn = TERRAIN.forest; TERRAIN.coast = Object.assign({}, TERRAIN.volcano, { water: TERRAIN.marsh.water, waterRaw: false, wallBase: '#0b1014' }); // new lands reuse the tile sets with their own tints
+  TERRAIN.citadel = TERRAIN.crypt; TERRAIN.spire = TERRAIN.volcano; TERRAIN.frost = TERRAIN.marsh; TERRAIN.fen = TERRAIN.marsh; TERRAIN.thorn = TERRAIN.forest; TERRAIN.coast = Object.assign({}, TERRAIN.volcano, { water: TERRAIN.marsh.water, waterRaw: false, wallBase: '#0b1014' }); // new lands reuse the tile sets with their own tints
   function cell(src, name) { if (typeof src === 'string') { var f = DT_DEFS[src.slice(3)]; return f ? { img: dt, x: f[0][0], y: f[0][1], w: f[0][2], h: f[0][3] } : null; } return { img: name, x: src[0], y: src[1], w: src[2], h: src[3] }; }
   function h2(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
 
@@ -91,8 +91,11 @@
     rat: 'tiny_zombie', skeleton: 'skelet', wight: 'zombie', wisp: 'angel', knight: 'ice_zombie', lich: 'necromancer',
     imp: 'imp', hound: 'chort', wyrm: 'lizard_m', sprite: 'wogol', golem: 'muddy', drake: 'lizard_f',
     thornling: 'slug', mosswight: 'swampy', treant: 'orc_shaman', barksprite: 'goblin', shade: 'doc', rootbound: 'ogre',
+    gatewarden: 'knight_f', sapper: 'dwarf_m', twinblade: 'knight_m', messenger: 'elf_m', quartermaster: 'dwarf_f', siegegolem: 'big_zombie',
+    gargoyle: 'chort', stairwarden: 'masked_orc', stormwyvern: 'lizard_m', stormwisp: 'angel', astrolabe: 'wogol', skyseer: 'wizzard_f',
+    rimewolf: 'goblin', icetrapper: 'elf_f', glacierwight: 'ice_zombie', frostmite: 'tiny_slug', cairnkeeper: 'orc_shaman', icecolossus: 'ogre',
     scarab: 'tiny_slug', ghoul: 'zombie', reliquary: 'chest_mimic_open', spider: 'skelet', cryptknight: 'masked_orc', sentinel: 'big_zombie' };
-  var BOSS = { L1: ['necromancer', 2], L2: ['big_demon', 1], L3: ['big_zombie', 1.5], L4: ['skelet', 2.5], L5: ['wizzard_f', 2], L6: ['knight_f', 2], L7: ['orc_warrior', 2] };
+  var BOSS = { L1: ['necromancer', 2], L2: ['big_demon', 1], L3: ['big_zombie', 1.5], L4: ['skelet', 2.5], L5: ['wizzard_f', 2], L6: ['knight_f', 2], L7: ['orc_warrior', 2], L8: ['knight_m', 2.2], L9: ['wizzard_m', 2.2], L10: ['big_demon', 1.3] };
   function animName(base, moving) { if (DT_DEFS[base + '_idle_anim']) return base + (moving ? '_run_anim' : '_idle_anim'); if (DT_DEFS[base + '_anim']) return base + '_anim'; return base; }
   SP.defs = {};
   function def(name) { if (SP.defs[name]) return SP.defs[name]; var d = ddef(name, 8); if (d) SP.defs[name] = d; return d; }
@@ -153,18 +156,22 @@
   };
 
   /* ---------- painted terrain per land (tools/pack_terrain.py) ---------- */
-  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7' }, terr = {};
+  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L4', spire: 'L7', frost: 'L5' }, terr = {};
+  var TTINT = { citadel: 'rgba(150,140,120,.18)', spire: 'rgba(90,100,150,.28)', frost: 'rgba(205,225,245,.42)' }; // lands without their own set borrow one, recoloured
   function terrainFor(th) {
     var id = TSET[th]; if (!id || !window.TERRAIN_DEFS || !TERRAIN_DEFS[id]) return null;
-    var t = terr[id]; if (t) return t.ready ? t : null;
-    var def = TERRAIN_DEFS[id], n = id.slice(1); t = terr[id] = { def: def, ready: false, tiles: [], props: new Image(), propsOK: false };
+    var t = terr[th]; if (t) return t.ready ? t : null;
+    var def = TERRAIN_DEFS[id], n = id.slice(1), tint = TTINT[th]; t = terr[th] = { def: def, ready: false, tiles: [], props: new Image(), propsOK: false };
     var im = new Image(); im.onload = function () { // one canvas per tile, so smoothing never bleeds from the neighbouring tile in the atlas
       var edges = {}; Object.keys(def.edgeByMask).forEach(function (k) { edges[def.edgeByMask[k]] = 1; });
       def.frames.forEach(function (f, i) { var c = document.createElement('canvas'); c.width = f[2]; c.height = f[3]; var cx = c.getContext('2d'); cx.drawImage(im, f[0], f[1], f[2], f[3], 0, 0, f[2], f[3]);
+        if (tint) { cx.globalCompositeOperation = 'source-atop'; cx.fillStyle = tint; cx.fillRect(0, 0, f[2], f[3]); cx.globalCompositeOperation = 'source-over'; }
         if (edges[i]) { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = 'rgb(92,88,100)'; cx.fillRect(0, 0, f[2], f[3]); } // impassable ground sits clearly darker than the paths you can walk
         t.tiles.push(c); });
       t.ready = true; };
-    im.src = ART_IMG['tr-l' + n]; t.props.onload = function () { t.propsOK = true; }; t.props.src = ART_IMG['tr-l' + n + '-props'];
+    im.src = ART_IMG['tr-l' + n];
+    var pim = new Image(); pim.onload = function () { if (!tint) { t.props = pim; t.propsOK = true; return; } var c = document.createElement('canvas'); c.width = pim.width; c.height = pim.height; var cx = c.getContext('2d'); cx.drawImage(pim, 0, 0); cx.globalCompositeOperation = 'source-atop'; cx.fillStyle = tint; cx.fillRect(0, 0, c.width, c.height); t.props = c; t.propsOK = true; };
+    pim.src = ART_IMG['tr-l' + n + '-props'];
     return null;
   }
   SP.terrainFor = terrainFor;

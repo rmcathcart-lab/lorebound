@@ -26,6 +26,9 @@ var Overworld = (function () {
     L5: { name: 'fen', ground: ['#243036', '#1f2a30'], path: '#4a4a3a', wall: 'tree-dead', water: '#1b3340', deco: ['reed', 'bones'], wallDensity: 0.3, waterDensity: 0.12 },
     L6: { name: 'coast', ground: ['#2a3034', '#252b2f'], path: '#5a5648', wall: 'rock', water: '#1a3a4a', deco: ['bones', 'rock-small'], wallDensity: 0.32, waterDensity: 0.14 },
     L7: { name: 'thorn', ground: ['#34301f', '#2e2a1c'], path: '#5a4e34', wall: 'tree', water: '#1f3340', deco: ['stump', 'rock-small'], wallDensity: 0.36, waterDensity: 0.03 },
+    L8: { name: 'citadel', ground: ['#2e2c2a', '#292725'], path: '#4a4640', wall: 'wall', water: '#14181e', deco: ['rock-small', 'bones'], wallDensity: 0.34, waterDensity: 0.04 },
+    L9: { name: 'spire', ground: ['#2a2a32', '#25252d'], path: '#46444e', wall: 'rock', water: '#151a28', deco: ['rock-small', 'bones'], wallDensity: 0.34, waterDensity: 0.05 },
+    L10: { name: 'frost', ground: ['#3a4048', '#343a42'], path: '#5a6068', wall: 'rock', water: '#2a4458', deco: ['rock-small', 'bones'], wallDensity: 0.32, waterDensity: 0.1 },
     def: { name: 'wild', ground: ['#2e342c', '#293026'], path: '#4a4030', wall: 'tree', water: '#1b2b3a', deco: ['rock-small', 'bones'], wallDensity: 0.3, waterDensity: 0.05 }
   };
   function themeFor(L) { return THEMES[L.id] || THEMES.def; }

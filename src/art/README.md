@@ -106,6 +106,45 @@ Banner: `banner-l7.jpg` — thorny highland slopes, briar thickets, fortress rui
 | `warden.jpg` | Warden of the Pass | Mastery | pixel placeholder | https://www.canva.com/M/MAHW6NjHIbc |
 | `boss7.jpg` | Lord Bramblehart of Thornhold (boss) | BOSS | pixel placeholder | https://www.canva.com/M/MAHW6FKQGcA |
 
+### L8 · Twin Citadels
+Banner: `banner-l8.jpg` — two dark citadels on facing cliffs, joined by one bridge over a misty chasm; banners, battlements, bare rock.  https://www.canva.com/M/MAHW__9cMrE
+
+| file | creature | level | overworld sprite now | Canva |
+|---|---|---|---|---|
+| `gatewarden.jpg` | Gate Warden | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_2G-XXM |
+| `sapper.jpg` | Siege Sapper | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_1qqoKg |
+| `twinblade.jpg` | Twinblade Paladin | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_-KBRWE |
+| `messenger.jpg` | Banner Messenger | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_5tyAVE |
+| `quartermaster.jpg` | The Quartermaster | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_8QuCu8 |
+| `siegegolem.jpg` | Siege Golem | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_6SihLk |
+| `boss8.jpg` | Aurel and Vaun, the Twin Kings (boss) | BOSS | pixel placeholder | https://www.canva.com/M/MAHW_--_1r4 |
+
+### L9 · Sundered Spire
+Banner: `banner-l9.jpg` — a tower split in two by lightning, high above a sea of cloud; carved stone, brass astronomical fittings, storm sky.  https://www.canva.com/M/MAHW_-oaA9Y
+
+| file | creature | level | overworld sprite now | Canva |
+|---|---|---|---|---|
+| `gargoyle.jpg` | Spire Gargoyle | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_6nVeIQ |
+| `stairwarden.jpg` | Stair Warden | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_5U0D8s |
+| `stormwyvern.jpg` | Storm Wyvern | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_5KKAEM |
+| `stormwisp.jpg` | Storm Wisp | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_xqXerM |
+| `astrolabe.jpg` | Astrolabe Construct | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_9lArts |
+| `skyseer.jpg` | The Skyseer | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_2-L9TU |
+| `boss9.jpg` | Orrin, the Sundered Astronomer (boss) | BOSS | pixel placeholder | https://www.canva.com/M/MAHW_yS69FQ |
+
+### L10 · The Frozen Reach
+Banner: `banner-l10.jpg` — frozen tundra under an aurora: snowfields, a frozen sea, stone cairns, ice crags, a lone peak.  https://www.canva.com/M/MAHW_3V6P9s
+
+| file | creature | level | overworld sprite now | Canva |
+|---|---|---|---|---|
+| `rimewolf.jpg` | Rime Wolf | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_7bVi14 |
+| `icetrapper.jpg` | Ice Trapper | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_1mFAm8 |
+| `glacierwight.jpg` | Glacier Wight | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_2GYuLc |
+| `frostmite.jpg` | Frost Mite | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_8ubnC8 |
+| `cairnkeeper.jpg` | Cairn Keeper | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_2N7Kk8 |
+| `icecolossus.jpg` | Ice Colossus | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_9N5EkY |
+| `boss10.jpg` | Hjalmvor, the Winter Wyrm (boss) | BOSS | pixel placeholder | https://www.canva.com/M/MAHW_3p3Ntc |
+
 ### Hero, bonfire, title, map and items
 
 | file | what | Canva |

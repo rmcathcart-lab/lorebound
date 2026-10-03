@@ -105,9 +105,48 @@ var LANDS = [
     boss: { id: 'boss7', name: 'Lord Bramblehart of Thornhold', level: 'BOSS', sigil: 'boss7', gens: ['RF6_PRG', 'RF7_PRG', 'RF6_MAS', 'RF7_MAS'], title: 'Highwarden',
       flavor: 'The master of every line in the hold. Four equations, four questions, four hundred Lore.' }
   },
-  { id: 'L8', unit: 8, name: 'Twin Citadels', subject: 'Systems of Linear Equations' },
-  { id: 'L9', unit: 9, name: 'Sundered Spire', subject: 'Trigonometry' },
-  { id: 'L10', unit: 10, name: 'The Frozen Reach', subject: 'Measurement' }
+  { id: 'L8', unit: 8, name: 'Twin Citadels', subject: 'Systems of Linear Equations', open: true, explore: 2, banner: 'banner-l8',
+    blurb: 'Two fortresses built by twin kings, face to face across a ravine, each wall a line and each road a promise. Where two lines meet, the gates open. Find the point they share.',
+    outcomes: { RF9A: 'RF9 · Solving systems: graphing, substitution and elimination', RF9B: 'RF9 · Modelling with systems: word problems' },
+    creatures: [
+      { id: 'gatewarden', name: 'Gate Warden', outcome: 'RF9', group: 'RF9A', level: 'BEG', sigil: 'gatewarden', gen: 'RF9A_BEG', flavor: 'It guards the place where two roads cross. Name the crossing and it steps aside.' },
+      { id: 'sapper', name: 'Siege Sapper', outcome: 'RF9', group: 'RF9A', level: 'PRG', sigil: 'sapper', gen: 'RF9A_PRG', flavor: 'It digs one equation into another until only a single unknown is left in the hole.' },
+      { id: 'twinblade', name: 'Twinblade Paladin', outcome: 'RF9', group: 'RF9A', level: 'MAS', sigil: 'twinblade', gen: 'RF9A_MAS', flavor: 'Two swords, two equations, struck together so that one of them cancels. It will not tell you which.' },
+      { id: 'messenger', name: 'Banner Messenger', outcome: 'RF9', group: 'RF9B', level: 'BEG', sigil: 'messenger', gen: 'RF9B_BEG', flavor: 'It carries riddles between the two kings: two numbers, a sum, a difference. Write down what it means.' },
+      { id: 'quartermaster', name: 'The Quartermaster', outcome: 'RF9', group: 'RF9B', level: 'PRG', sigil: 'quartermaster', gen: 'RF9B_PRG', flavor: 'It counts tickets, coins and barrels of mixed ale, and knows exactly how many of each. Do you?' },
+      { id: 'siegegolem', name: 'Siege Golem', outcome: 'RF9', group: 'RF9B', level: 'MAS', sigil: 'siegegolem', gen: 'RF9B_MAS', flavor: 'It marched between the citadels with the wind behind it and against it. Its speed is a system. Solve it before it reaches you.' }
+    ],
+    boss: { id: 'boss8', name: 'Aurel and Vaun, the Twin Kings', level: 'BOSS', sigil: 'boss8', gens: ['RF9A_PRG', 'RF9B_PRG', 'RF9A_MAS', 'RF9B_MAS'], title: 'Kingsbreaker',
+      flavor: 'Two kings, one throne between them. Four systems, four questions, four hundred Lore.' }
+  },
+  { id: 'L9', unit: 9, name: 'Sundered Spire', subject: 'Trigonometry', open: true, explore: 2, banner: 'banner-l9',
+    blurb: 'An observatory tower split by lightning, leaning over the clouds. The astronomers who built it measured the sky with right triangles; their instruments still turn in the wind.',
+    outcomes: { M4A: 'M4 · Trigonometric ratios: naming sides and finding sides', M4B: 'M4 · Finding angles and multi-step problems' },
+    creatures: [
+      { id: 'gargoyle', name: 'Spire Gargoyle', outcome: 'M4', group: 'M4A', level: 'BEG', sigil: 'gargoyle', gen: 'M4A_BEG', flavor: 'It perches at a fixed angle and names every side it can see: opposite, adjacent, hypotenuse.' },
+      { id: 'stairwarden', name: 'Stair Warden', outcome: 'M4', group: 'M4A', level: 'PRG', sigil: 'stairwarden', gen: 'M4A_PRG', flavor: 'It knows the height of every stair in the tower from the angle and one length. So should you.' },
+      { id: 'stormwyvern', name: 'Storm Wyvern', outcome: 'M4', group: 'M4A', level: 'MAS', sigil: 'stormwyvern', gen: 'M4A_MAS', flavor: 'It circles the broken top in ever-larger triangles. Every answer leads to the next side.' },
+      { id: 'stormwisp', name: 'Storm Wisp', outcome: 'M4', group: 'M4B', level: 'BEG', sigil: 'stormwisp', gen: 'M4B_BEG', flavor: 'A spark of lightning that knows only ratios. Give it a ratio and it tells you the angle, if you ask it the inverse way.' },
+      { id: 'astrolabe', name: 'Astrolabe Construct', outcome: 'M4', group: 'M4B', level: 'PRG', sigil: 'astrolabe', gen: 'M4B_PRG', flavor: 'Brass rings that still measure the sky. It wants the angle of elevation, to the nearest degree.' },
+      { id: 'skyseer', name: 'The Skyseer', outcome: 'M4', group: 'M4B', level: 'MAS', sigil: 'skyseer', gen: 'M4B_MAS', flavor: 'It watches two towers at once, and two triangles share a side between them. Find the one they share.' }
+    ],
+    boss: { id: 'boss9', name: 'Orrin, the Sundered Astronomer', level: 'BOSS', sigil: 'boss9', gens: ['M4A_PRG', 'M4B_PRG', 'M4A_MAS', 'M4B_MAS'], title: 'Spirebreaker',
+      flavor: 'He measured the heavens until the heavens split his tower in two. Four triangles, four questions, four hundred Lore.' }
+  },
+  { id: 'L10', unit: 10, name: 'The Frozen Reach', subject: 'Measurement', open: true, explore: 2, banner: 'banner-l10',
+    blurb: 'The edge of the world, where the old empire measured everything in two systems and then froze. Cairns, ice-locked granaries and buried domes: everything here has a volume, and everything has a price.',
+    outcomes: { M12: 'M1 · M2 · Units, referents, precision and conversions', M3: 'M3 · Surface area and volume of 3-D objects' },
+    creatures: [
+      { id: 'rimewolf', name: 'Rime Wolf', outcome: 'M1', group: 'M12', level: 'BEG', sigil: 'rimewolf', gen: 'M12_BEG', flavor: 'It measures its hunting ground in paces and its prey in hands. Know your referents.' },
+      { id: 'icetrapper', name: 'Ice Trapper', outcome: 'M2', group: 'M12', level: 'PRG', sigil: 'icetrapper', gen: 'M12_PRG', flavor: 'It trades furs by the foot and sells them by the metre. Convert, or be cheated.' },
+      { id: 'glacierwight', name: 'Glacier Wight', outcome: 'M2', group: 'M12', level: 'MAS', sigil: 'glacierwight', gen: 'M12_MAS', flavor: 'It froze while converting square units, and has been waiting ever since for someone to finish the job.' },
+      { id: 'frostmite', name: 'Frost Mite', outcome: 'M3', group: 'M3', level: 'BEG', sigil: 'frostmite', gen: 'M3_BEG', flavor: 'It builds tiny ice boxes and asks how much they hold.' },
+      { id: 'cairnkeeper', name: 'Cairn Keeper', outcome: 'M3', group: 'M3', level: 'PRG', sigil: 'cairnkeeper', gen: 'M3_PRG', flavor: 'Every cairn is a pyramid or a cone, and it knows the slant height of each one.' },
+      { id: 'icecolossus', name: 'Ice Colossus', outcome: 'M3', group: 'M3', level: 'MAS', sigil: 'icecolossus', gen: 'M3_MAS', flavor: 'Built of spheres, cylinders and domes stacked on one another. Find the whole from its parts.' }
+    ],
+    boss: { id: 'boss10', name: 'Hjalmvor, the Winter Wyrm', level: 'BOSS', sigil: 'boss10', gens: ['M12_PRG', 'M3_PRG', 'M12_MAS', 'M3_MAS'], title: 'Winterbane',
+      flavor: 'The last wyrm, coiled around the last fire at the end of the world. Four questions, four hundred Lore, and nothing left beyond.' }
+  }
 ];
 
 /* Gear: five branches, three tiers. Tier 2 needs tier 1 and level 3; tier 3 needs tier 2, level 6 and a boss kill. */

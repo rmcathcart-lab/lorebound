@@ -8,7 +8,7 @@ def datauri(m):
 css=re.sub(r'src:url\(fonts/([A-Za-z0-9_-]+)\.woff2\) format\("woff2"\),url\(fonts/[A-Za-z0-9_-]+\.woff\) format\("woff"\),url\(fonts/[A-Za-z0-9_-]+\.ttf\) format\("truetype"\)', datauri, css)
 assert 'fonts/' not in css, 'font refs remain'
 src=lambda f: open('src/'+f).read()
-def js(f): return src(f).replace('</script','<\\/script')
+def js(f): return src(f).replace('</script','<\\/script') if os.path.exists('src/'+f) else ''
 from PIL import Image, ImageFilter
 import io
 ART={}
@@ -30,7 +30,7 @@ art_js='var ART_IMG = '+json.dumps(ART)+';'
 html=src('index.html')
 html=html.replace('/*KATEX_CSS*/',css).replace('/*GAME_CSS*/',src('style.css'))
 html=html.replace('/*KATEX_JS*/',open(K+'/katex.min.js').read()).replace('/*AUTORENDER_JS*/',open(K+'/contrib/auto-render.min.js').read())
-for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('QUESTIONS_U5_JS','questions_u5.js'),('QUESTIONS_U6_JS','questions_u6.js'),('QUESTIONS_U7_JS','questions_u7.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('HD_DEFS_JS','hd_defs.js'),('CREATURE_DEFS_JS','creature_defs.js'),('TERRAIN_DEFS_JS','terrain_defs.js'),('SPRITES_JS','sprites.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
+for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('QUESTIONS_U5_JS','questions_u5.js'),('QUESTIONS_U6_JS','questions_u6.js'),('QUESTIONS_U7_JS','questions_u7.js'),('QUESTIONS_U8_JS','questions_u8.js'),('QUESTIONS_U9_JS','questions_u9.js'),('QUESTIONS_U10_JS','questions_u10.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('LOREBOOK_L8_JS','lorebook_l8.js'),('LOREBOOK_L9_JS','lorebook_l9.js'),('LOREBOOK_L10_JS','lorebook_l10.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('HD_DEFS_JS','hd_defs.js'),('CREATURE_DEFS_JS','creature_defs.js'),('TERRAIN_DEFS_JS','terrain_defs.js'),('SPRITES_JS','sprites.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
     html=html.replace('/*%s*/'%tag, js(f))
 html=html.replace('/*ART_IMG_JS*/', art_js)
 os.makedirs('dist',exist_ok=True)
