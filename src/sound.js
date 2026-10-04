@@ -33,6 +33,7 @@ var Sfx = (function () {
     page: function () { noise(0.25, 0.12, { filter: 'highpass', cutoff: 2500 }); [880, 1175, 1760].forEach(function (f, i) { tone('triangle', f, 0.5, 0.12, { delay: 0.1 + i * 0.1 }); }); },
     chest: function () { noise(0.3, 0.2, { filter: 'lowpass', cutoff: 400, cutoffEnd: 120 }); [1568, 2093, 2637, 3136].forEach(function (f, i) { tone('sine', f, 0.3, 0.08, { delay: 0.25 + i * 0.06 }); }); },
     trap: function () { tone('sawtooth', [220, 60], 0.6, 0.25, { filter: 'lowpass', cutoff: 900 }); noise(0.4, 0.2, { filter: 'bandpass', cutoff: 300, q: 2 }); },
+    swing: function () { noise(0.18, 0.14, { filter: 'bandpass', cutoff: 600, cutoffEnd: 2600, q: 1.2, attack: 0.03 }); },
     strike: function () { noise(0.22, 0.35, { filter: 'bandpass', cutoff: 2800, cutoffEnd: 500, q: 0.7 }); tone('square', [180, 60], 0.12, 0.12); },
     correct: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone('triangle', f, 0.45, 0.16, { delay: i * 0.08 }); }); noise(0.5, 0.06, { filter: 'highpass', cutoff: 5000, delay: 0.25 }); },
     wrong: function () { tone('sawtooth', [160, 90], 0.5, 0.22, { filter: 'lowpass', cutoff: 700 }); tone('square', [166, 95], 0.5, 0.1, { filter: 'lowpass', cutoff: 500 }); },

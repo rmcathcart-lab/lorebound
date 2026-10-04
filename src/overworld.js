@@ -45,6 +45,7 @@ var Overworld = (function () {
     };
   }
   function generate(L) {
+    if (typeof LandMaps !== 'undefined' && LandMaps.has(L.id)) { var lm = LandMaps.build(L, { G: G, SOLID: SOLID, theme: themeFor(L) }); if (lm) return lm; }
     if (L.explore === 2) return generateV2(L);
     MW = 56; MH = 40;
     var r = rng(hash('lorebound:' + L.id + ':v1')), th = themeFor(L);
@@ -259,7 +260,11 @@ var Overworld = (function () {
   function mount(container, opts) {
     unmount();
     var L = opts.land, S = opts.state, map = generate(L); MW = map.w; MH = map.h; API.MW = MW; API.MH = MH;
-    var w = worldState(S, L), seen = seenArr(w, L.id);
+    var w = worldState(S, L);
+    if (map.layout && w.layout !== map.layout) { // the land was redrawn: old fog, position and corpses no longer fit it
+      w.layout = map.layout; w.seen = ''; w.pos = null; w.dead = []; w.deadAt = {}; w.fightAt = null; delete seenCache[L.id];
+    }
+    var seen = seenArr(w, L.id);
     var cv = document.createElement('canvas'); cv.className = 'ow-canvas'; cv.tabIndex = 0;
     var wrap = document.createElement('div'); wrap.className = 'ow-wrap'; wrap.appendChild(cv);
     var hint = document.createElement('div'); hint.className = 'ow-hint'; wrap.appendChild(hint);
@@ -377,6 +382,7 @@ var Overworld = (function () {
     var d = Math.hypot(dx, dy); if (d > 1) { dx /= d; dy /= d; }
     p.clock += dt;
     if (R.cut) { R.cut.t -= dt; if (R.cut.t <= 0) { var cf = R.cut.fn; R.cut = null; cf(); } return; } // a short attack before a fight
+    if (p.act && p.act.free) { if (R.t >= p.act.end) p.act = null; else { dx = 0; dy = 0; d = 0; } }
     var speed = R.opts.heroSpeed || 58; p.moving = d > 0.05;
     if (p.moving) {
       if (Math.abs(dx) > 0.2) p.dir = dx < 0 ? -1 : 1;
@@ -436,7 +442,8 @@ var Overworld = (function () {
     R.act.classList.toggle('on', !!(R.near && (R.near.e || R.near.fire)));
   }
   function interact() {
-    if (!R || !R.near) return;
+    if (!R) return;
+    if (!R.near || (!R.near.e && !R.near.fire)) { swing(); return; }
     if (R.near.fire) { persist(); if (R.opts.onBonfire) R.opts.onBonfire(); return; }
     if (!R.near.e) return;
     var e = R.near.e; persist();
@@ -444,6 +451,14 @@ var Overworld = (function () {
     R.player.dir = e.x < R.player.x ? -1 : 1; if (e.kind === 'creature') { e.dir = -R.player.dir; e.state = 'idle'; e.tx = null; }
     if (e.kind === 'boss') cutscene(e, 'hero', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, true); });
     else { R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); cutscene(e, 'hero', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); }); }
+  }
+  /* a swing at nothing: purely for the feel of it. The hero plants their feet for the length of the attack. */
+  function swing() {
+    var p = R.player; if (R.cut || (p.act && p.act.free)) return;
+    var d = SP.actor && SP.actor(SP.actorFor({ kind: 'hero', cls: R.opts.heroClass })), len = d ? SP.animLength(d, 'attack') : 0;
+    if (!len) return;
+    p.act = { anim: 'attack', t0: R.t, free: true, end: R.t + len };
+    if (window.Sfx) Sfx.play('swing');
   }
   /* the opening blow: whoever started the fight plays its attack, then the battle screen takes over */
   function cutscene(e, who, fn) {
