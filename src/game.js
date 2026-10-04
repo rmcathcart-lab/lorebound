@@ -917,12 +917,15 @@
     var t0 = performance.now();
     function frame() {
       campFireRaf = 0; if (!document.body.contains(cv)) return; campFireRaf = requestAnimationFrame(frame);
+      var txt = cv.nextElementSibling, th = txt ? Math.round(txt.getBoundingClientRect().height) : 0;
+      if (th > 40 && Math.abs(th - cv.clientHeight) > 1) { cv.style.height = th + 'px'; cv.style.width = Math.round(th * 0.86) + 'px'; }
       var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
-      if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
       var ctx = cv.getContext('2d'), t = (performance.now() - t0) / 1000; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-      var gl = 0.6 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, g = ctx.createRadialGradient(W / 2, H * 0.78, 2, W / 2, H * 0.78, W * 0.62);
-      g.addColorStop(0, 'rgba(255,160,70,' + (0.42 * gl) + ')'); g.addColorStop(1, 'rgba(255,110,40,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      Overworld.SP.drawActor(ctx, d, 'idle', t, W / 2, H - 4, false, { mul: (H - 8) / 38 });
+      var gl = 0.6 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, gx = W / 2, gy = H * 0.74, gr = Math.min(W / 2, H - gy, gy) - 1, g = ctx.createRadialGradient(gx, gy, 1, gx, gy, gr);
+      g.addColorStop(0, 'rgba(255,160,70,' + (0.4 * gl) + ')'); g.addColorStop(0.55, 'rgba(255,120,45,' + (0.14 * gl) + ')'); g.addColorStop(1, 'rgba(255,110,40,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI * 2); ctx.fill();
+      Overworld.SP.drawActor(ctx, d, 'idle', t, W / 2, H - 1, false, { mul: (H - 2) / 38 });
     }
     if (campFireRaf) cancelAnimationFrame(campFireRaf); campFireRaf = requestAnimationFrame(frame);
     return cv;
@@ -947,7 +950,7 @@
     var bkey = Lc && (Lc.banner || (Lc.id === 'L1' ? 'title' : null));
     if (bkey && window.ART_IMG && ART_IMG[bkey]) { var bd = el('div', 'camp-backdrop'); bd.style.backgroundImage = 'url(' + ART_IMG[bkey] + ')'; app.appendChild(bd); }
     var head = el('div', 'camp-head');
-    var whoEl = el('div', 'who', '<div><div class="eyebrow">Bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>You rest a while</h1><p class="muted">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>');
+    var whoEl = el('div', 'who', '<div><div class="eyebrow">' + esc(Lc ? Lc.name : '') + '</div><h1>Rest at the Bonfire</h1><p class="muted">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>');
     whoEl.insertBefore(campFire(), whoEl.firstChild); head.appendChild(whoEl);
     var nav = el('div', 'camp-nav');
     var back = el('button', 'btn', 'Return to ' + esc(Lc ? theLand(Lc) : 'the land')); back.type = 'button'; back.onclick = function () { go('land'); }; nav.appendChild(back);
