@@ -13,6 +13,9 @@
  * Script property TEACHER_KEY protects the ledger (Project Settings → Script properties).
  * Script property UNLOCKS holds the lands the teacher has opened, per class code ('*' = every class);
  * it is written from the in-game ledger (Lands open) and read by the game when a student signs in.
+ * Script property CLASSES lists the class codes the teacher accepts. While it is empty every code is
+ * accepted; once it has codes, play events sent with any other code are ignored (keeps junk out of the sheet,
+ * since the web app is open to Anyone).
  * ============================================================ */
 
 var PLAYER_COLS = ['key', 'class', 'name', 'hero', 'heroClass', 'stage', 'lore', 'legend', 'deaths', 'lostForever',
@@ -58,9 +61,10 @@ function doGet(e) {
     var action = p.action || 'ping';
     if (action === 'ping') return json_({ ok: true, t: Date.now() }, cb);
     if (action === 'hello') return json_(hello_(p), cb);
-    if (action === 'lands') return json_({ ok: true, lands: landsFor_(p['class']) }, cb);
+    if (action === 'lands') return json_({ ok: true, lands: landsFor_(p['class']), classOk: classOk_(p['class']) }, cb);
     if (p.key !== teacherKey_() || !teacherKey_()) return json_({ ok: false, error: 'bad key' }, cb);
-    if (action === 'ledger') { var led = ledger_(); led.unlocks = unlocks_(); return json_(led, cb); }
+    if (action === 'ledger') { var led = ledger_(); led.unlocks = unlocks_(); led.classes = classes_(); return json_(led, cb); }
+    if (action === 'setclasses') return json_(setClasses_(p.classes), cb);
     if (action === 'setlands') return json_(setLands_(p['class'], p.lands), cb);
     if (action === 'player') return json_(playerDetail_(p.id), cb);
     if (action === 'purge') return json_(purge_(p['class']), cb);
@@ -70,6 +74,7 @@ function doGet(e) {
 
 /* The game says hello with a class code + name and gets the cloud save back (if any). */
 function hello_(p) {
+  if (!classOk_(p['class'])) return { ok: true, found: false, unknownClass: true, lands: [] };
   var key = keyOf_(p['class'], p.name);
   var row = findPlayer_(key);
   var lands = landsFor_(p['class']);
@@ -99,11 +104,26 @@ function setLands_(klass, csv) {
   } finally { lock.releaseLock(); }
 }
 
+/* ---------------- class codes the teacher accepts ---------------- */
+function classes_() {
+  try { var c = JSON.parse(PropertiesService.getScriptProperties().getProperty('CLASSES') || '[]'); return Array.isArray(c) ? c : []; } catch (e) { return []; }
+}
+function classOk_(klass) { var c = classes_(); return !c.length || c.indexOf(norm_(klass)) >= 0; }
+/* Teacher-only: replace the list of accepted class codes. classes = "10c-1,10c-2" (empty = accept any). */
+function setClasses_(csv) {
+  var out = [];
+  String(csv || '').split(',').forEach(function (x) { var k = norm_(x).slice(0, 24); if (k && out.indexOf(k) < 0) out.push(k); });
+  PropertiesService.getScriptProperties().setProperty('CLASSES', JSON.stringify(out));
+  return { ok: true, classes: out };
+}
+
 /* ---------------- writes ---------------- */
 function doPost(e) {
   var body;
   try { body = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { return json_({ ok: false, error: 'bad json' }); }
   if (!body || !body.name || !body['class']) return json_({ ok: false, error: 'missing class or name' });
+  if (!classOk_(body['class'])) return json_({ ok: false, error: 'unknown class' });
+  if (String(body.name).length > 60 || String(body['class']).length > 40) return json_({ ok: false, error: 'too long' });
   var lock = LockService.getScriptLock();
   try { lock.waitLock(15000); } catch (err) { return json_({ ok: false, error: 'busy' }); }
   try {
