@@ -111,39 +111,39 @@ Banner: `banner-l8.jpg` — two dark citadels on facing cliffs, joined by one br
 
 | file | creature | level | overworld sprite now | Canva |
 |---|---|---|---|---|
-| `gatewarden.jpg` | Gate Warden | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_2G-XXM |
-| `sapper.jpg` | Siege Sapper | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_1qqoKg |
-| `twinblade.jpg` | Twinblade Paladin | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_-KBRWE |
-| `messenger.jpg` | Banner Messenger | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_5tyAVE |
-| `quartermaster.jpg` | The Quartermaster | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_8QuCu8 |
-| `siegegolem.jpg` | Siege Golem | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_6SihLk |
-| `boss8.jpg` | Aurel and Vaun, the Twin Kings (boss) | BOSS | pixel placeholder | https://www.canva.com/M/MAHW_--_1r4 |
+| `gatewarden.jpg` | Gate Warden | Beginning | painted (cr-) | https://www.canva.com/M/MAHW_2G-XXM |
+| `sapper.jpg` | Siege Sapper | Progressing | painted (cr-) | https://www.canva.com/M/MAHW_1qqoKg |
+| `twinblade.jpg` | Twinblade Paladin | Mastery | painted (cr-) | https://www.canva.com/M/MAHW_-KBRWE |
+| `messenger.jpg` | Banner Messenger | Beginning | painted (cr-) | https://www.canva.com/M/MAHW_5tyAVE |
+| `quartermaster.jpg` | The Quartermaster | Progressing | painted (cr-) | https://www.canva.com/M/MAHW_8QuCu8 |
+| `siegegolem.jpg` | Siege Golem | Mastery | painted (cr-) | https://www.canva.com/M/MAHW_6SihLk |
+| `boss8.jpg` | Aurel and Vaun, the Twin Kings (boss) | BOSS | painted (cr-) | https://www.canva.com/M/MAHW_--_1r4 |
 
 ### L9 · Sundered Spire
 Banner: `banner-l9.jpg` — a tower split in two by lightning, high above a sea of cloud; carved stone, brass astronomical fittings, storm sky.  https://www.canva.com/M/MAHW_-oaA9Y
 
 | file | creature | level | overworld sprite now | Canva |
 |---|---|---|---|---|
-| `gargoyle.jpg` | Spire Gargoyle | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_6nVeIQ |
-| `stairwarden.jpg` | Stair Warden | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_5U0D8s |
-| `stormwyvern.jpg` | Storm Wyvern | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_5KKAEM |
-| `stormwisp.jpg` | Storm Wisp | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_xqXerM |
-| `astrolabe.jpg` | Astrolabe Construct | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_9lArts |
-| `skyseer.jpg` | The Skyseer | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_2-L9TU |
-| `boss9.jpg` | Orrin, the Sundered Astronomer (boss) | BOSS | pixel placeholder | https://www.canva.com/M/MAHW_yS69FQ |
+| `gargoyle.jpg` | Spire Gargoyle | Beginning | painted (cr-) | https://www.canva.com/M/MAHW_6nVeIQ |
+| `stairwarden.jpg` | Stair Warden | Progressing | painted (cr-) | https://www.canva.com/M/MAHW_5U0D8s |
+| `stormwyvern.jpg` | Storm Wyvern | Mastery | painted (cr-) | https://www.canva.com/M/MAHW_5KKAEM |
+| `stormwisp.jpg` | Storm Wisp | Beginning | painted (cr-) | https://www.canva.com/M/MAHW_xqXerM |
+| `astrolabe.jpg` | Astrolabe Construct | Progressing | painted (cr-) | https://www.canva.com/M/MAHW_9lArts |
+| `skyseer.jpg` | The Skyseer | Mastery | painted (cr-) | https://www.canva.com/M/MAHW_2-L9TU |
+| `boss9.jpg` | Orrin, the Sundered Astronomer (boss) | BOSS | painted (cr-) | https://www.canva.com/M/MAHW_yS69FQ |
 
 ### L10 · The Frozen Reach
 Banner: `banner-l10.jpg` — frozen tundra under an aurora: snowfields, a frozen sea, stone cairns, ice crags, a lone peak.  https://www.canva.com/M/MAHW_3V6P9s
 
 | file | creature | level | overworld sprite now | Canva |
 |---|---|---|---|---|
-| `rimewolf.jpg` | Rime Wolf | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_7bVi14 |
-| `icetrapper.jpg` | Ice Trapper | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_1mFAm8 |
-| `glacierwight.jpg` | Glacier Wight | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_2GYuLc |
-| `frostmite.jpg` | Frost Mite | Beginning | pixel placeholder | https://www.canva.com/M/MAHW_8ubnC8 |
-| `cairnkeeper.jpg` | Cairn Keeper | Progressing | pixel placeholder | https://www.canva.com/M/MAHW_2N7Kk8 |
-| `icecolossus.jpg` | Ice Colossus | Mastery | pixel placeholder | https://www.canva.com/M/MAHW_9N5EkY |
-| `boss10.jpg` | Hjalmvor, the Winter Wyrm (boss) | BOSS | pixel placeholder | https://www.canva.com/M/MAHW_3p3Ntc |
+| `rimewolf.jpg` | Rime Wolf | Beginning | painted (cr-) | https://www.canva.com/M/MAHW_7bVi14 |
+| `icetrapper.jpg` | Ice Trapper | Progressing | painted (cr-) | https://www.canva.com/M/MAHW_1mFAm8 |
+| `glacierwight.jpg` | Glacier Wight | Mastery | painted (cr-) | https://www.canva.com/M/MAHW_2GYuLc |
+| `frostmite.jpg` | Frost Mite | Beginning | painted (cr-) | https://www.canva.com/M/MAHW_8ubnC8 |
+| `cairnkeeper.jpg` | Cairn Keeper | Progressing | painted (cr-) | https://www.canva.com/M/MAHW_2N7Kk8 |
+| `icecolossus.jpg` | Ice Colossus | Mastery | painted (cr-) | https://www.canva.com/M/MAHW_9N5EkY |
+| `boss10.jpg` | Hjalmvor, the Winter Wyrm (boss) | BOSS | painted (cr-) | https://www.canva.com/M/MAHW_3p3Ntc |
 
 ### Hero, bonfire, title, map and items
 
@@ -182,6 +182,12 @@ Used for: the hero (knight / wizard for the Sorcerer), Hollow Knight + Crypt Kni
 - Facing south-east (the game mirrors it for west).
 - Then map the creature id to the sheet name in `HD_CREATURE` (src/sprites.js).
 
+
+## Lands 8–10 expansion and bonfire shrine
+Made by Ryan with ChatGPT/Codex ("Lorebound Lands 8–10 Expansion": 21 creatures, terrain sets l8–l10; "Lorebound Bonfire Sprite": a six-frame bonfire shrine).
+- `python3 tools/pack_creatures.py <pack> 96 124 80 --merge` adds them to the existing creature_defs.js.
+- `python3 tools/pack_terrain.py <pack> --lands 8,9,10` adds terrain sets without touching L1–L7.
+- `python3 tools/pack_fire.py <bonfire pack> 38 5` → `cr-bonfire.webp` + a `bonfire` actor (drawn at every bonfire).
 
 ## Painted creature and terrain pack (cr-*.webp, tr-*.webp)
 Made by Ryan with ChatGPT/Codex from the portraits and banners above ("Lorebound Creatures and Terrain" pack: 49 creatures × idle/walk/attack/death, 7 terrain sets with 8 props each).
