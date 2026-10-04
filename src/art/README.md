@@ -155,6 +155,12 @@ Banner: `banner-l10.jpg` — frozen tundra under an aurora: snowfields, a frozen
 | `hero-sorcerer-1.jpg` | Sorcerer, stage 1 | https://www.canva.com/M/MAHWyEPv1Ek |
 | `hero-sorcerer-2.jpg` | Sorcerer, stage 2 | https://www.canva.com/M/MAHWyH21avw |
 | `hero-sorcerer-3.jpg` | Sorcerer, stage 3 | https://www.canva.com/M/MAHWyJ2z4TM |
+| `hero-ranger-1.jpg` | Ranger, stage 1 (Wayfarer) | https://www.canva.com/M/MAHXBbxH6oo |
+| `hero-ranger-2.jpg` | Ranger, stage 2 (Warden of the Weald) | https://www.canva.com/M/MAHXBUWkUG4 |
+| `hero-ranger-3.jpg` | Ranger, stage 3 (Lorebound Huntmaster) | https://www.canva.com/M/MAHXBQU9-28 |
+| `hero-rogue-1.jpg` | Rogue, stage 1 (Cutpurse) | https://www.canva.com/M/MAHXBUaBtrA |
+| `hero-rogue-2.jpg` | Rogue, stage 2 (Shadowblade) | https://www.canva.com/M/MAHXBcFS2Fo |
+| `hero-rogue-3.jpg` | Rogue, stage 3 (Nightglass Phantom) | https://www.canva.com/M/MAHXBWujlGo |
 | `fire.jpg` | Bonfire | https://www.canva.com/M/MAHWoEr4MBg |
 | `title.jpg` | Title screen / Land 1 banner | https://www.canva.com/M/MAHWoIlcKmE |
 | `map.jpg` | World map base | https://www.canva.com/M/MAHWokZzOq0 |
@@ -164,6 +170,9 @@ Banner: `banner-l10.jpg` — frozen tundra under an aurora: snowfields, a frozen
 | `item-draught.jpg` | Ember Draught | https://www.canva.com/M/MAHW5b5tJ4s |
 | `item-wisp.jpg` | Wisp in a Jar | https://www.canva.com/M/MAHW5S8vbjo |
 | `item-feather.jpg` | Phoenix Feather | https://www.canva.com/M/MAHW5fOmEzk |
+
+### Hero sprites (pending)
+The 12 hero portraits are copied into `Lorebound Game/Hero sprites - all classes/` with a brief for ChatGPT. When the pack arrives: `python3 tools/pack_creatures.py <pack> 96 124 80 --merge` (sheets are named hero-<class>-<stage>), and the game uses them automatically (SP.heroActorId prefers cr-hero-<class>-<stage>; until then the Ranger and Rogue borrow the knight's sprite and stages are shown with a tint).
 
 ### Bonfire camp tiles and UI icons
 

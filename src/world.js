@@ -223,9 +223,11 @@ var TRAPS = [
   { id: 'alarm', weight: 25, name: 'Alarm', desc: 'A shriek. Everything nearby knows where you are.' }
 ];
 
-/* Hero classes. Portraits: hero-<class>-<stage>.jpg. Stage 1 at the start; stage 2 once any tier-2 gear is owned; stage 3 once tier-3 gear is owned and a boss is slain. */
+/* Hero classes (cosmetic: every class plays the same). Portraits: hero-<class>-<stage>.jpg. Overworld sprites: hero:<class> once its painted sheet is packed; until then the ranger and rogue borrow the knight's. Stage 1 at the start; stage 2 once any tier-2 gear is owned; stage 3 once tier-3 gear is owned and a boss is slain. */
 var CLASSES = [
   { id: 'knight', name: 'Knight', blurb: 'Steel, patience and a chipped sword. Starts in battered armour; ends in black and gold with a blade of Lore-light.', stages: ['Hollow Knight', 'Ashen Knight', 'Champion of the Marches'] },
-  { id: 'sorcerer', name: 'Sorcerer', blurb: 'A hood, a crooked staff and a single spark. Starts in threadbare robes; ends as an archmage in a circle of burning numbers.', stages: ['Apprentice', 'Adept of the Barrows', 'Archmage of Lore'] }
+  { id: 'sorcerer', name: 'Sorcerer', blurb: 'A hood, a crooked staff and a single spark. Starts in threadbare robes; ends as an archmage in a circle of burning numbers.', stages: ['Apprentice', 'Adept of the Barrows', 'Archmage of Lore'] },
+  { id: 'ranger', name: 'Ranger', blurb: 'A hood, a plain longbow and a long road. Starts as a ragged wayfarer; ends with a rune-carved bow and arrows of Lore-light.', stages: ['Wayfarer', 'Warden of the Weald', 'Lorebound Huntmaster'] },
+  { id: 'rogue', name: 'Rogue', blurb: 'A mask, a knife and quick hands. Starts as a street cutpurse; ends as a phantom whose twin blades burn with Lore-light.', stages: ['Cutpurse', 'Shadowblade', 'Nightglass Phantom'] }
 ];
 if (typeof module !== 'undefined') module.exports = { LEVELS: LEVELS, LANDS: LANDS, GEAR: GEAR, CLASSES: CLASSES, LEVEL: LEVEL, ITEMS: ITEMS, CHEST_ODDS: CHEST_ODDS, TRAPS: TRAPS };

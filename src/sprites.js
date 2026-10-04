@@ -133,10 +133,16 @@
     if (d) actorCache[id] = d; return d;
   };
   SP.actorFor = function (e) { // the actor id for an overworld entity
-    if (e.kind === 'hero') return 'hero:' + (e.cls === 'sorcerer' ? 'wizard' : 'knight');
+    if (e.kind === 'hero') return SP.heroActorId(e.cls, e.stage);
     if ((e.kind === 'creature' || e.kind === 'boss' || e.kind === 'corpse') && e.ref) return 'cr:' + (e.ref.sigil || e.ref.id);
     if (e.kind === 'fire') return 'cr:bonfire';
     return null;
+  };
+  /* the hero's sprite: its own painted sheet for this class and stage if packed (cr-hero-<class>-<stage>), else the starter knight / wizard */
+  SP.heroActorId = function (cls, stage) {
+    var own = 'hero-' + (cls || 'knight') + '-' + (stage || 1);
+    if (window.CREATURE_DEFS && CREATURE_DEFS[own] && ART_IMG['cr-' + own]) return 'cr:' + own;
+    return 'hero:' + (cls === 'sorcerer' ? 'wizard' : 'knight');
   };
   SP.animLength = function (d, anim) { var a = d && d.anims[anim]; return a ? a.frames.length / a.fps : 0; };
   /* draw an actor with its feet at (x, y). o: { mul (extra scale), tint (css colour laid over the body), flash (0..1 red hurt flash), alpha } */

@@ -455,14 +455,14 @@ var Overworld = (function () {
   /* a swing at nothing: purely for the feel of it. The hero plants their feet for the length of the attack. */
   function swing() {
     var p = R.player; if (R.cut || (p.act && p.act.free)) return;
-    var d = SP.actor && SP.actor(SP.actorFor({ kind: 'hero', cls: R.opts.heroClass })), len = d ? SP.animLength(d, 'attack') : 0;
+    var d = SP.actor && SP.actor(SP.actorFor({ kind: 'hero', cls: R.opts.heroClass, stage: R.opts.heroStage })), len = d ? SP.animLength(d, 'attack') : 0;
     if (!len) return;
     p.act = { anim: 'attack', t0: R.t, free: true, end: R.t + len };
     if (window.Sfx) Sfx.play('swing');
   }
   /* the opening blow: whoever started the fight plays its attack, then the battle screen takes over */
   function cutscene(e, who, fn) {
-    var p = R.player, d = SP.actor && SP.actor(who === 'hero' ? SP.actorFor({ kind: 'hero', cls: R.opts.heroClass }) : SP.actorFor(e));
+    var p = R.player, d = SP.actor && SP.actor(who === 'hero' ? SP.actorFor({ kind: 'hero', cls: R.opts.heroClass, stage: R.opts.heroStage }) : SP.actorFor(e));
     var len = d ? Math.min(0.75, SP.animLength(d, 'attack')) : 0;
     if (!len) { fn(); return; }
     if (who === 'hero') p.act = { anim: 'attack', t0: R.t }; else e.act = { anim: 'attack', t0: R.t };
@@ -578,7 +578,7 @@ var Overworld = (function () {
       var big = e.kind === 'boss', moving = e.moving || (e.kind === 'creature' && e.tx != null && Math.hypot(e.tx - e.x, e.ty - e.y) > 1);
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 5, big ? 14 : 7, big ? 5 : 2.6, 0, 0, 7); ctx.fill();
       var an = e.act ? e.act.anim : moving ? 'walk' : 'idle', at = e.act ? R.t - e.act.t0 : (e.clock || 0);
-      var tint = e.kind === 'hero' && e.stage > 1 ? (e.stage === 3 ? 'rgba(255,200,80,.22)' : 'rgba(140,210,255,.2)') : null;
+      var tint = e.kind === 'hero' && e.stage > 1 && aid.indexOf('cr:') !== 0 ? (e.stage === 3 ? 'rgba(255,200,80,.22)' : 'rgba(140,210,255,.2)') : null;
       if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
     }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;

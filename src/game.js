@@ -55,6 +55,7 @@
     if (t3 && Object.keys(S.bossKills).length) return 3;
     return t2 ? 2 : 1;
   }
+  function className(id) { var c = CLASSES.filter(function (x) { return x.id === id; })[0]; return c ? c.name : 'Knight'; }
   function heroClass() { var id = S && S.hero ? S.hero.cls : 'knight'; return CLASSES.filter(function (c) { return c.id === id; })[0] || CLASSES[0]; }
   function heroFrame() { var f = ''; GEAR.forEach(function (g) { if (g.cosmetic && g.frame && owns(g.id) && S.hero && S.hero.frame === g.id) f = g.frame; }); return f; }
   function heroPortrait(cls, extra) { // the player's hero at their current stage
@@ -239,7 +240,7 @@
       f.appendChild(el('div', 'eyebrow', 'Continue on this device'));
       var sv = el('div', 'saves');
       saves.forEach(function (st) {
-        var b = el('button', null, '<span>' + esc(st.name) + (st.hero ? ' <span class="muted">· ' + esc(st.hero.name) + ' the ' + esc(st.hero.cls === 'sorcerer' ? 'Sorcerer' : 'Knight') + '</span>' : '') + '</span><span class="muted">' + n(st.legend || 0) + ' Legend · ' + n(st.lore || 0) + ' Lore</span>'); b.type = 'button';
+        var b = el('button', null, '<span>' + esc(st.name) + (st.hero ? ' <span class="muted">· ' + esc(st.hero.name) + ' the ' + esc(className(st.hero.cls)) + '</span>' : '') + '</span><span class="muted">' + n(st.legend || 0) + ' Legend · ' + n(st.lore || 0) + ' Lore</span>'); b.type = 'button';
         b.onclick = function () { var k = st.klass || klassValue(); if (online && k === null) return; enter(st, k || st.klass); };
         sv.appendChild(b);
       });
@@ -549,7 +550,7 @@
   function stageCanvas(B) {
     if (!Stage.cv || Stage.battle !== B) {
       Stage.cv = document.createElement('canvas'); Stage.cv.className = 'bstage-cv'; Stage.battle = B;
-      Stage.hero = { id: 'hero:' + (heroClass().id === 'sorcerer' ? 'wizard' : 'knight'), anim: 'idle', t0: nowS(), hurt: -9 };
+      Stage.hero = { id: Overworld.SP.heroActorId(heroClass().id, heroStage()), anim: 'idle', t0: nowS(), hurt: -9 };
       Stage.foe = { id: 'cr:' + (B.foe.sigil || B.foe.id), anim: 'idle', t0: nowS() + Math.random(), hurt: -9 };
     }
     if (!Stage.raf) Stage.raf = requestAnimationFrame(stageFrame);
@@ -573,7 +574,7 @@
       var lunge = st.anim === 'attack' ? Math.sin(Math.PI * Math.min(1, el2 / Math.max(0.01, len))) * gap * 0.22 * row[4] : 0;
       var fl = Math.max(0, 1 - (t - st.hurt) / 0.4), shake = fl ? Math.sin(t * 70) * 3 * fl : 0;
       ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(row[2] + lunge, ground + 2, Math.min(60, tall(d) * k * 0.32), 7, 0, 0, 7); ctx.fill();
-      SP.drawActor(ctx, d, st.anim, el2, row[2] + lunge + shake, ground, row[3], { mul: k, flash: fl, tint: row[0] === 'hero' && heroStage() > 1 ? (heroStage() === 3 ? 'rgba(255,200,80,.18)' : 'rgba(140,210,255,.16)') : null });
+      SP.drawActor(ctx, d, st.anim, el2, row[2] + lunge + shake, ground, row[3], { mul: k, flash: fl, tint: row[0] === 'hero' && heroStage() > 1 && Stage.hero.id.indexOf('cr:') !== 0 ? (heroStage() === 3 ? 'rgba(255,200,80,.18)' : 'rgba(140,210,255,.16)') : null });
     });
   }
   /* one exchange of blows, then the result: the attacker lunges, the defender flinches or falls */
@@ -1253,7 +1254,7 @@
     var dp = document.getElementById('ledger-detail'); if (!dp) return; dp.innerHTML = '';
     var p = (LG.data.players || []).filter(function (x) { return x.key === LG.sel; })[0]; if (!p) return;
     var pn = el('div', 'panel');
-    pn.appendChild(el('div', 'eyebrow', esc(p.name) + ' · ' + esc(p['class']) + (p.hero ? ' · ' + esc(p.hero) + ' the ' + esc(p.heroClass === 'sorcerer' ? 'Sorcerer' : 'Knight') : '')));
+    pn.appendChild(el('div', 'eyebrow', esc(p.name) + ' · ' + esc(p['class']) + (p.hero ? ' · ' + esc(p.hero) + ' the ' + esc(className(p.heroClass)) : '')));
     var stats = el('div', 'stats');
     [['Time played', fmtDur(p.playSeconds)], ['Legend', n(p.legend || 0), 'lore'], ['Lore carried', n(p.lore || 0)], ['Deaths', n(p.deaths || 0)], ['Lore lost forever', n(p.lostForever || 0)], ['Accuracy', acc(p) == null ? '—' : acc(p) + '%'], ['First seen', fmtAgo(p.firstSeen)], ['Lands cleared', esc(p.landsCleared || '—')]].forEach(function (x) { stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>')); });
     pn.appendChild(stats);
