@@ -165,6 +165,19 @@ Banner: `banner-l10.jpg` — frozen tundra under an aurora: snowfields, a frozen
 | `item-wisp.jpg` | Wisp in a Jar | https://www.canva.com/M/MAHW5S8vbjo |
 | `item-feather.jpg` | Phoenix Feather | https://www.canva.com/M/MAHW5fOmEzk |
 
+### Bonfire camp tiles and UI icons
+
+| file | what | Canva |
+|---|---|---|
+| `camp-forge.jpg` | The Forge (blacksmith) | https://www.canva.com/M/MAHXBEkCyMQ |
+| `camp-legacy.jpg` | Imbue Lore into Legacy (the mathematician guide) | https://www.canva.com/M/MAHXBP9jD4M |
+| `camp-merchant.jpg` | The Merchant (shack and merchant) | https://www.canva.com/M/MAHXBEVYk0o |
+| `camp-lorebook.jpg` | Lorebook | https://www.canva.com/M/MAHXBGMAXwM |
+| `camp-bestiary.jpg` | Bestiary (trophy hall) | https://www.canva.com/M/MAHXBCGpA7I |
+| `camp-chronicle.jpg` | Chronicle (scroll and war table) | https://www.canva.com/M/MAHXBNLYzis |
+| `camp-rules.jpg` | Rules (rune monolith) | https://www.canva.com/M/MAHXBPj3pDg |
+| `ui-sound-on.png`, `ui-sound-off.png` | Bronze handbell sound toggle (ChatGPT "Sound Toggle Icons" pack, 64-px exports) | — |
+
 ## Pixel sheets (CC0)
 
 | file | source |
