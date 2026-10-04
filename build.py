@@ -47,6 +47,9 @@ for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS'
 os.makedirs('dist',exist_ok=True)
 web=html.replace('/*ART_IMG_JS*/', web_js)
 open('dist/web/index.html','w').write('<meta charset="utf-8">\n' + web)
+# the teacher's bookmark: /ledger/ opens the game straight on the Teacher's Ledger
+os.makedirs('dist/web/ledger', exist_ok=True)
+open('dist/web/ledger/index.html','w').write('<!doctype html><meta charset="utf-8"><title>Lorebound · Teacher\'s Ledger</title><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=../?ledger"><script>location.replace("../?ledger")</script><a href="../?ledger">Open the Teacher\'s Ledger</a>')
 html=html.replace('/*ART_IMG_JS*/', art_js)
 open('dist/lorebound.html','w').write(html)
 full='<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'+html.split('<link',1)[0]+'<link'+html.split('<link',1)[1].split('</style>',1)[0]+'</style></head><body>'+html.split('</style>',1)[1]+'</body></html>'

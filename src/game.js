@@ -259,6 +259,8 @@
       klassInp = el('input'); klassInp.type = 'text'; klassInp.id = 'class-code'; klassInp.placeholder = 'From your teacher, e.g. 10C-1'; klassInp.maxLength = 24; klassInp.autocomplete = 'off';
       try { klassInp.value = localStorage.getItem(SAVE_PREFIX + 'class') || ''; } catch (e) {}
       f.appendChild(klassInp);
+      var why = el('div', 'why'); why.id = 'class-why'; why.hidden = true; f.appendChild(why);
+      klassInp.addEventListener('input', function () { why.hidden = true; });
     }
     function klassValue() { if (!online) return ''; var k = klassInp.value.trim(); if (!k) { klassInp.focus(); toast('Enter your class code first. Your teacher has it.'); return null; } try { localStorage.setItem(SAVE_PREFIX + 'class', k); } catch (e) {} return k; }
     function enter(st, klass) { // start with a state, after checking the cloud for a newer save
@@ -268,6 +270,11 @@
       var started = false, lands = null, start = function (state, msg) { if (started) return; started = true; S = state; if (lands) { S.teacherOpen = lands; UNL.at = Date.now(); } if (msg) toast(msg); go('map'); };
       toast('Looking for your progress…');
       Ledger.hello(st.klass, st.name, function (res) {
+        if (res && res.ok && res.unknownClass) { // the teacher keeps a list of class codes; this one is not on it
+          started = true; Ledger.identify('', ''); var w = document.getElementById('class-why');
+          if (w) { w.hidden = false; w.textContent = '"' + st.klass + '" is not one of your teacher\'s class codes. Check the code and try again.'; }
+          if (klassInp) { klassInp.focus(); klassInp.select(); } toast('That class code was not recognised.'); return;
+        }
         if (res && res.ok && Array.isArray(res.lands)) lands = res.lands.filter(function (id) { return /^L([1-9]|10)$/.test(id); });
         if (res && res.ok && res.found && res.save && Number(res.saveUpdated || 0) > Number(st.updated || 0) + 1500) {
           try { var cloud = decode(res.save); cloud.klass = st.klass; start(cloud, 'Progress loaded from your teacher\'s ledger.'); return; } catch (e) {}
@@ -281,7 +288,7 @@
       var sv = el('div', 'saves');
       saves.forEach(function (st) {
         var b = el('button', null, '<span>' + esc(st.name) + (st.hero ? ' <span class="muted">· ' + esc(st.hero.name) + ' the ' + esc(className(st.hero.cls)) + '</span>' : '') + '</span><span class="muted">' + n(st.legend || 0) + ' Legend · ' + n(st.lore || 0) + ' Lore</span>'); b.type = 'button';
-        b.onclick = function () { var k = st.klass || klassValue(); if (online && k === null) return; enter(st, k || st.klass); };
+        b.onclick = function () { var typed = klassInp && klassInp.value.trim(), k = typed ? klassValue() : (st.klass || klassValue()); if (online && k === null) return; enter(st, k || st.klass); };
         sv.appendChild(b);
       });
       f.appendChild(sv);
@@ -1231,8 +1238,9 @@
   function outcomeOrder() { var seen = [], out = []; LANDS.forEach(function (L) { if (!L.creatures) return; L.creatures.forEach(function (c) { if (seen.indexOf(c.outcome) < 0) { seen.push(c.outcome); out.push({ id: c.outcome, land: L }); } }); }); return out; }
   function screenLedger() {
     var head = el('div', 'land-head');
-    head.appendChild(el('div', null, '<div class="eyebrow">For the teacher</div><h1>The Chronicler\'s Ledger</h1><p class="muted" style="margin:6px 0 0">Every student who has entered a class code, what they have fought, and how it went. Students never see this page.</p>'));
-    var back = el('button', 'btn ghost', '← Title screen'); back.type = 'button'; back.onclick = function () { go('title'); }; head.appendChild(back);
+    head.appendChild(el('div', null, '<div class="eyebrow">For the teacher</div><h1>The Chronicler\'s Ledger</h1><p class="muted" style="margin:6px 0 0">Every student who has entered a class code, what they have fought, and how it went. Students never see this page.' + (UI.ledgerOnly ? ' Bookmark this page to come straight back here.' : '') + '</p>'));
+    var back = el('button', 'btn ghost', UI.ledgerOnly ? 'Open the game →' : '← Title screen'); back.type = 'button';
+    back.onclick = function () { if (UI.ledgerOnly) { location.href = location.pathname.replace(/ledger\/?(index\.html)?$/, ''); return; } go('title'); }; head.appendChild(back);
     app.appendChild(head);
     if (!LG.key || !LG.data) { ledgerLogin(); return; }
     ledgerBody();
@@ -1285,6 +1293,7 @@
       bar.appendChild(pg); }
     bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
     app.appendChild(bar);
+    ledgerClassCodes();
     ledgerLands();
     // class summary
     var tot = { students: players.length, play: 0, attempts: 0, correct: 0, bosses: 0, legend: 0, deaths: 0 };
@@ -1305,6 +1314,31 @@
     // detail
     var dp = el('div'); dp.id = 'ledger-detail'; app.appendChild(dp);
     if (LG.sel) renderLedgerDetail();
+  }
+  function ledgerClassCodes() { // the class codes the backend accepts; anything else is ignored (keeps the sheet clean)
+    if (!Array.isArray(LG.data.classes)) return;
+    var list = LG.data.classes.slice(), p = el('div', 'panel ledger-codes');
+    p.appendChild(el('div', 'eyebrow', 'Class codes'));
+    p.appendChild(el('p', 'muted', list.length ? 'Students can only record to the ledger with one of these codes (capitals and spaces do not matter). Anything sent with another code is ignored.' : 'Right now <b>any</b> class code is accepted. Add your real class codes so that anything sent with another code is ignored and made-up entries never reach your sheet.'));
+    function save(next) {
+      p.querySelectorAll('button, input').forEach(function (x) { x.disabled = true; });
+      Ledger.setClasses(LG.key, next, function (res) { if (res && res.ok) { LG.data.classes = res.classes; toast('Class codes saved.'); } else toast('Could not save: ' + ((res && res.error) || 'no reply')); render(); });
+    }
+    var chips = el('div', 'code-chips');
+    list.forEach(function (c) { var ch = el('span', 'code-chip', esc(c.toUpperCase()) + ' '); var x = el('button', null, '×'); x.type = 'button'; x.title = 'Remove ' + c.toUpperCase(); x.setAttribute('aria-label', x.title); x.onclick = function () { save(list.filter(function (y) { return y !== c; })); }; ch.appendChild(x); chips.appendChild(ch); });
+    if (list.length) p.appendChild(chips);
+    var row = el('div', 'code-add'), inp = el('input'); inp.type = 'text'; inp.maxLength = 24; inp.placeholder = 'e.g. 10C-1'; inp.id = 'new-class-code';
+    var add = el('button', 'btn', 'Add class code'); add.type = 'button';
+    add.onclick = function () { var k = normClass(inp.value).slice(0, 24); if (!k) { inp.focus(); return; } if (list.indexOf(k) >= 0) { toast('Already on the list.'); return; } save(list.concat([k])); };
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') add.click(); });
+    row.appendChild(inp); row.appendChild(add); p.appendChild(row);
+    var seen = ledgerClasses().map(normClass).filter(function (c, i, a) { return c && a.indexOf(c) === i && list.indexOf(c) < 0; });
+    if (seen.length) {
+      var sg = el('div', 'muted code-seen', 'Codes students have used that are not on the list: ');
+      seen.forEach(function (c) { var b = el('button', 'btn ghost small', '+ ' + esc(c.toUpperCase())); b.type = 'button'; b.onclick = function () { save(list.concat([c])); }; sg.appendChild(b); });
+      p.appendChild(sg);
+    }
+    app.appendChild(p);
   }
   function normClass(k) { return String(k == null ? '' : k).trim().toLowerCase().replace(/\s+/g, ' '); }
   function ledgerLands() { // which lands the teacher has opened for the chosen class (or for every class)
@@ -1392,6 +1426,9 @@
 
   /* ---------- boot ---------- */
   function boot(data) {
+    if (/[?&]ledger\b/.test(location.search) || /^#ledger\b/.test(location.hash)) { // the teacher's bookmark: straight to the ledger, no student save loaded
+      UI.ledgerOnly = true; UI.screen = 'ledger'; try { document.title = 'Lorebound · Teacher\'s Ledger'; } catch (e) {} render(); return;
+    }
     if (data && data.S) { S = data.S; UI.screen = data.screen === 'battle' ? 'land' : (data.screen || 'map'); UI.land = data.land; }
     else { try { var last = localStorage.getItem(SAVE_PREFIX + 'last'); if (last) { var st = JSON.parse(localStorage.getItem(SAVE_PREFIX + last)); if (st && st.name) { S = st; UI.screen = 'map'; } } } catch (e) {} }
     if (S && S.klass && Ledger.enabled()) { Ledger.identify(S.klass, S.name); syncUnlocks(true, function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln && Ledger.status() === 'ok') ln.remove(); }); }

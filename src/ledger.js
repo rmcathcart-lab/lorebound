@@ -34,6 +34,7 @@ var Ledger = (function () {
   function hello(klass, name, cb) { jsonp({ action: 'hello', 'class': klass, name: name }, function (res) { status = res && res.ok ? 'ok' : 'offline'; cb(res); }, 12000); }
   function lands(klass, cb) { jsonp({ action: 'lands', 'class': klass }, function (res) { status = res && (res.ok || res.error === 'unknown action') ? 'ok' : 'offline'; cb(res || { ok: false }); }, 12000); }
   function setLands(key, klass, list, cb) { jsonp({ action: 'setlands', key: key, 'class': klass, lands: list.join(',') }, cb, 30000); }
+  function setClasses(key, list, cb) { jsonp({ action: 'setclasses', key: key, classes: list.join(',') }, cb, 30000); }
   function ping(cb) { jsonp({ action: 'ping' }, function (res) { status = res && res.ok ? 'ok' : 'offline'; if (cb) cb(status); }, 12000); }
   function getStatus() { return status; }
   function ledger(key, cb) { jsonp({ action: 'ledger', key: key }, cb, 40000); }
@@ -44,5 +45,5 @@ var Ledger = (function () {
   setInterval(function () { flush(); }, 30000);
   setInterval(function () { if (ident && status !== 'ok' && document.visibilityState === 'visible') ping(function (st) { if (st === 'ok') { flush(); try { window.dispatchEvent(new CustomEvent('ledger-online')); } catch (e) {} } }); }, 60000);
   try { window.addEventListener('pagehide', function () { flush(true); }); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); }); } catch (e) {}
-  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, lands: lands, setLands: setLands, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active };
+  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, lands: lands, setLands: setLands, setClasses: setClasses, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active };
 })();

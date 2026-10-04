@@ -682,3 +682,12 @@ html.has-hall { overflow-x: clip; }
 .hall-back { position: absolute; top: 14px; left: max(16px, calc(50% - 524px)); background: rgba(12,10,16,.74); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 @media (max-width: 640px) { .camp-hall { height: clamp(200px, 34vh, 300px); } .hall-cap p { font-size: 15px; } .hall-back { top: 10px; } }
 @media (prefers-reduced-motion: reduce) { .camp-hall img { animation: none; } }
+
+/* ===== ledger: class codes ===== */
+.code-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
+.code-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border: 1px solid var(--ember); border-radius: 999px; background: rgba(240,160,48,.1); font-family: var(--font-ui); font-size: 14px; letter-spacing: .04em; }
+.code-chip button { background: none; border: 0; color: var(--bone-dim); font-size: 18px; line-height: 1; padding: 2px 8px; border-radius: 999px; }
+.code-chip button:hover { color: var(--bad); background: rgba(255,255,255,.06); }
+.code-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.code-add input { flex: 1 1 160px; max-width: 240px; }
+.code-seen { margin-top: 12px; font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
