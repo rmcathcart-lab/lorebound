@@ -13,7 +13,7 @@ var WorldMap = (function () {
   var live = null; // the mounted map: { onResize }
 
   /* opts: { lands: [{ id, name, sub, status, cleared, fresh, locked }], current: 'L3', dropped: 'L2' | null,
-   *         heroHtml: '<span…>', onEnter: function (id) {} } */
+   *         heroNode: <element drawn above the current land's card>, onEnter: function (id) {} } */
   function build(opts) {
     unmount();
     var root = document.createElement('div'); root.className = 'atlas-screen';
@@ -51,10 +51,11 @@ var WorldMap = (function () {
       var l = info[r.id] || { name: 'A land without a name', sub: 'Beyond the ten lands', status: 'Sealed', locked: true };
       var lb = document.createElement('div'); lb.className = 'atlas-label' + (l.locked ? ' locked' : '') + (r.id === opts.current ? ' current show' : '');
       lb.style.left = pct(r.lx, D.w); lb.style.top = pct(r.ly, D.h); lb.setAttribute('data-land', r.id);
-      lb.innerHTML = (r.id === opts.current && opts.heroHtml ? '<span class="here">' + opts.heroHtml + '</span>' : '') +
+      lb.innerHTML =
         '<span class="nm">' + esc(l.name) + '</span>' + (l.sub ? '<span class="sb">' + esc(l.sub) + '</span>' : '') +
         (l.status ? '<span class="st' + (l.cleared ? ' cleared' : '') + '">' + l.status + '</span>' : '') +
         (l.locked ? '' : '<span class="tap">Tap again to travel</span>');
+      if (r.id === opts.current && opts.heroNode) { var here = document.createElement('span'); here.className = 'here'; here.appendChild(opts.heroNode); lb.insertBefore(here, lb.firstChild); }
       atlas.appendChild(lb); labels[r.id] = lb;
     });
     if (opts.dropped && regions[opts.dropped]) { var dr = regions[opts.dropped], orb = document.createElement('div'); orb.className = 'atlas-drop'; orb.title = 'Your lost Lore lies here'; orb.style.left = pct(dr.lx, D.w); orb.style.top = pct(dr.ly, D.h); atlas.appendChild(orb); }
@@ -67,12 +68,12 @@ var WorldMap = (function () {
       if (hover === id) return;
       if (hover) { if (pieces[hover]) pieces[hover].classList.remove('lift'); if (labels[hover]) { labels[hover].classList.remove('hot'); if (hover !== opts.current) labels[hover].classList.remove('show'); } }
       hover = id;
-      if (id) { if (pieces[id]) pieces[id].classList.add('lift'); if (labels[id]) labels[id].classList.add('show', 'hot'); }
+      if (id) { root.classList.add('used'); if (pieces[id]) pieces[id].classList.add('lift'); if (labels[id]) labels[id].classList.add('show', 'hot'); }
       root.classList.toggle('hovering', !!id);
     }
     function enter(id) { var l = info[id]; if (!l || l.locked) return; if (opts.onEnter) opts.onEnter(id); }
-    svg.addEventListener('pointerdown', function (e) { lastPointer = e.pointerType || 'mouse'; downAt = Date.now(); root.classList.add('used'); });
-    svg.addEventListener('pointerover', function (e) { if (e.pointerType === 'touch') return; if (e.pointerType === 'mouse') { lastPointer = 'mouse'; root.classList.add('used'); } var t = e.target.closest && e.target.closest('.mnode'); setHover(t ? t.getAttribute('data-land') : null); });
+    svg.addEventListener('pointerdown', function (e) { lastPointer = e.pointerType || 'mouse'; downAt = Date.now(); });
+    svg.addEventListener('pointerover', function (e) { if (e.pointerType === 'touch') return; if (e.pointerType === 'mouse') lastPointer = 'mouse'; var t = e.target.closest && e.target.closest('.mnode'); setHover(t ? t.getAttribute('data-land') : null); });
     svg.addEventListener('pointerleave', function (e) { if (e.pointerType !== 'touch') setHover(null); });
     svg.addEventListener('click', function (e) {
       var t = e.target.closest && e.target.closest('.mnode'), id = t && t.getAttribute('data-land');

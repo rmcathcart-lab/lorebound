@@ -238,9 +238,9 @@
   function render() {
     migrate();
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
-    Overworld.unmount(); WorldMap.unmount(); document.body.classList.remove('in-world', 'in-map'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
+    Overworld.unmount(); WorldMap.unmount(); document.body.classList.remove('in-world', 'in-map'); document.documentElement.classList.remove('has-hall'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
-    app.classList.toggle('wide', UI.screen === 'bonfire');
+    app.classList.toggle('wide', UI.screen === 'bonfire' || UI.screen === 'chronicle' || UI.screen === 'help');
     fn(); typeset(app); saveLocal();
   }
 
@@ -362,7 +362,7 @@
         status: !open ? lockReason(L) : cleared ? 'Boss slain ✓' : kills + ' of ' + L.creatures.length + ' creatures slain' };
     });
     var cur = isOpen(landById(S.lastLand)) ? S.lastLand : 'L1';
-    app.appendChild(WorldMap.build({ lands: lands, current: cur, dropped: S.dropped ? S.dropped.land : null, heroHtml: heroPortrait('tiny'),
+    app.appendChild(WorldMap.build({ lands: lands, current: cur, dropped: S.dropped ? S.dropped.land : null, heroNode: actorCanvas(Overworld.SP.heroActorId(heroClass().id, heroStage()), 'map-hero'),
       onEnter: function (id) { S.lastLand = id; UI.landFresh = true; go('land', { land: id }); } }));
     fresh.forEach(function (id) { S.seenOpen[id] = 1; });
     syncUnlocks(false);
@@ -969,6 +969,22 @@
     if (campFireRaf) cancelAnimationFrame(campFireRaf); campFireRaf = requestAnimationFrame(frame);
     return cv;
   }
+  /* any sprite, standing and idling on a small canvas (the hero above the map card, …); sized by CSS */
+  function actorCanvas(aid, cls) {
+    var cv = el('canvas', cls || ''), SP = window.Overworld && Overworld.SP, d = SP && SP.actor && SP.actor(aid);
+    cv.setAttribute('aria-hidden', 'true');
+    if (!d) return cv;
+    var t0 = performance.now(), hMax = 0; d.anims.idle.frames.forEach(function (f) { hMax = Math.max(hMax, f.ay * d.scale); });
+    (function frame() {
+      if (!cv.isConnected && performance.now() - t0 > 2000) return; requestAnimationFrame(frame);
+      var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      var ctx = cv.getContext('2d'), mul = (H * 0.9) / (hMax || 28); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(W / 2, H - 4, W * 0.24, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      SP.drawActor(ctx, d, 'idle', (performance.now() - t0) / 1000, W / 2, H - 4, false, { mul: mul });
+    })();
+    return cv;
+  }
   function campIcon(id) { return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + CAMP_ICONS[id] + '</svg>'; }
   function campStatus(id) { // the one line under each camp tile
     if (id === 'gear') {
@@ -989,6 +1005,13 @@
     if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast') {} else tab = 'camp';
     var bkey = Lc && (Lc.banner || (Lc.id === 'L1' ? 'title' : null));
     if (bkey && window.ART_IMG && ART_IMG[bkey]) { var bd = el('div', 'camp-backdrop'); bd.style.backgroundImage = 'url(' + ART_IMG[bkey] + ')'; app.appendChild(bd); }
+    var TILES = [['gear', 'The Forge', 'Permanent upgrades, six branches.'], ['level', 'Imbue Lore into Legacy', 'Spend Lore to grow stronger.'], ['shop', 'The Merchant', 'One-use items for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
+    if (tab !== 'camp') { // entering one of the camp's places: a full-width painting, then its contents
+      var cur = TILES.filter(function (t) { return t[0] === tab; })[0];
+      app.appendChild(campHall(tab, cur[1], cur[2], function () { UI.bonfireTab = 'camp'; render(); window.scrollTo(0, 0); }));
+      if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else bonfireBook();
+      return;
+    }
     var head = el('div', 'camp-head');
     var whoEl = el('div', 'who', '<div><div class="eyebrow">' + esc(Lc ? Lc.name : '') + '</div><h1>Rest at the Bonfire</h1><p class="muted">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>');
     whoEl.insertBefore(campFire(), whoEl.firstChild); head.appendChild(whoEl);
@@ -996,25 +1019,25 @@
     var back = el('button', 'btn', 'Return to ' + esc(Lc ? theLand(Lc) : 'the land')); back.type = 'button'; back.onclick = function () { go('land'); }; nav.appendChild(back);
     var travel = el('button', 'btn ghost', 'World map'); travel.type = 'button'; travel.onclick = function () { go('map'); }; nav.appendChild(travel);
     head.appendChild(nav); app.appendChild(head);
-    var TILES = [['gear', 'The Forge', 'Permanent upgrades, six branches.'], ['level', 'Imbue Lore into Legacy', 'Spend Lore to grow stronger.'], ['shop', 'The Merchant', 'One-use items for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
-    if (tab === 'camp') {
-      var notes = campNotices(); if (notes) app.appendChild(notes);
-      var grid = el('div', 'camp-grid');
-      TILES.forEach(function (t) {
-        var b = el('button', 'camp-tile', campArt(t[0]) + '<div class="txt"><div class="nm">' + t[1] + '</div><div class="desc">' + t[2] + '</div><div class="st">' + campStatus(t[0]) + '</div></div>'); b.type = 'button';
-        b.onclick = function () { if (t[0] === 'chronicle' || t[0] === 'help') { go(t[0]); return; } UI.bonfireTab = t[0]; render(); window.scrollTo(0, 0); };
-        grid.appendChild(b);
-      });
-      app.appendChild(grid);
-      return;
-    }
-    var sub = el('div', 'camp-sub'), cur = TILES.filter(function (t) { return t[0] === tab; })[0];
-    var bk = el('button', 'btn ghost small', '◀ Camp'); bk.type = 'button'; bk.onclick = function () { UI.bonfireTab = 'camp'; render(); }; sub.appendChild(bk);
-    sub.appendChild(el('h2', null, campArt(tab, 'thumb') + cur[1]));
-    var tabs = el('div', 'camp-tabs');
-    TILES.slice(0, 5).forEach(function (t) { if (t[0] === tab) return; var b = el('button', 'tab', t[1]); b.type = 'button'; b.onclick = function () { UI.bonfireTab = t[0]; render(); }; tabs.appendChild(b); });
-    sub.appendChild(tabs); app.appendChild(sub);
-    if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else bonfireBook();
+    var notes = campNotices(); if (notes) app.appendChild(notes);
+    var grid = el('div', 'camp-grid');
+    TILES.forEach(function (t) {
+      var b = el('button', 'camp-tile', campArt(t[0]) + '<div class="txt"><div class="nm">' + t[1] + '</div><div class="desc">' + t[2] + '</div><div class="st">' + campStatus(t[0]) + '</div></div>'); b.type = 'button';
+      b.onclick = function () { if (t[0] === 'chronicle' || t[0] === 'help') { go(t[0]); return; } UI.bonfireTab = t[0]; render(); window.scrollTo(0, 0); };
+      grid.appendChild(b);
+    });
+    app.appendChild(grid);
+  }
+  var HALL_FOCUS = { gear: 'center 16%', level: 'center 10%', shop: 'center 48%', book: 'center 45%', beast: 'center 40%', chronicle: 'center 40%', help: 'center 45%' };
+  function campHall(id, title, desc, back) { // the banner at the top of a camp place; the only way out is back to the bonfire
+    document.documentElement.classList.add('has-hall');
+    var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = landById(UI.land || S.lastLand || 'L1');
+    var h = el('div', 'camp-hall' + (src ? '' : ' plain'));
+    if (src) { var im = el('img'); im.src = src; im.alt = ''; im.style.objectPosition = HALL_FOCUS[id] || 'center 40%'; h.appendChild(im); }
+    var spend = id === 'gear' || id === 'level' || id === 'shop';
+    h.appendChild(el('div', 'hall-cap', '<div class="eyebrow">The bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>' + title + '</h1><p>' + desc + (spend ? ' You carry <b class="lore-amt">' + n(S.lore) + ' Lore</b>.' : '') + '</p>'));
+    var bk = el('button', 'btn hall-back', '◀ Back to the bonfire'); bk.type = 'button'; bk.onclick = back; h.appendChild(bk);
+    return h;
   }
   function campNotices() { // news for the student: what used to sit above the map now waits at the bonfire
     var box = el('div', 'camp-notes'), any = false;
@@ -1143,10 +1166,10 @@
 
   /* ---------- chronicle ---------- */
   function screenChronicle() {
+    app.appendChild(campHall('chronicle', 'Chronicle', 'Your record, by outcome.', function () { go('bonfire'); }));
     var head = el('div', 'land-head');
     head.appendChild(el('div', 'row', heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Chronicle · ' + esc(heroClass().name) + ' · ' + esc(heroTitle()) + '</div><h1>' + esc(S.hero ? S.hero.name : S.name) + (S.titles.length ? ', ' + esc(S.titles.join(', ')) : '') + '</h1><p class="muted" style="margin:6px 0 0">Played by ' + esc(S.name) + '. ' + (heroStage() < 3 ? 'Next look: ' + (heroStage() === 1 ? 'own any tier-2 item.' : 'own a tier-3 item and slay a boss.') : 'Final form reached.') + '</p></div>'));
     var ed = el('button', 'btn ghost', 'Change hero'); ed.type = 'button'; ed.onclick = function () { go('hero'); }; head.appendChild(ed);
-    var bk = el('button', 'btn ghost', '← Bonfire'); bk.type = 'button'; bk.style.marginLeft = '8px'; bk.onclick = function () { go('bonfire'); }; head.appendChild(bk);
     app.appendChild(head);
     var st = el('div', 'panel');
     var stats = el('div', 'stats');
@@ -1179,8 +1202,7 @@
   }
 
   function screenHelp() {
-    var hh = el('div', 'land-head', '<div><div class="eyebrow">Rules</div><h1>How Lorebound works</h1></div>');
-    var bk = el('button', 'btn ghost', '← Bonfire'); bk.type = 'button'; bk.onclick = function () { go('bonfire'); }; hh.appendChild(bk); app.appendChild(hh);
+    app.appendChild(campHall('help', 'Rules', 'How Lorebound works.', function () { go('bonfire'); }));
     app.appendChild(el('div', 'panel', '<ul class="rules">' +
       '<li><b>Each land is a unit of Math 10C.</b> Each creature is one outcome at one level: Beginning, Progressing or Mastery. The same creature always asks the same kind of question, but never the same numbers.</li>' +
       '<li><b>To fight is to answer.</b> Right answer: the creature dies and you earn Lore. Wrong answer: you die.</li>' +
