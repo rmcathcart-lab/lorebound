@@ -1,13 +1,17 @@
 """Pack the per-creature painted sprite sheets (Lorebound Art Pack from ChatGPT/Codex) into small WebP sheets.
    Usage: python3 tools/pack_creatures.py <Lorebound-Art-Pack folder> [Hk] [Hmax] [quality]
    out: src/art/cr-<name>.webp (one per creature) + src/creature_defs.js
-   Hk   = packed height (px) of a knight-sized body; Hmax caps big creatures and bosses (they are drawn upscaled)."""
+   Hk   = packed height (px) of a knight-sized body; Hmax caps big creatures and bosses (they are drawn upscaled).
+   --merge keeps every creature already in src/creature_defs.js and adds / replaces only the ones in this pack."""
 import json, sys, os, io
 from PIL import Image
-P = sys.argv[1]; HK = float(sys.argv[2]) if len(sys.argv) > 2 else 100; HMAX = float(sys.argv[3]) if len(sys.argv) > 3 else 130; Q = int(sys.argv[4]) if len(sys.argv) > 4 else 78
+MERGE = '--merge' in sys.argv; A = [a for a in sys.argv[1:] if a != '--merge']
+P = A[0]; HK = float(A[1]) if len(A) > 1 else 100; HMAX = float(A[2]) if len(A) > 2 else 130; Q = int(A[3]) if len(A) > 3 else 78
 KNIGHT_LOGICAL = 26.0     # logical (16-px-tile) height of a 0.5-scale body
 REF_BODY = 221.0          # source height of the pack's 0.5-scale knight body
 defs = {}; total = 0
+if MERGE and os.path.exists('src/creature_defs.js'):
+    txt = open('src/creature_defs.js').read(); defs = json.loads(txt[txt.index('{'):txt.rindex('}') + 1]); print('merging into', len(defs), 'existing creatures')
 for f in sorted(os.listdir(f'{P}/metadata')):
     m = json.load(open(f'{P}/metadata/{f}')); name = m['name']; sheet = Image.open(f"{P}/{m['sheet']}").convert('RGBA')
     sds = m.get('suggestedDisplayScale', 0.5)

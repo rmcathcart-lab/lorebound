@@ -10,31 +10,45 @@ assert 'fonts/' not in css, 'font refs remain'
 src=lambda f: open('src/'+f).read()
 def js(f): return src(f).replace('</script','<\\/script') if os.path.exists('src/'+f) else ''
 from PIL import Image, ImageFilter
-import io
-ART={}
+import io, hashlib, shutil
+# Every image is prepared once. The standalone file inlines them all (it must work from a double-click);
+# the web build (artifact + GitHub Pages) serves them as separate files under art/, which keeps the page small.
+# A few stay inline in the web build too, because the game reads their pixels back from a canvas.
+INLINE_ALWAYS = {'map', 'sheet-dt', 'sheet-kenney'}
+IMGS = {}
 for f in sorted(os.listdir('src/art')):
     if not f.lower().endswith(('.jpg','.jpeg','.png','.webp')): continue
     key=os.path.splitext(f)[0]
-    if key.startswith(('sheet-', 'cr-', 'tr-')):   # pixel-art sprite sheets: lossless PNG, untouched
-        raw=open('src/art/'+f,'rb').read(); ART[key]='data:image/'+('webp' if f.endswith('.webp') else 'png')+';base64,'+base64.b64encode(raw).decode(); print('sheet',key,len(raw)//1024,'KB'); continue
+    if key.startswith(('sheet-', 'cr-', 'tr-')):   # sprite sheets: packed already, untouched
+        raw=open('src/art/'+f,'rb').read(); ext='webp' if f.endswith('.webp') else 'png'; IMGS[key]=(raw, 'image/'+ext, ext); print('sheet',key,len(raw)//1024,'KB'); continue
     im=Image.open('src/art/'+f).convert('RGB')
     maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 280 if key.startswith(('gear-','item-')) else 400
     if im.width<maxw*0.6:   # tiny preview: upscale smoothly so it survives 2x screens
         im=im.resize((im.width*2, im.height*2), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=2))
     if im.width>maxw: im=im.resize((maxw, round(im.height*maxw/im.width)), Image.LANCZOS)
     buf=io.BytesIO(); im.save(buf,'JPEG',quality=80,optimize=True,progressive=True)
-    ART[key]='data:image/jpeg;base64,'+base64.b64encode(buf.getvalue()).decode()
+    IMGS[key]=(buf.getvalue(), 'image/jpeg', 'jpg')
     print('art',key,im.size,len(buf.getvalue())//1024,'KB')
+def uri(key): raw, mime, ext = IMGS[key]; return 'data:'+mime+';base64,'+base64.b64encode(raw).decode()
+ART = {k: uri(k) for k in IMGS}                                   # standalone: everything inline
+WEB = {}                                                          # web: files beside the page
+shutil.rmtree('dist/web', ignore_errors=True); os.makedirs('dist/web/art', exist_ok=True)
+for k, (raw, mime, ext) in IMGS.items():
+    if k in INLINE_ALWAYS: WEB[k] = ART[k]; continue
+    open(f'dist/web/art/{k}.{ext}', 'wb').write(raw); WEB[k] = f'art/{k}.{ext}?v=' + hashlib.md5(raw).hexdigest()[:8]
 import json
 art_js='var ART_IMG = '+json.dumps(ART)+';'
+web_js='var ART_IMG = '+json.dumps(WEB)+';'
 html=src('index.html')
 html=html.replace('/*KATEX_CSS*/',css).replace('/*GAME_CSS*/',src('style.css'))
 html=html.replace('/*KATEX_JS*/',open(K+'/katex.min.js').read()).replace('/*AUTORENDER_JS*/',open(K+'/contrib/auto-render.min.js').read())
 for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('QUESTIONS_U5_JS','questions_u5.js'),('QUESTIONS_U6_JS','questions_u6.js'),('QUESTIONS_U7_JS','questions_u7.js'),('QUESTIONS_U8_JS','questions_u8.js'),('QUESTIONS_U9_JS','questions_u9.js'),('QUESTIONS_U10_JS','questions_u10.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('LOREBOOK_L8_JS','lorebook_l8.js'),('LOREBOOK_L9_JS','lorebook_l9.js'),('LOREBOOK_L10_JS','lorebook_l10.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('HD_DEFS_JS','hd_defs.js'),('CREATURE_DEFS_JS','creature_defs.js'),('TERRAIN_DEFS_JS','terrain_defs.js'),('SPRITES_JS','sprites.js'),('LANDS_JS','lands.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
     html=html.replace('/*%s*/'%tag, js(f))
-html=html.replace('/*ART_IMG_JS*/', art_js)
 os.makedirs('dist',exist_ok=True)
+web=html.replace('/*ART_IMG_JS*/', web_js)
+open('dist/web/index.html','w').write('<meta charset="utf-8">\n' + web)
+html=html.replace('/*ART_IMG_JS*/', art_js)
 open('dist/lorebound.html','w').write(html)
 full='<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">'+html.split('<link',1)[0]+'<link'+html.split('<link',1)[1].split('</style>',1)[0]+'</style></head><body>'+html.split('</style>',1)[1]+'</body></html>'
 open('dist/Lorebound - standalone.html','w').write(full)
-print('artifact bytes', len(html), 'standalone bytes', len(full))
+print('web page bytes', len(web), 'web art files', len(os.listdir('dist/web/art')), 'art bytes', sum(os.path.getsize('dist/web/art/'+f) for f in os.listdir('dist/web/art')), '| standalone bytes', len(full))

@@ -1,14 +1,18 @@
 """Pack the per-land painted terrain sets (Lorebound Art Pack) for the game.
-   Usage: python3 tools/pack_terrain.py <Lorebound-Art-Pack folder>
+   Usage: python3 tools/pack_terrain.py <Lorebound-Art-Pack folder> [--lands 8,9,10]   (with --lands, other lands already in terrain_defs.js are kept)
    out: src/art/tr-l<N>.webp (24 painted 64-px tiles), src/art/tr-l<N>-props.webp (8 trimmed props), src/terrain_defs.js"""
 import json, sys, io
 from PIL import Image
-P = sys.argv[1]; K = 4.0   # packed px per logical px for props
+import os
+P = sys.argv[1]; K = 4.0
+LANDS = [int(x) for x in sys.argv[sys.argv.index('--lands') + 1].split(',')] if '--lands' in sys.argv else list(range(1, 8))   # packed px per logical px for props
 BIG = ('tree', 'willow', 'oak', 'pillar', 'menhir', 'spire', 'obelisk', 'arch', 'doorway', 'wall', 'battlement', 'outcrop', 'hull', 'mast', 'gate', 'stone ruin', 'standing stone', 'sarcophagus', 'stump', 'trunk')
 SMALL = ('pile', 'urn', 'lantern', 'post', 'bollard', 'mushroom', 'vent', 'anchor', 'crate', 'kelp', 'reed', 'waypost', 'banner', 'gravestone', 'grave marker', 'fence', 'fern', 'brazier', 'stair', 'driftwood', 'log', 'hedge', 'briar', 'roots', 'boulder', 'lily')
-FLAT = ('bone pile', 'skull', 'mushroom', 'reed', 'kelp', 'vent', 'slag', 'fern', 'lily', 'driftwood', 'roots')   # can sit on walkable ground
+FLAT = ('bone pile', 'skull', 'mushroom', 'reed', 'kelp', 'vent', 'slag', 'fern', 'lily', 'driftwood', 'roots', 'celestial gear', 'siege wheel')   # can sit on walkable ground
 defs = {}
-for n in range(1, 8):
+if '--lands' in sys.argv and os.path.exists('src/terrain_defs.js'):
+    txt = open('src/terrain_defs.js').read(); defs = json.loads(txt[txt.index('{'):txt.rindex('}') + 1])
+for n in LANDS:
     d = f'{P}/terrain/l{n}'; t = json.load(open(f'{d}/tiles-64.json')); tim = Image.open(f'{d}/tiles-64.png').convert('RGB')
     b = io.BytesIO(); tim.save(b, 'WEBP', quality=88, method=6); open(f'src/art/tr-l{n}.webp', 'wb').write(b.getvalue()); tsize = len(b.getvalue())
     frames = [[f['rect']['x'], f['rect']['y'], f['rect']['w'], f['rect']['h']] for f in t['frames']]

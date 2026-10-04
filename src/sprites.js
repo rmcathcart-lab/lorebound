@@ -135,6 +135,7 @@
   SP.actorFor = function (e) { // the actor id for an overworld entity
     if (e.kind === 'hero') return 'hero:' + (e.cls === 'sorcerer' ? 'wizard' : 'knight');
     if ((e.kind === 'creature' || e.kind === 'boss' || e.kind === 'corpse') && e.ref) return 'cr:' + (e.ref.sigil || e.ref.id);
+    if (e.kind === 'fire') return 'cr:bonfire';
     return null;
   };
   SP.animLength = function (d, anim) { var a = d && d.anims[anim]; return a ? a.frames.length / a.fps : 0; };
@@ -156,8 +157,8 @@
   };
 
   /* ---------- painted terrain per land (tools/pack_terrain.py) ---------- */
-  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L4', spire: 'L7', frost: 'L5' }, terr = {};
-  var TTINT = { citadel: 'rgba(150,140,120,.18)', spire: 'rgba(90,100,150,.28)', frost: 'rgba(205,225,245,.42)' }; // lands without their own set borrow one, recoloured
+  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10' }, terr = {};
+  var TTINT = {}; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
   function terrainFor(th) {
     var id = TSET[th]; if (!id || !window.TERRAIN_DEFS || !TERRAIN_DEFS[id]) return null;
     var t = terr[th]; if (t) return t.ready ? t : null;
@@ -209,7 +210,7 @@
       if (tt === G.FIRE) { // the bonfire: a lit brazier with a breathing glow
         var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, g = ctx.createRadialGradient(x, y - 10, 1, x, y - 10, 30);
         g.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); g.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = g; ctx.fillRect(x - 30, y - 40, 60, 60);
-        drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue;
+        if (!SP.actor('cr:bonfire')) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue;
       }
       if (tt === G.DECO && fernAt(th, tx, ty)) { drawHD(ctx, propDef('ferns', sheet), 0, x, y, h2(tx, ty * 3) < 0.5); continue; }
       if (tt !== G.WALL || ty + 1 >= MH || !WALK[tiles[i + MW]]) continue;            // only walls with open ground in front of them
@@ -238,8 +239,8 @@
       i = ty * MW + tx; tt = tiles[i]; if (!seen[i]) continue;
       x = tx * 16 - camx + 8; y = ty * 16 - camy + 15;
       if (tt === G.FIRE) { var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, rg = ctx.createRadialGradient(x, y - 10, 1, x, y - 10, 30);
-        rg.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); rg.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = rg; ctx.fillRect(x - 30, y - 40, 60, 60); if (propOK) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue; }
-      if (tt === G.DECO && flat.length) { if (h2(tx * 3 + 7, ty * 5 + 1) < 0.6) landProp(ctx, TS, flat[Math.floor(h2(tx, ty * 7) * flat.length)], x, y, h2(tx, ty * 3) < 0.5); continue; }
+        rg.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); rg.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = rg; ctx.fillRect(x - 30, y - 40, 60, 60); if (propOK && !SP.actor('cr:bonfire')) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue; }
+      if (tt === G.DECO && flat.length) { if (h2(tx * 3 + 7, ty * 5 + 1) < (flat.length > 1 ? 0.6 : 0.22)) landProp(ctx, TS, flat[Math.floor(h2(tx, ty * 7) * flat.length)], x, y, h2(tx, ty * 3) < 0.5); continue; }
       if (tt === G.WATER && wet.length) { if (h2(tx * 13 + 1, ty * 3 + 4) < 0.07) landProp(ctx, TS, wet[0], x, y - 3, h2(tx, ty) < 0.5); continue; }
       if (tt !== G.WALL || ty + 1 >= MH || !WALK[tiles[i + MW]]) continue;
       if (h2(tx * 11 + 3, ty * 7 + 5) > 0.22) continue;
