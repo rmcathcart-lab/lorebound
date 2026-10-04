@@ -202,6 +202,7 @@
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
     Overworld.unmount(); document.body.classList.remove('in-world'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
+    app.classList.toggle('wide', UI.screen === 'bonfire');
     fn(); typeset(app); saveLocal();
   }
 
@@ -984,12 +985,14 @@
       if (!met.length) return; any = true;
       var sec = el('div', 'panel beast-land');
       sec.appendChild(el('div', 'beast-head', '<h3>' + esc(L.name) + '</h3><span class="muted">' + esc(L.subject) + ' · ' + met.length + ' of ' + all.length + ' met' + (met.length < all.length ? ' · the rest still lurk in ' + esc(theLand(L)) : '') + '</span>'));
-      var grid = el('div', 'creatures');
+      var grid = el('div', 'beast-grid');
       met.forEach(function (c) {
         var isBoss = c === L.boss, lv = isBoss ? LEVELS.BOSS : LEVELS[c.level];
-        var b = el('button', 'creature beast' + (isBoss ? ' boss' : '')); b.type = 'button'; b.style.setProperty('--lvl', isBoss ? 'var(--boss)' : lv.color);
-        var k = S.kills[c.id] || 0, l = S.losses[c.id] || 0;
-        b.innerHTML = portrait(c.sigil) + '<span><span class="nm">' + esc(c.name) + '</span><span class="tag">' + (isBoss ? 'Boss · ' + c.gens.length + ' questions' : c.outcome + ' · ' + lv.name) + '</span><span class="fl">' + esc(c.flavor || '') + '</span><span class="meta"><span>Slain ' + n(k) + '×</span>' + (l ? '<span>Fell to it ' + n(l) + '×</span>' : '') + '<span class="practice-go">⚔ Practice</span></span></span>';
+        var b = el('button', 'beast-card' + (isBoss ? ' boss' : '')); b.type = 'button'; b.style.setProperty('--lvl', isBoss ? 'var(--boss)' : lv.color);
+        var k = S.kills[c.id] || 0, l = S.losses[c.id] || 0, img = window.ART_IMG && ART_IMG[c.sigil];
+        b.innerHTML = '<span class="bc-art">' + (img ? '<img src="' + img + '" alt="">' : '') + '<span class="bc-tag">' + (isBoss ? 'Boss · ' + c.gens.length + ' questions' : c.outcome + ' · ' + lv.name) + '</span>' +
+          '<span class="bc-cap"><span class="nm">' + esc(c.name) + '</span><span class="rec">Slain ' + n(k) + '×' + (l ? ' · fell to it ' + n(l) + '×' : '') + '</span></span></span>' +
+          '<span class="bc-body"><span class="fl">' + esc(c.flavor || '') + '</span><span class="practice-go">⚔ Practice</span></span>';
         b.onclick = function () { startBattle(L, c, isBoss, null, true); };
         grid.appendChild(b);
       });
@@ -998,43 +1001,45 @@
     if (!any) app.appendChild(el('div', 'panel', '<p class="muted" style="margin:0">No creatures yet. Venture into a land: every creature you face will be written here.</p>'));
   }
   function bonfireGear() {
-    app.appendChild(el('p', 'muted', 'Tier 2 needs tier 1 and level ' + LEVEL.gate[2] + '. Tier 3 needs tier 2, level ' + LEVEL.gate[3] + ' and a boss kill.'));
-    var br = el('div', 'branches');
+    app.appendChild(el('p', 'muted forge-intro', 'Each branch climbs from tier 1 to tier 3. Tier 2 needs tier 1 and level ' + LEVEL.gate[2] + '. Tier 3 needs tier 2, level ' + LEVEL.gate[3] + ' and a boss kill.'));
     [['Ward', 'survive'], ['Insight', 'understand'], ['Greed', 'profit'], ['Swiftness', 'outrun'], ['Patience', 'take your time'], ['Regalia', 'look the part']].forEach(function (pair) {
-      var name = pair[0], col = el('div', 'branch'); col.appendChild(el('h3', null, name + ' · ' + pair[1]));
-      if (name === 'Regalia') col.appendChild(el('div', 'regalia-preview', heroPortrait('regalia-pic') + '<div class="muted" style="font-size:14px"><b>' + esc(S.hero ? S.hero.name : S.name) + '</b><br>' + esc(heroTitle()) + '<br><span style="font-size:13px">Your look upgrades on its own: any tier-2 item, then tier-3 plus a boss kill. Regalia is purely for show.</span></div>'));
+      var name = pair[0], sec = el('section', 'forge-branch');
+      var hd = el('div', 'forge-head', '<h3>' + name + '</h3><span class="sub">' + pair[1] + '</span>');
+      if (name === 'Regalia') hd.appendChild(el('div', 'regalia-preview', heroPortrait('regalia-pic') + '<div class="muted"><b>' + esc(S.hero ? S.hero.name : S.name) + '</b> · ' + esc(heroTitle()) + '<br><span>Your look upgrades on its own: any tier-2 item, then tier-3 plus a boss kill. Regalia is purely for show.</span></div>'));
+      sec.appendChild(hd);
+      var row = el('div', 'forge-row');
       GEAR.filter(function (g) { return g.branch === name; }).forEach(function (g) {
-        var lock = gearLock(g), has = owns(g.id);
-        var hardLock = lock && !/more Lore/.test(lock);
-        var card = el('div', 'gear' + (has ? ' owned' : hardLock ? ' locked' : ''));
+        var lock = gearLock(g), has = owns(g.id), hardLock = lock && !/more Lore/.test(lock);
+        var card = el('div', 'forge-card' + (has ? ' owned' : hardLock ? ' locked' : lock ? ' short' : ' ready'));
         var gimg = window.ART_IMG && ART_IMG['gear-' + g.id];
-        card.innerHTML = '<div class="gear-top">' + (gimg ? '<img class="gear-img" src="' + gimg + '" alt="">' : '') + '<div><div class="tier">Tier ' + g.tier + (has ? ' · owned' : '') + '</div><div class="nm">' + esc(g.name) + '</div></div></div><div class="desc">' + esc(g.desc) + (g.use ? ' ' + esc(g.use) : '') + '</div>';
+        card.innerHTML = '<div class="fc-art">' + (gimg ? '<img src="' + gimg + '" alt="">' : '') + '<span class="fc-tier">Tier ' + g.tier + '</span>' + (has ? '<span class="fc-seal">Owned</span>' : '') +
+          (hardLock ? '<span class="fc-lock">' + esc(lock) + '</span>' : '') + '<div class="fc-name">' + esc(g.name) + '</div></div>' +
+          '<div class="fc-body"><div class="desc">' + esc(g.desc) + (g.use ? ' ' + esc(g.use) : '') + '</div><div class="fc-foot"></div></div>';
+        var foot = card.querySelector('.fc-foot');
         if (!has) {
-          card.appendChild(el('div', 'cost', n(g.cost) + ' Lore'));
-          if (lock) card.appendChild(el('div', 'why', lock));
-          var b = el('button', 'btn', 'Buy'); b.type = 'button'; b.disabled = !!lock;
+          foot.appendChild(el('span', 'cost', n(g.cost) + ' Lore'));
+          var b = el('button', 'btn', 'Buy'); b.type = 'button'; b.disabled = !!lock; if (lock && !hardLock) b.title = lock;
           b.onclick = function () { sfx('buy'); S.lore -= g.cost; S.gear[g.id] = g.charges ? { charges: g.charges } : { on: true }; if (g.frame && S.hero) S.hero.frame = g.id; toast(g.name + ' is yours.'); render(); };
-          card.appendChild(b);
+          foot.appendChild(b);
         } else if (g.frame) {
           var wearing = S.hero && S.hero.frame === g.id;
           var wb = el('button', 'btn' + (wearing ? ' ghost' : ''), wearing ? 'Wearing' : 'Wear'); wb.type = 'button'; wb.disabled = wearing;
           wb.onclick = function () { S.hero.frame = g.id; render(); };
-          card.appendChild(wb);
-          if (wearing) { var off = el('button', 'btn ghost', 'Remove'); off.type = 'button'; off.style.marginLeft = '6px'; off.onclick = function () { S.hero.frame = ''; render(); }; card.appendChild(off); }
+          foot.appendChild(wb);
+          if (wearing) { var off = el('button', 'btn ghost', 'Remove'); off.type = 'button'; off.onclick = function () { S.hero.frame = ''; render(); }; foot.appendChild(off); }
         } else if (g.charges) {
           var ch = S.gear[g.id].charges || 0;
-          card.appendChild(el('div', 'charges', 'Charges: ' + ch + ' / ' + g.charges));
+          foot.appendChild(el('span', 'charges', 'Charges ' + ch + ' / ' + g.charges));
           if (ch < g.charges) {
-            var rb = el('button', 'btn', 'Recharge · ' + n(g.recharge) + ' Lore'); rb.type = 'button'; rb.disabled = S.lore < g.recharge;
+            var rb = el('button', 'btn', 'Recharge · ' + n(g.recharge)); rb.type = 'button'; rb.disabled = S.lore < g.recharge;
             rb.onclick = function () { sfx('buy'); S.lore -= g.recharge; S.gear[g.id].charges = g.charges; toast(g.name + ' recharged.'); render(); };
-            card.appendChild(rb);
+            foot.appendChild(rb);
           }
-        }
-        col.appendChild(card);
+        } else foot.appendChild(el('span', 'charges', 'Always active'));
+        row.appendChild(card);
       });
-      br.appendChild(col);
+      sec.appendChild(row); app.appendChild(sec);
     });
-    app.appendChild(br);
   }
   function bonfireLevel() {
     var lv = S.level || 1, cost = LEVEL.cost(lv), maxed = lv >= LEVEL.max;
@@ -1057,12 +1062,16 @@
   }
   function bonfireShop() {
     app.appendChild(el('p', 'muted', 'Provisions go in your Satchel. Chests in the lands hold the same things, for free, if you can find them.'));
-    var grid = el('div', 'shop');
+    var grid = el('div', 'wares');
     ITEMS.forEach(function (it) {
-      var card = el('div', 'gear shop-item'); card.innerHTML = itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + ' · you carry ' + itemCount(it.id));
+      var img = window.ART_IMG && ART_IMG[it.art], have = itemCount(it.id);
+      var card = el('div', 'ware' + (S.lore >= it.cost ? '' : ' short'));
+      card.innerHTML = '<div class="fc-art">' + (img ? '<img src="' + img + '" alt="">' : '') + '<span class="fc-tier">' + (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + '</span>' +
+        (have ? '<span class="fc-seal">You carry ' + have + '</span>' : '') + '<div class="fc-name">' + esc(it.name) + '</div></div>' +
+        '<div class="fc-body"><div class="desc">' + esc(it.desc) + '</div>' + (it.flavor ? '<div class="flavor">' + esc(it.flavor) + '</div>' : '') + '<div class="fc-foot"></div></div>';
       var b = el('button', 'btn', 'Buy · ' + n(it.cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < it.cost;
       b.onclick = function () { sfx('buy'); S.lore -= it.cost; S.items[it.id] = itemCount(it.id) + 1; toast(it.name + ' added to your Satchel.'); render(); };
-      card.querySelector('.item-card > div').appendChild(b); grid.appendChild(card);
+      card.querySelector('.fc-foot').appendChild(b); grid.appendChild(card);
     });
     app.appendChild(grid);
   }

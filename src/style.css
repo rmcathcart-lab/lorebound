@@ -505,3 +505,91 @@ body.in-world #app { padding: 0; max-width: none; }
 .camp-head .who { align-items: center; }
 .camp-firecv { width: 96px; height: 112px; }
 @media (max-width: 760px) { .camp-firecv { width: 84px; height: 98px; } }
+
+/* ===== art-forward camp pages: the paintings are the cards ===== */
+.stage.wide { max-width: 1080px; }
+.fc-art { position: relative; display: block; overflow: hidden; background: #0c0a10; }
+.fc-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .5s ease, filter .3s; }
+.fc-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,8,14,0) 45%, rgba(10,8,14,.55) 72%, rgba(12,10,16,.96) 100%); pointer-events: none; }
+.fc-tier { position: absolute; top: 10px; left: 10px; z-index: 1; font-family: var(--font-ui); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--bone); background: rgba(10,8,14,.72); border: 1px solid rgba(255,255,255,.12); padding: 3px 8px; border-radius: 999px; backdrop-filter: blur(2px); }
+.fc-seal { position: absolute; top: 10px; right: 10px; z-index: 1; font-family: var(--font-ui); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #10140d; background: var(--beg); padding: 3px 9px; border-radius: 999px; box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+.fc-name { position: absolute; left: 14px; right: 14px; bottom: 10px; z-index: 1; font-family: var(--font-display); font-size: 22px; line-height: 1.1; color: var(--bone); text-shadow: 0 2px 10px rgba(0,0,0,.95); }
+.fc-lock { position: absolute; left: 0; right: 0; top: 42%; z-index: 1; text-align: center; font-family: var(--font-ui); font-size: 12px; letter-spacing: .06em; color: var(--ember); padding: 0 14px; text-shadow: 0 1px 6px rgba(0,0,0,1); }
+.fc-body { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.fc-body .desc { font-size: 15px; color: var(--bone-dim); line-height: 1.4; }
+.fc-body .flavor { font-size: 14px; color: var(--bone-dim); font-style: italic; opacity: .8; line-height: 1.35; }
+.fc-foot { margin-top: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fc-foot .cost { font-family: var(--font-ui); font-size: 15px; color: var(--lore); text-shadow: 0 0 10px rgba(143,211,255,.35); }
+.fc-foot .charges { font-family: var(--font-ui); font-size: 13px; color: var(--bone-dim); letter-spacing: .04em; }
+.fc-foot .btn { width: auto; padding: 8px 16px; font-size: 13px; margin: 0; }
+.fc-foot .cost + .btn { margin-left: auto; }
+
+/* The Forge: a row per branch, tiers left to right */
+.forge-intro { margin-bottom: 4px; }
+.forge-branch { margin: 18px 0 6px; }
+.forge-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.forge-head h3 { margin: 0; font-family: var(--font-display); font-size: 24px; color: var(--ember); text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+.forge-head .sub { font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--bone-dim); }
+.forge-head .regalia-preview { flex-basis: 100%; margin: 6px 0 0; font-size: 14px; }
+.forge-head .regalia-preview span { font-size: 13px; }
+.forge-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; position: relative; }
+.forge-card, .ware { position: relative; display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; border: 1px solid rgba(255,255,255,.09); background: rgba(20,17,24,.86); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); box-shadow: 0 10px 30px rgba(0,0,0,.45); transition: transform .18s, border-color .18s, box-shadow .18s; }
+.forge-card .fc-art { aspect-ratio: 4 / 3; }
+.forge-card:hover, .ware:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(0,0,0,.6); }
+.forge-card:hover .fc-art img, .ware:hover .fc-art img { transform: scale(1.05); }
+.forge-card.ready { border-color: rgba(217,120,46,.55); box-shadow: 0 10px 30px rgba(0,0,0,.45), 0 0 0 1px rgba(217,120,46,.25); }
+.forge-card.owned { border-color: rgba(127,176,105,.55); }
+.forge-card.locked .fc-art img { filter: grayscale(.85) brightness(.45); }
+.forge-card.locked .fc-body { opacity: .7; }
+.forge-card.short .fc-art img { filter: saturate(.75) brightness(.85); }
+.forge-row .forge-card:not(:last-child)::after { content: "›"; position: absolute; right: -14px; top: calc(37.5% - 14px); z-index: 2; width: 12px; text-align: center; font-size: 26px; line-height: 28px; color: var(--ember); opacity: .7; text-shadow: 0 0 8px rgba(0,0,0,.9); }
+
+/* The Merchant: big ware cards */
+.wares { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 8px; }
+.ware .fc-art { aspect-ratio: 1 / 1; }
+.ware.short .fc-art img { filter: saturate(.8) brightness(.85); }
+
+/* Bestiary: trading-card portraits */
+.beast-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.beast-card { position: relative; display: flex; flex-direction: column; padding: 0; text-align: left; overflow: hidden; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--lvl) 40%, rgba(255,255,255,.08)); background: rgba(16,13,20,.9); color: var(--bone); font-family: var(--font-body); cursor: pointer; box-shadow: 0 10px 28px rgba(0,0,0,.5); transition: transform .18s, border-color .18s, box-shadow .18s; }
+.beast-card:hover, .beast-card:focus-visible { transform: translateY(-3px); border-color: var(--lvl); box-shadow: 0 16px 36px rgba(0,0,0,.6), 0 0 18px color-mix(in srgb, var(--lvl) 30%, transparent); }
+.bc-art { position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; background: #0c0a10; }
+.bc-art img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; display: block; transition: transform .5s ease; }
+.beast-card:hover .bc-art img { transform: scale(1.05); }
+.bc-art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,8,14,0) 50%, rgba(10,8,14,.6) 76%, rgba(12,10,16,.97) 100%); }
+.bc-tag { position: absolute; top: 9px; left: 9px; z-index: 1; font-family: var(--font-ui); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--lvl); background: rgba(10,8,14,.75); border: 1px solid color-mix(in srgb, var(--lvl) 45%, transparent); padding: 3px 7px; border-radius: 999px; }
+.bc-cap { position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 1; display: block; }
+.bc-cap .nm { display: block; font-family: var(--font-display); font-size: 19px; line-height: 1.1; text-shadow: 0 2px 10px rgba(0,0,0,.95); }
+.bc-cap .rec { display: block; margin-top: 3px; font-family: var(--font-ui); font-size: 12px; color: var(--bone-dim); }
+.bc-body { display: flex; flex-direction: column; gap: 8px; padding: 9px 12px 12px; flex: 1; }
+.bc-body .fl { font-size: 14px; line-height: 1.35; color: var(--bone-dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.bc-body .practice-go { margin-top: auto; align-self: flex-start; font-family: var(--font-ui); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ember); border: 1px solid rgba(217,120,46,.45); padding: 5px 10px; border-radius: 4px; }
+.beast-card:hover .practice-go { background: rgba(217,120,46,.14); }
+.beast-card.boss { grid-column: span 2; border-color: rgba(216,67,58,.55); }
+.beast-card.boss .bc-art { aspect-ratio: 3 / 2; }
+.beast-card.boss .bc-art img { object-position: center 18%; }
+.beast-card.boss .bc-cap .nm { font-size: 24px; }
+
+@media (max-width: 900px) { .beast-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .forge-row { grid-template-columns: 1fr; gap: 12px; }
+  .forge-row .forge-card { flex-direction: row; }
+  .forge-row .forge-card .fc-art { aspect-ratio: auto; width: 42%; flex: none; min-height: 150px; }
+  .forge-row .forge-card .fc-name { font-size: 18px; }
+  .forge-row .forge-card:not(:last-child)::after { display: none; }
+  .wares { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ware .fc-name { font-size: 17px; } .ware .fc-body .desc { font-size: 13px; } .ware .flavor { display: none; }
+  .fc-foot .btn { padding: 7px 10px; font-size: 12px; }
+  .beast-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .bc-cap .nm { font-size: 16px; } .bc-body .fl { font-size: 13px; -webkit-line-clamp: 2; }
+}
+.forge-card.locked .fc-art img { filter: grayscale(.45) brightness(.72); }
+.forge-card.locked .fc-body { opacity: .82; }
+.fc-lock { top: auto; bottom: 42px; left: 12px; right: auto; text-align: left; padding: 3px 9px; font-size: 11px; color: var(--ember); background: rgba(10,8,14,.78); border: 1px solid rgba(217,120,46,.4); border-radius: 999px; text-shadow: none; }
+.fc-lock::before { content: "🔒 "; font-size: 10px; }
+@media (max-width: 760px) {
+  .ware .fc-seal { top: 38px; left: 10px; right: auto; }
+  .ware .fc-tier, .ware .fc-seal { font-size: 9px; padding: 2px 6px; letter-spacing: .1em; }
+  .forge-row .forge-card .fc-lock { top: 38px; bottom: auto; left: 10px; right: 10px; font-size: 10px; }
+  .forge-row .forge-card .fc-seal { top: 38px; left: 10px; right: auto; }
+}
