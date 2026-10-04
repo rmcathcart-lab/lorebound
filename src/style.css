@@ -691,3 +691,32 @@ html.has-hall { overflow-x: clip; }
 .code-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .code-add input { flex: 1 1 160px; max-width: 240px; }
 .code-seen { margin-top: 12px; font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hud .brand { text-transform: none; }
+.ladder span.crown { border-style: dashed; }
+.ladder span.crown i { font-style: italic; opacity: .75; margin-left: 4px; font-size: 13px; }
+.ladder span.crown.got { color: #f2d48a; border: 1px solid #d9b45a; box-shadow: 0 0 14px rgba(217,180,90,.35); }
+
+/* ===== the end: Lord of Lore ===== */
+.throne-splash { position: fixed; inset: 0; z-index: 300; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 38%, #4a2c12 0%, #1a1012 52%, #050406 100%); animation: ts-in 1.6s ease both; }
+.throne-splash.out { opacity: 0; transition: opacity .6s ease; }
+.throne-splash::before { content: ""; position: absolute; inset: -20% 0 0; z-index: 1; pointer-events: none; opacity: .55;
+  background-image: radial-gradient(2px 2px at 12% 80%, #f2c46a, transparent), radial-gradient(2px 2px at 28% 60%, #f2c46a, transparent), radial-gradient(1.5px 1.5px at 44% 90%, #ffd890, transparent), radial-gradient(2px 2px at 63% 70%, #f2c46a, transparent), radial-gradient(1.5px 1.5px at 81% 85%, #ffd890, transparent), radial-gradient(2px 2px at 92% 55%, #f2c46a, transparent);
+  background-size: 100% 60%; animation: ts-embers 7s linear infinite; }
+.ts-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 28%; animation: ts-zoom 10s ease-out both; }
+.ts-glow { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(5,4,6,.15) 0%, rgba(5,4,6,0) 35%, rgba(5,4,6,.82) 76%, #050406 100%); }
+.ts-seat { position: absolute; top: 9vh; left: 50%; transform: translateX(-50%); width: min(40vh, 64vw); aspect-ratio: 3 / 4; border: 2px solid #d9b45a; border-radius: 48% 48% 10px 10px / 26% 26% 10px 10px;
+  box-shadow: 0 0 0 6px rgba(20,12,8,.9), 0 0 0 8px #8a6a2a, 0 0 60px 10px rgba(242,196,106,.35); animation: ts-zoom 10s ease-out both; }
+.ts-seat img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; border-radius: inherit; display: block; }
+.ts-crown { position: absolute; top: -0.95em; left: 50%; transform: translateX(-50%); font-size: clamp(44px, 8vh, 80px); color: #f2d48a; text-shadow: 0 0 18px rgba(242,196,106,.9), 0 0 2px #000; z-index: 2; }
+.ts-cap { position: relative; z-index: 2; text-align: center; padding: 0 20px max(7vh, 28px); max-width: 940px; }
+.ts-cap .eyebrow { color: #e8d9b0; animation: ts-text 1.8s .5s ease both; }
+.ts-cap h1 { font-size: clamp(26px, 4.4vw, 54px); line-height: 1.15; color: #f6e6b8; margin: 10px 0 24px; text-shadow: 0 0 24px rgba(242,196,106,.45), 0 3px 18px #000; animation: ts-text 2.4s .8s ease both; }
+.ts-rise { animation: ts-text 1s 2.6s ease both; border-color: #d9b45a; }
+@keyframes ts-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ts-zoom { from { transform: scale(1.08); filter: brightness(.4); } to { transform: scale(1); filter: brightness(1); } }
+.ts-seat { --tx: -50%; } @keyframes ts-zoom-seat { from { opacity: 0; } to { opacity: 1; } }
+.ts-seat { animation: ts-zoom-seat 2.4s ease-out both; }
+@keyframes ts-text { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ts-embers { from { transform: translateY(20%); } to { transform: translateY(-20%); } }
+@media (prefers-reduced-motion: reduce) { .throne-splash, .throne-splash::before, .ts-art, .ts-seat, .ts-cap *, .ts-rise { animation: none !important; } }

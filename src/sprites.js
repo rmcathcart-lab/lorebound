@@ -163,8 +163,8 @@
   };
 
   /* ---------- painted terrain per land (tools/pack_terrain.py) ---------- */
-  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10' }, terr = {};
-  var TTINT = {}; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
+  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10', throne: 'L2' }, terr = {};
+  var TTINT = { throne: 'rgba(70,30,110,.30)' }; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
   function terrainFor(th) {
     var id = TSET[th]; if (!id || !window.TERRAIN_DEFS || !TERRAIN_DEFS[id]) return null;
     var t = terr[th]; if (t) return t.ready ? t : null;

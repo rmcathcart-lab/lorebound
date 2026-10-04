@@ -697,6 +697,35 @@ html.has-hall { overflow-x: clip; }
 .code-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .code-add input { flex: 1 1 160px; max-width: 240px; }
 .code-seen { margin-top: 12px; font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hud .brand { text-transform: none; }
+.ladder span.crown { border-style: dashed; }
+.ladder span.crown i { font-style: italic; opacity: .75; margin-left: 4px; font-size: 13px; }
+.ladder span.crown.got { color: #f2d48a; border: 1px solid #d9b45a; box-shadow: 0 0 14px rgba(217,180,90,.35); }
+
+/* ===== the end: Lord of Lore ===== */
+.throne-splash { position: fixed; inset: 0; z-index: 300; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 38%, #4a2c12 0%, #1a1012 52%, #050406 100%); animation: ts-in 1.6s ease both; }
+.throne-splash.out { opacity: 0; transition: opacity .6s ease; }
+.throne-splash::before { content: ""; position: absolute; inset: -20% 0 0; z-index: 1; pointer-events: none; opacity: .55;
+  background-image: radial-gradient(2px 2px at 12% 80%, #f2c46a, transparent), radial-gradient(2px 2px at 28% 60%, #f2c46a, transparent), radial-gradient(1.5px 1.5px at 44% 90%, #ffd890, transparent), radial-gradient(2px 2px at 63% 70%, #f2c46a, transparent), radial-gradient(1.5px 1.5px at 81% 85%, #ffd890, transparent), radial-gradient(2px 2px at 92% 55%, #f2c46a, transparent);
+  background-size: 100% 60%; animation: ts-embers 7s linear infinite; }
+.ts-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 28%; animation: ts-zoom 10s ease-out both; }
+.ts-glow { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(5,4,6,.15) 0%, rgba(5,4,6,0) 35%, rgba(5,4,6,.82) 76%, #050406 100%); }
+.ts-seat { position: absolute; top: 9vh; left: 50%; transform: translateX(-50%); width: min(40vh, 64vw); aspect-ratio: 3 / 4; border: 2px solid #d9b45a; border-radius: 48% 48% 10px 10px / 26% 26% 10px 10px;
+  box-shadow: 0 0 0 6px rgba(20,12,8,.9), 0 0 0 8px #8a6a2a, 0 0 60px 10px rgba(242,196,106,.35); animation: ts-zoom 10s ease-out both; }
+.ts-seat img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; border-radius: inherit; display: block; }
+.ts-crown { position: absolute; top: -0.95em; left: 50%; transform: translateX(-50%); font-size: clamp(44px, 8vh, 80px); color: #f2d48a; text-shadow: 0 0 18px rgba(242,196,106,.9), 0 0 2px #000; z-index: 2; }
+.ts-cap { position: relative; z-index: 2; text-align: center; padding: 0 20px max(7vh, 28px); max-width: 940px; }
+.ts-cap .eyebrow { color: #e8d9b0; animation: ts-text 1.8s .5s ease both; }
+.ts-cap h1 { font-size: clamp(26px, 4.4vw, 54px); line-height: 1.15; color: #f6e6b8; margin: 10px 0 24px; text-shadow: 0 0 24px rgba(242,196,106,.45), 0 3px 18px #000; animation: ts-text 2.4s .8s ease both; }
+.ts-rise { animation: ts-text 1s 2.6s ease both; border-color: #d9b45a; }
+@keyframes ts-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ts-zoom { from { transform: scale(1.08); filter: brightness(.4); } to { transform: scale(1); filter: brightness(1); } }
+.ts-seat { --tx: -50%; } @keyframes ts-zoom-seat { from { opacity: 0; } to { opacity: 1; } }
+.ts-seat { animation: ts-zoom-seat 2.4s ease-out both; }
+@keyframes ts-text { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes ts-embers { from { transform: translateY(20%); } to { transform: translateY(-20%); } }
+@media (prefers-reduced-motion: reduce) { .throne-splash, .throne-splash::before, .ts-art, .ts-seat, .ts-cap *, .ts-rise { animation: none !important; } }
 
 </style>
 <div id="artdefs"></div>
@@ -6871,7 +6900,8 @@ var LEVELS = {
   BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 68, color: 'var(--beg)' },
   PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 113, color: 'var(--prg)' },
   MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 180, color: 'var(--mas)' },
-  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 180, color: 'var(--boss)' }
+  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 180, color: 'var(--boss)' },
+  FINAL: { name: 'Final boss', short: 'FINAL', lore: 1500, time: 180, color: 'var(--boss)' }
 };
 
 var LANDS = [
@@ -7013,9 +7043,31 @@ var LANDS = [
       { id: 'icecolossus', name: 'Ice Colossus', outcome: 'M3', group: 'M3', level: 'MAS', sigil: 'icecolossus', gen: 'M3_MAS', flavor: 'Built of spheres, cylinders and domes stacked on one another. Find the whole from its parts.' }
     ],
     boss: { id: 'boss10', name: 'Hjalmvor, the Winter Wyrm', level: 'BOSS', sigil: 'boss10', gens: ['M12_PRG', 'M3_PRG', 'M12_MAS', 'M3_MAS'], title: 'Winterbane',
-      flavor: 'The last wyrm, coiled around the last fire at the end of the world. Four questions, four hundred Lore, and nothing left beyond.' }
+      flavor: 'The last wyrm, coiled around the last fire at the end of the world. Four questions, four hundred Lore, and beyond it only the road west, to a throne that has waited a thousand years.' }
+  },
+  /* The final land: no creatures, no key, no chests. A bonfire, a road up through the lava to the throne room, and the
+   * Hollow Lord, who asks one Mastery question from every outcome of the course. Opens only when all ten bosses are slain. */
+  { id: 'L11', unit: 11, name: 'The Unwritten Throne', subject: 'Every outcome, at Mastery', open: true, explore: 2, banner: 'banner-l11', finale: true, region: 'final-boss',
+    blurb: 'Ten bosses were ten seals, and the last of them is broken. West of every land, past the black needle of the fortress, the road climbs through fire to the throne of the Lord of Lore. Nothing lives on the road. Nothing needs to.',
+    outcomes: {},
+    creatures: [],
+    boss: { id: 'boss11', name: 'The Hollow Lord', level: 'FINAL', sigil: 'boss11', finale: true, gens: [], title: 'Lord of Lore',
+      flavor: 'The last Lord of Lore gathered the Lore of every land and spent none of it, until it hollowed him out. He asks one question from every outcome you have ever faced, every one at Mastery. Answer them all and the throne is yours.' }
   }
 ];
+var FINAL_ID = 'L11';
+/* The Hollow Lord's question pool: for every outcome of the course, the Mastery generators that test it. One is picked
+ * at random per outcome each time the fight starts, so the questions change like any other creature's. */
+(function () {
+  var F = LANDS.filter(function (L) { return L.id === FINAL_ID; })[0], seen = {}, pool = [];
+  LANDS.forEach(function (L) { L.creatures.forEach(function (c) {
+    if (c.level !== 'MAS') return;
+    var key = c.outcome; // (M1 has no Mastery creature of its own: its Mastery work lives in the M2 Glacier Wight)
+    if (!seen[key]) { seen[key] = { outcome: key, gens: [] }; pool.push(seen[key]); }
+    if (seen[key].gens.indexOf(c.gen) < 0) seen[key].gens.push(c.gen);
+  }); });
+  F.boss.pool = pool; F.boss.gens = pool.map(function (p) { return p.gens[0]; });
+})();
 
 /* Gear: five branches, three tiers. Tier 2 needs tier 1 and level 3; tier 3 needs tier 2, level 6 and a boss kill. */
 var GEAR = [
@@ -7063,7 +7115,8 @@ var LEVEL = {
   max: 30,
   cost: function (lv) { return 60 * lv + 15 * lv * lv; },          // Lore to go from level lv to lv + 1
   lorePct: 3, timePct: 3, speed: 1,
-  titles: [[1, 'Wanderer'], [5, 'Delver'], [10, 'Pathfinder'], [15, 'Lorekeeper'], [20, 'Warden of the Lands'], [25, 'Mythic']],
+  titles: [[1, 'Wanderer'], [5, 'Delver'], [10, 'Pathfinder'], [15, 'Warden of the Lands'], [20, 'Lorekeeper'], [25, 'Mythic']],
+  crown: 'Lord of Lore',                                           // above every rung: earned by slaying the final boss, at any level
   gate: { 2: 3, 3: 6 }                                             // gear tier -> level required
 };
 
@@ -7234,7 +7287,7 @@ var LOREBOOK = (function () {
 
   return {
   L1: [
-    { title: 'The First Grave', lore: 'Before the fog there was a town here, and the town kept a ledger of its dead. The ledger counted in primes, because primes cannot be divided and neither, the gravediggers said, can the dead.',
+    { title: 'The First Grave', lore: 'Before the fog there was a town here, and the town kept a ledger of its dead. The ledger counted in primes, because primes cannot be divided and neither, the gravediggers said, can the dead. The oldest page of that ledger is not about the town at all. It names a Lord of Lore, and leaves the space beside his name empty.',
       math: [
         { h: 'Prime factorisation' },
         { p: 'Every whole number is built from primes. Divide by the <b>smallest prime that works</b>, and keep going until only primes are left.' },
@@ -7270,7 +7323,7 @@ var LOREBOOK = (function () {
         { fig: numberLine(5, 9, [5, 6, 7, 8, 9], [[5.74, '√33'], [6.32, '√40'], [7.07, '√50', true], [8.49, '√72']]) },
         { p: 'To order a mixed list, turn everything into a decimal estimate first: \\(2\\sqrt{3} \\approx 3.46\\), \\(\\sqrt[3]{30} \\approx 3.11\\), \\(\\tfrac{7}{2} = 3.5\\).' }
       ] },
-    { title: 'The Hollow Knight\'s Armour', lore: 'The knight\'s armour was forged entire, one piece of marsh-steel. Only later was it broken and mended with a number sewn outside and a number sewn in. Make it whole again and it falls apart.',
+    { title: 'The Hollow Knight\'s Armour', lore: 'The knight\'s armour was forged entire, one piece of marsh-steel. Only later was it broken and mended with a number sewn outside and a number sewn in. Make it whole again and it falls apart. It was forged for the guard of the Lord of Lore, in the years when there was still a guard, and still a lord worth guarding.',
       math: [
         { h: 'Entire → mixed: pull out the largest perfect square' },
         { fig: factorTree('72', [['72', '36', '2']]) },
@@ -7314,7 +7367,7 @@ var LOREBOOK = (function () {
         { steps: ['(3 \\times 10^{4})(2 \\times 10^{-7}) = 6 \\times 10^{-3}', '(4 \\times 10^{5})(3 \\times 10^{2}) = 12 \\times 10^{7} = 1.2 \\times 10^{8}'] },
         { p: 'Multiply the fronts, add the exponents, and if the front leaves \\([1, 10)\\), fix it.' }
       ] },
-    { title: 'The Unknown Scale', lore: 'The Ash Wyrm has one scale that does not match the others. It is the scale it hides. Find the law the rest obey and the hidden one has nowhere left to be.',
+    { title: 'The Unknown Scale', lore: 'The Ash Wyrm has one scale that does not match the others. It is the scale it hides. Find the law the rest obey and the hidden one has nowhere left to be. The wyrms say the hidden scale was a tithe: one scale from every beast, carried west each year to the Lord of Lore.',
       math: [
         { h: 'Solving for a missing exponent' },
         { p: 'Write both sides with the <b>same base</b>; then the exponents must be equal.' },
@@ -7352,7 +7405,7 @@ var LOREBOOK = (function () {
         { rule: '(a + b)^{2} = a^{2} + 2ab + b^{2} \\qquad (a - b)^{2} = a^{2} - 2ab + b^{2} \\qquad (a + b)(a - b) = a^{2} - b^{2}' },
         { steps: ['(3x - 4)^{2} = 9x^{2} - 24x + 16 \\quad (\\text{never } 9x^{2} + 16)', '(2x + 5)(2x - 5) = 4x^{2} - 25 \\quad (\\text{the middle cancels})', '(x + a)^{3} = x^{3} + 3ax^{2} + 3a^{2}x + a^{3}'] }
       ] },
-    { title: 'The Oak\'s Floor', lore: 'Under the Hollow Oak the roots have paved a floor in rectangles that are not rectangles, with corners cut away and gardens let in. Measure it by pieces, and multiply each piece out before you add.',
+    { title: 'The Oak\'s Floor', lore: 'Under the Hollow Oak the roots have paved a floor in rectangles that are not rectangles, with corners cut away and gardens let in. Measure it by pieces, and multiply each piece out before you add. The roots all run west, the Thornlings whisper, toward a throne that no one has sat on in a thousand years.',
       math: [
         { h: 'Area and perimeter with polynomials' },
         { fig: (typeof Fig !== 'undefined' ? Fig.cutout('2x + 3', 'x + 4', 7, 5, 'x', 2, 'corner') : '') },
@@ -7397,7 +7450,7 @@ var LOREBOOK = (function () {
         { rule: 'a^{2} \\pm 2ab + b^{2} = (a \\pm b)^{2}' },
         { eq: '4x^{2} - 12x + 9 = (2x - 3)^{2} \\quad\\text{check the middle: } 2 \\cdot 2x \\cdot 3 = 12x' }
       ] },
-    { title: 'Ossirion\'s Rule', lore: 'The Vaultkeeper allows one law in the Crypts: a thing that is nothing has at least one part that is nothing. Bring him a product that equals nothing and he must tell you which factor died.',
+    { title: 'Ossirion\'s Rule', lore: 'The Vaultkeeper allows one law in the Crypts: a thing that is nothing has at least one part that is nothing. Bring him a product that equals nothing and he must tell you which factor died. He keeps that law because the Lord of Lore gave it to him, and the Lord of Lore has never come back to take it away.',
       math: [
         { h: 'Solving by factoring: the zero-product rule' },
         { rule: '\\text{If } A \\cdot B = 0 \\text{ then } A = 0 \\text{ or } B = 0' },
@@ -7442,7 +7495,7 @@ var LOREBOOK = (function () {
         { steps: ['f(-5) = 2(-5)^{2} - 3(-5) + 1 = 50 + 15 + 1 = 66', 'f(x - 2) = 2(x - 2)^{2} - 3(x - 2) + 1 = 2x^{2} - 11x + 15'] },
         { p: '\\(f(4) = 2\\) is the same as “the point \\((4, 2)\\) is on the graph”. Solving \\(f(x) = 2\\) means finding every x where the graph is at height 2.' }
       ] },
-    { title: 'Seven Heads, Seven Hours', lore: 'The Fen Hydra watches the causeway all morning and counts what passes. It does not care how many came. It cares how fast the number changed, and between which two hours.',
+    { title: 'Seven Heads, Seven Hours', lore: 'The Fen Hydra watches the causeway all morning and counts what passes. It does not care how many came. It cares how fast the number changed, and between which two hours. There is one rate it counts and never tells: how fast the Lord of Lore has been fading, year upon year.',
       math: [
         { h: 'Rate of change' },
         { rule: '\\text{rate of change} = \\dfrac{\\text{change in the dependent variable}}{\\text{change in the independent variable}}' },
@@ -7483,7 +7536,7 @@ var LOREBOOK = (function () {
         { steps: ['P(-4, 7),\\ Q(8, -2): \; m_{PQ} = \\dfrac{-9}{12} = -\\dfrac{3}{4} \\Rightarrow m_{\\perp} = \\dfrac{4}{3}', '\\dfrac{3}{8} \\cdot \\dfrac{k}{6} = -1 \\Rightarrow \\dfrac{3k}{48} = -1 \\Rightarrow k = -16'] },
         { p: 'To test for a right angle in a triangle, find the slope of every side; the right angle is at the vertex where two sides have slopes that multiply to −1.' }
       ] },
-    { title: 'Three Points in Dark Water', lore: 'The Siren shows you three lights under the water and asks whether they lie on one line. Two slopes answer it. If they agree, the lights are collinear; if they do not, one of them is lying.',
+    { title: 'Three Points in Dark Water', lore: 'The Siren shows you three lights under the water and asks whether they lie on one line. Two slopes answer it. If they agree, the lights are collinear; if they do not, one of them is lying. On the clearest nights a fourth light burns far to the west, on the black needle of the fortress. It lies on no line at all.',
       math: [
         { h: 'Collinear points and shapes on the grid' },
         { p: 'Points are <b>collinear</b> when the slope between any two pairs is the same.' },
@@ -7523,7 +7576,7 @@ var LOREBOOK = (function () {
         { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -5, xmax: 7, ymin: -3, ymax: 7, lines: [{ m: 1 / 3, b: 2 }], points: [[-3, 1, '(−3, 1)'], [3, 3, '(3, 3)']] }) : '') },
         { p: 'From the graph: \\(m = \\tfrac{3 - 1}{3 - (-3)} = \\tfrac{1}{3}\\), \\(b = 2\\), so \\(y = \\tfrac{1}{3}x + 2\\), or in general form \\(x - 3y + 6 = 0\\).' }
       ] },
-    { title: 'The Warden\'s Ledgers', lore: 'The Warden of the Pass keeps every ledger of the hold, and in every one of them something changes by the same amount each day: wages by the sale, fuel by the mile, people by the year. A steady change is a straight line.',
+    { title: 'The Warden\'s Ledgers', lore: 'The Warden of the Pass keeps every ledger of the hold, and in every one of them something changes by the same amount each day: wages by the sale, fuel by the mile, people by the year. A steady change is a straight line. The oldest ledger has one column that never changes: the tithe owed to the Lord of Lore. The hold still pays it, to no one.',
       math: [
         { h: 'Slope as a rate of change' },
         { p: 'When a quantity changes by the same amount for each unit of another, the relation is linear and the <b>slope is the rate</b>. The y-intercept is the starting amount (the fixed fee, the full tank, the base salary).' },
@@ -7577,7 +7630,7 @@ if (typeof module !== 'undefined') module.exports = LOREBOOK;
         { p: 'Clear fractions and decimals first, each equation by its own multiplier: \\(\\tfrac{p}{3} + \\tfrac{q}{2} = 5\\) becomes \\(2p + 3q = 30\\) (× 6), and \\(0.5x + 0.4y = 1.7\\) becomes \\(5x + 4y = 17\\) (× 10).' },
         { p: 'If both variables vanish, read what is left: a true statement such as \\(0 = 0\\) means infinitely many solutions; a false one such as \\(0 = 21\\) means no solution.' }
       ] },
-    { title: 'The Quartermaster\'s Two Ledgers', lore: 'The Quartermaster of the Citadels keeps two ledgers and trusts neither alone. One counts the barrels; the other counts the silver they cost. When both ledgers agree on a single pair of numbers the stores are honest. When they cannot, someone in the Citadels is lying.',
+    { title: 'The Quartermaster\'s Two Ledgers', lore: 'The Quartermaster of the Citadels keeps two ledgers and trusts neither alone. One counts the barrels; the other counts the silver they cost. When both ledgers agree on a single pair of numbers the stores are honest. When they cannot, someone in the Citadels is lying. Each king believed the Lord of Lore would name him heir. Neither was named. The throne in the west does not choose kings; it waits for whoever masters every land.',
       math: [
         { h: 'Modelling with a system' },
         { p: 'Define each variable <b>with its unit</b>, write one equation for each condition, solve, then check the answer against the <b>words</b>: counts whole and positive, totals that add up.' },
@@ -7687,7 +7740,7 @@ if (typeof module !== 'undefined') module.exports = LOREBOOK;
         { eq: '\\tan\\theta = \\dfrac{6.4}{9.2} \\Rightarrow \\theta = \\tan^{-1}\\left(\\dfrac{6.4}{9.2}\\right) \\approx 34.8^\\circ' },
         { p: '<b>Eye level.</b> When the angle is measured from an eye or an instrument, the triangle starts at that height. A transit with its eyepiece \\(1.6\\) m up, \\(45\\) m from a pole, sights the top at \\(15^\\circ\\): rise \\(= 45\\tan 15^\\circ = 12.06\\ldots\\) m, so the pole is \\(12.06\\ldots + 1.6 \\approx 13.7\\) m tall. Add the eye height back at the end.' }
       ] },
-    { title: 'Orrin\'s Last Measurement', lore: 'Orrin the Sundered Astronomer measured the far tower without ever crossing to it: one angle down to its foot, one angle up to its crown, and the single distance both triangles shared. He rounded that distance once. The spire split the same night.',
+    { title: 'Orrin\'s Last Measurement', lore: 'Orrin the Sundered Astronomer measured the far tower without ever crossing to it: one angle down to its foot, one angle up to its crown, and the single distance both triangles shared. He rounded that distance once. The spire split the same night. From the top of the tower he could see the Unwritten Throne in the west. He measured the distance to it every night, and every night it was exactly the same.',
       math: [
         { h: 'Two right triangles sharing a side' },
         { p: 'Find the triangle that already has enough information, solve it, and <b>hand the shared side</b> to the other triangle. <b>Never round the shared side.</b>' },
@@ -7819,7 +7872,7 @@ LOREBOOK.L10 = (function () {
         { rule: 'SA_{\\text{cone}} = \\pi r^{2} + \\pi rs \\qquad SA_{\\text{pyramid}} = \\text{area of base} + \\text{area of triangular faces}' },
         { steps: ['h = 12,\\ d = 10 \\Rightarrow r = 5,\\quad s = \\sqrt{12^{2} + 5^{2}} = 13', 'V = \\tfrac{1}{3}\\pi(5)^{2}(12) = 100\\pi \\approx 314.2\\text{ cm}^{3}', 'SA = \\pi(5)^{2} + \\pi(5)(13) = 90\\pi \\approx 282.7\\text{ cm}^{2}'] }
       ] },
-    { title: 'The Buried Domes', lore: 'Under the snow lie the domes of the last city: floorless half-spheres, silos capped with cones, boilers rounded at both ends. Hjalmvor sleeps coiled around them. To know what they hold, add the pieces; to know what they cost, count only the skin.',
+    { title: 'The Buried Domes', lore: 'Under the snow lie the domes of the last city: floorless half-spheres, silos capped with cones, boilers rounded at both ends. Hjalmvor sleeps coiled around them. To know what they hold, add the pieces; to know what they cost, count only the skin. The wyrm guards the last fire for a reason: past it the ten seals end, and the road to the Lord of Lore begins.',
       math: [
         { h: 'Spheres and hemispheres' },
         { fig: sphereInCylinder() },
@@ -8076,7 +8129,7 @@ var LandMaps = (function () {
       if (best) k.seg(p.x, p.y, best.x, best.y, 2, PATH, function (v) { return v !== GATE && v !== EDGE; });
       sealBoss(k, bp.bossRoom); dist = flood();
     }
-    var must = [bp.bossRoom.front].concat(bp.areas.map(function (a) { return { x: Math.round(a.x), y: Math.round(a.y) }; }), bp.nooks, [bp.key]);
+    var must = [bp.bossRoom.front].concat(bp.areas.map(function (a) { return { x: Math.round(a.x), y: Math.round(a.y) }; }), bp.nooks, bp.key ? [bp.key] : []);
     must.forEach(function (p) { if (k.floor(p.x, p.y) && dist[p.y * W + p.x] >= 0) return; if (!k.floor(p.x, p.y)) k.rect(p.x, p.y, 2, 2, GROUND); if (dist[p.y * W + p.x] < 0) link(p); });
     // floor that cannot be reached becomes wall (no unreachable clearings showing through the fog)
     if (bp.fillPockets !== false) { var b0 = bp.bossRoom; for (i = 0; i < W * H; i++) { var px0 = i % W, py0 = (i / W) | 0; if (dist[i] < 0 && !SOLID[t[i]] && !(px0 >= b0.x && px0 < b0.x + b0.w && py0 >= b0.y && py0 < b0.y + b0.h)) t[i] = WALL; } }
@@ -8105,13 +8158,14 @@ var LandMaps = (function () {
       });
     });
     function spot(p) { if (ok(p.x, p.y, 1)) return { x: p.x, y: p.y }; return freeIn({ x: p.x, y: p.y, rx: 2, ry: 2 }, 1); }
-    var keyP = spot(bp.key) || freeIn(bp.areas[bp.areas.length - 1], 1); keyP.kind = 'key'; used.push(keyP);
-    var chests = [], pages = [], nooks = bp.nooks.slice(), pi = 0;
+    var keyP = null, chests = [], pages = [], nooks = bp.nooks.slice(), pi = 0;
+    if (!bp.bare) { keyP = spot(bp.key) || freeIn(bp.areas[bp.areas.length - 1], 1); keyP.kind = 'key'; used.push(keyP); } // a bare land (the final one) has no key, chests or pages
     function nextSpot() { while (nooks.length) { var p = spot(nooks.shift()); if (p) return p; } var a = bp.areas[(pi++ * 5 + 3) % bp.areas.length]; return freeIn(a, 1); }
-    for (i = 0; i < 9; i++) { var cp = nextSpot(); if (!cp) continue; cp.kind = 'chest'; cp.n = i; used.push(cp); chests.push(cp); }
-    for (i = 0; i < 5; i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
+    for (i = 0; i < (bp.bare ? 0 : 9); i++) { var cp = nextSpot(); if (!cp) continue; cp.kind = 'chest'; cp.n = i; used.push(cp); chests.push(cp); }
+    for (i = 0; i < (bp.bare ? 0 : 5); i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
     var b = bp.bossRoom;
-    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name };
+    (bp.braziers || []).forEach(function (p) { if (k.get(p.x, p.y) === DECO || k.get(p.x, p.y) === GROUND2) k.set(p.x, p.y, GROUND); });
+    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name, braziers: bp.braziers || [] };
   }
 
   /* =====================================================================
@@ -8561,7 +8615,30 @@ var LandMaps = (function () {
     };
   };
 
-  var SIZES = { L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
+  /* L11 · The Unwritten Throne — THE ROAD THROUGH THE FIRE (the finale).
+   * No creatures, no key, no treasure: a bonfire on a ledge, then one road climbing north across a sea of lava,
+   * lined both sides with standing pillars like an avenue of statues. Two round landings break the climb, and the
+   * throne room's gate is in sight from the very first step. Short, straight and grand: the walk is the ceremony. */
+  BP.L11 = function (k) {
+    var W = k.W, H = k.H, x, y, cx = 22;
+    k.rect(1, 1, W - 2, H - 2, WALL);
+    k.ell(cx, 42, 19, 33, WATER, 0.35);                                  // the lava sea
+    var nz = k.noise(4); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { var e = Math.min(x, W - 1 - x); if (e < 2 + nz(x, y) * 3) k.set(x, y, WALL); }
+    var fire = { x: cx - 2, y: 68 };
+    k.disc(cx, 68, 5.5, GROUND, 0.3);                                    // the bonfire ledge
+    k.rect(cx - 3, 18, 6, 50, GROUND);                                   // the causeway: shoulders...
+    k.rect(cx - 1, 18, 4, 50, PATH);                                     // ...and the road
+    [[cx + 0.5, 50, 5.5], [cx + 0.5, 32, 6]].forEach(function (l) { k.disc(l[0], l[1], l[2], GROUND, 0.2); k.disc(l[0], l[1], l[2] - 2.5, PATH); }); // two landings
+    var braziers = [];
+    for (y = 20; y < 64; y += 4) { if (Math.abs(y - 50) < 6 || Math.abs(y - 32) < 7) continue; braziers.push({ x: cx - 3, y: y }, { x: cx + 2, y: y }); } // the avenue of braziers
+    [[cx - 4, 50], [cx + 5, 50], [cx - 5, 32], [cx + 6, 32], [cx - 4, 18], [cx + 3, 18]].forEach(function (p) { braziers.push({ x: p[0], y: p[1] }); }); // round the landings, and either side of the gate
+    var boss = bossRoom(k, cx - 8, 3, 17, 11, 'S');
+    braziers.forEach(function (p) { k.set(p.x, p.y, GROUND); });
+    return { name: 'road through the fire', spawn: fire, bossRoom: boss, bare: true, fillPockets: true, braziers: braziers,
+      areas: [{ x: cx, y: 50, rx: 2, tier: 'BEG' }, { x: cx, y: 32, rx: 2, tier: 'PRG' }], key: null, nooks: [] };
+  };
+
+  var SIZES = { L11: [46, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
 
   function build(L, env) {
     var bpf = BP[L.id]; if (!bpf) return null;
@@ -8603,6 +8680,7 @@ var Overworld = (function () {
     L7: { name: 'thorn', ground: ['#34301f', '#2e2a1c'], path: '#5a4e34', wall: 'tree', water: '#1f3340', deco: ['stump', 'rock-small'], wallDensity: 0.36, waterDensity: 0.03 },
     L8: { name: 'citadel', ground: ['#2e2c2a', '#292725'], path: '#4a4640', wall: 'wall', water: '#14181e', deco: ['rock-small', 'bones'], wallDensity: 0.34, waterDensity: 0.04 },
     L9: { name: 'spire', ground: ['#2a2a32', '#25252d'], path: '#46444e', wall: 'rock', water: '#151a28', deco: ['rock-small', 'bones'], wallDensity: 0.34, waterDensity: 0.05 },
+    L11: { name: 'throne', ground: ['#2a2230', '#251e2b'], path: '#4a4050', wall: 'rock', water: '#b8441e', deco: ['ember', 'bones'], wallDensity: 0.3, waterDensity: 0.1, lava: true, decoP: 0.03 },
     L10: { name: 'frost', ground: ['#3a4048', '#343a42'], path: '#5a6068', wall: 'rock', water: '#2a4458', deco: ['rock-small', 'bones'], wallDensity: 0.32, waterDensity: 0.1 },
     def: { name: 'wild', ground: ['#2e342c', '#293026'], path: '#4a4030', wall: 'tree', water: '#1b2b3a', deco: ['rock-small', 'bones'], wallDensity: 0.3, waterDensity: 0.05 }
   };
@@ -8861,7 +8939,8 @@ var Overworld = (function () {
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
-    R = { container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
+    var braz = {}; (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
+    R = { braz: braz, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
       player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0, clock: 0, act: null }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
@@ -8890,7 +8969,7 @@ var Overworld = (function () {
       base.kind = 'creature'; base.wander = 0; base.state = 'idle'; base.lost = 0; base.stun = 0; ents.push(base);
     });
     ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
-    if (!w.key) ents.push({ kind: 'key', x: map.key.x * T + T / 2, y: map.key.y * T + T / 2, anim: 0 });
+    if (!w.key && map.key) ents.push({ kind: 'key', x: map.key.x * T + T / 2, y: map.key.y * T + T / 2, anim: 0 });
     map.chests.forEach(function (c) { if (w.chests.indexOf(c.n) < 0) ents.push({ kind: 'chest', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
     map.pages.forEach(function (c) { if (w.pages.indexOf(c.n) < 0) ents.push({ kind: 'page', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
     return ents;
@@ -8937,11 +9016,11 @@ var Overworld = (function () {
   }
 
   /* ---------- simulation ---------- */
-  function solidAt(px, py) { var tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return true; var t = R.map.tiles[ty * MW + tx]; if (t === G.GATE) return !gateOpen(); if (t === G.FIRE) return true; return !!SOLID[t]; }
+  function solidAt(px, py) { var tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return true; var t = R.map.tiles[ty * MW + tx]; if (R.braz[ty * MW + tx]) return true; if (t === G.GATE) return !gateOpen(); if (t === G.FIRE) return true; return !!SOLID[t]; }
   function blocked(x, y) { // feet hitbox 10x6 around (x, y+4)
     return solidAt(x - 5, y + 1) || solidAt(x + 5, y + 1) || solidAt(x - 5, y + 7) || solidAt(x + 5, y + 7);
   }
-  function gateOpen() { return !!(R.w.key && R.opts.bossOpen && R.opts.bossOpen()); }
+  function gateOpen() { return !!((R.w.key || !R.map.key) && R.opts.bossOpen && R.opts.bossOpen()); } // a land with no key (the final land) has an open gate
   function frame(now) {
     if (!R) return;
     var dt = Math.max(0, Math.min(50, now - R.last)) / 1000; R.last = now; R.t += dt;
@@ -9068,7 +9147,8 @@ var Overworld = (function () {
     }
     if (SP.ready && SP.overlay) SP.overlay(ctx, th, x0, y0, x1, y1, camx, camy, R.map.tiles, R.seen, R.t);
     // entities sorted by y
-    var list = R.ents.slice(); list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
+    var list = R.ents.slice(); (R.map.braziers || []).forEach(function (b, bi) { list.push({ kind: 'brazier', x: b.x * T + T / 2, y: b.y * T + T / 2 + 4, seed: bi }); });
+    list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
     list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving && !R.cut, anim: p.anim, clock: p.clock, act: p.act, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
     list.sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (e) { if (e.kind !== 'hero' && !R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'corpse') drawCorpse(ctx, e, e.x - camx, e.y - camy); else drawEnt(ctx, e, e.x - camx, e.y - camy); });
@@ -9079,6 +9159,14 @@ var Overworld = (function () {
     for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
     var grad = ctx.createRadialGradient(p.x - camx, p.y - camy, T * 2, p.x - camx, p.y - camy, T * 7.5);
     grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = grad; ctx.fillRect(0, 0, cvw, cvh);
+    // brazier light burns through the dark: warm pools along the road wherever it has been seen
+    if (R.map.braziers && R.map.braziers.length) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      R.map.braziers.forEach(function (b, bi) { if (!R.seen[b.y * MW + b.x]) return; var bx = b.x * T + T / 2 - camx, by = b.y * T - 6 - camy; if (bx < -60 || by < -60 || bx > cvw + 60 || by > cvh + 60) return;
+        var fl = 0.75 + Math.sin(R.t * 7.3 + bi * 1.7) * 0.12 + Math.sin(R.t * 13.1 + bi) * 0.08, gr = ctx.createRadialGradient(bx, by, 1, bx, by, T * 3.2);
+        gr.addColorStop(0, 'rgba(255,150,60,' + (0.34 * fl) + ')'); gr.addColorStop(0.5, 'rgba(255,100,30,' + (0.12 * fl) + ')'); gr.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = gr; ctx.fillRect(bx - T * 3.3, by - T * 3.3, T * 6.6, T * 6.6); });
+      ctx.restore();
+    }
     // minimap (explored tiles only)
     if (cvw >= 300) {
     var mx = cvw - MW - 4, my = 4; ctx.fillStyle = 'rgba(10,8,12,.75)'; ctx.fillRect(mx - 2, my - 2, MW + 4, MH + 4);
@@ -9147,6 +9235,18 @@ var Overworld = (function () {
     if (!d) { ctx.fillStyle = '#3a3030'; ctx.fillRect(x - 6, y, 12, 4); return; }
     var f = d.frames[0]; ctx.save(); ctx.translate(x, y + 3); ctx.rotate(e.dir < 0 ? Math.PI / 2 : -Math.PI / 2); ctx.globalAlpha = 0.8; ctx.drawImage(d.img || SP.img, f.x, f.y, f.w, f.h, -f.w / 2, -f.h + 2, f.w, f.h); ctx.restore();
   }
+  /* a standing brazier: stone plinth, iron bowl, living flame (drawn, not a sprite sheet) */
+  function drawBrazier(ctx, e, x, y) {
+    var t = R.t + e.seed * 0.37, fl = Math.sin(t * 9) * 0.6 + Math.sin(t * 15.7) * 0.4;
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x, y + 1, 7, 2.5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2a2430'; ctx.fillRect(x - 4, y - 9, 8, 10); ctx.fillStyle = '#3a3242'; ctx.fillRect(x - 5, y - 10, 10, 2); ctx.fillRect(x - 5, y - 1, 10, 2); // plinth
+    ctx.fillStyle = '#1a1416'; ctx.beginPath(); ctx.moveTo(x - 7, y - 14); ctx.lineTo(x + 7, y - 14); ctx.lineTo(x + 4, y - 10); ctx.lineTo(x - 4, y - 10); ctx.closePath(); ctx.fill(); // bowl
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - 7, y - 15, 14, 1.5);
+    var h = 11 + fl * 2;
+    [['rgba(255,90,20,.9)', 6, h], ['rgba(255,170,60,.95)', 4, h * 0.72], ['rgba(255,240,190,.95)', 2, h * 0.42]].forEach(function (f, j) {
+      var w = f[1], hh = f[2], sway = Math.sin(t * 6 + j) * 1.2; ctx.fillStyle = f[0]; ctx.beginPath(); ctx.moveTo(x - w, y - 15); ctx.quadraticCurveTo(x - w * 0.8, y - 15 - hh * 0.6, x + sway, y - 15 - hh); ctx.quadraticCurveTo(x + w * 0.8, y - 15 - hh * 0.6, x + w, y - 15); ctx.closePath(); ctx.fill();
+    });
+  }
   function drawEnt(ctx, e, x, y) {
     var aid = SP.actorFor && SP.actorFor(e), ad = aid && SP.actor(aid);
     if (ad) {
@@ -9156,6 +9256,7 @@ var Overworld = (function () {
       var tint = e.kind === 'hero' && e.stage > 1 && aid.indexOf('cr:') !== 0 ? (e.stage === 3 ? 'rgba(255,200,80,.22)' : 'rgba(140,210,255,.2)') : null;
       if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
     }
+    if (e.kind === 'brazier') { drawBrazier(ctx, e, x, y); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
     if (name) { if (e.kind === 'hero' || e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, e.kind === 'boss' ? 10 : 6, e.kind === 'boss' ? 4 : 2.5, 0, 0, 7); ctx.fill(); }
       else if (e.kind === 'key' || e.kind === 'page') { y += Math.sin(e.anim) * 1.5; }
@@ -9349,8 +9450,8 @@ var Overworld = (function () {
   };
 
   /* ---------- painted terrain per land (tools/pack_terrain.py) ---------- */
-  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10' }, terr = {};
-  var TTINT = {}; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
+  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10', throne: 'L2' }, terr = {};
+  var TTINT = { throne: 'rgba(70,30,110,.30)' }; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
   function terrainFor(th) {
     var id = TSET[th]; if (!id || !window.TERRAIN_DEFS || !TERRAIN_DEFS[id]) return null;
     var t = terr[th]; if (t) return t.ready ? t : null;
@@ -9552,11 +9653,15 @@ var Overworld = (function () {
     var i = LANDS.indexOf(L); if (i <= 0) return true;
     if (!S) return false;
     if (teacherPreview()) return true;
+    if (L.finale) return finaleSeals() === finaleSealCount() || !!(S.visited && S.visited[L.id]);
     if (S.bossKills && S.bossKills[LANDS[i - 1].id]) return true;
     if (S.visited && S.visited[L.id]) return true;
     return !!(S.teacherOpen && S.teacherOpen.indexOf(L.id) >= 0);
   }
+  function finaleSealCount() { return LANDS.filter(function (L) { return !L.finale; }).length; }
+  function finaleSeals() { return LANDS.filter(function (L) { return !L.finale && S && S.bossKills && S.bossKills[L.id]; }).length; }
   function lockReason(L) {
+    if (L.finale) return 'Sealed by ten seals: the boss of every land. ' + finaleSeals() + ' of ' + finaleSealCount() + ' broken.';
     var i = LANDS.indexOf(L), P = LANDS[i - 1];
     return 'Locked · slay ' + esc(P.boss.name) + ' in ' + esc(P.name) + (S && S.klass ? ', or wait for your teacher to open it' : '') + '.';
   }
@@ -9579,7 +9684,8 @@ var Overworld = (function () {
   /* ---------- perks from level and gear ---------- */
   function itemById(id) { return ITEMS.filter(function (i) { return i.id === id; })[0]; }
   function itemCount(id) { return (S && S.items && S.items[id]) || 0; }
-  function levelTitle() { var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
+  function isLordOfLore() { return !!(S && S.bossKills && S.bossKills[FINAL_ID]); }
+  function levelTitle() { if (isLordOfLore()) return LEVEL.crown; var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
   function levelLoreMult() { return 1 + LEVEL.lorePct / 100 * ((S.level || 1) - 1); }
   function timeMult() { var m = 1 + LEVEL.timePct / 100 * ((S.level || 1) - 1); if (owns('stillness')) m += 0.75; else if (owns('lichglass')) m += 0.4; else if (owns('sundial')) m += 0.2; return m; }
   function heroSpeed() { var v = 58 + LEVEL.speed * ((S.level || 1) - 1); if (owns('boots')) v *= 1.12; if (owns('ghost')) v *= 1.08; return v; }
@@ -9625,7 +9731,7 @@ var Overworld = (function () {
   }
   function logAttempt(q, raw, result) {
     var B = UI.battle; if (!B || !S || !S.klass) return;
-    Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: B.foe.level, gen: q.key || '', boss: !!B.isBoss,
+    Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: q.outcome || B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: q.level || B.foe.level, gen: q.key || '', boss: !!B.isBoss,
       question: q.prompt, typed: raw, result: result, lore: S.lore, streak: S.streak, practice: !!B.practice });
   }
   setInterval(function () { // play-time clock: counts only while the tab is visible and the student is active
@@ -9674,7 +9780,7 @@ var Overworld = (function () {
     if (!S) { hudEl.hidden = true; return; }
     hudEl.hidden = false;
     var w = el('div', 'hud-in');
-    w.appendChild(el('span', 'brand', 'Lorebound'));
+    w.appendChild(el('span', 'brand', 'LoreBounD'));
     if (S.hero) { var hp = el('span', 'hud-hero', heroPortrait('tiny')); hp.title = 'Chronicle'; hp.onclick = function () { if (!(UI.screen === 'battle' && UI.battle && !UI.battle.done)) go('chronicle'); }; w.appendChild(hp); }
     w.appendChild(el('span', 'who', esc(S.hero ? S.hero.name : S.name) + (S.hero ? '<span class="who-sub">' + esc(S.name) + '</span>' : '')));
     w.appendChild(el('span', 'lore-pill', '<span class="orb"></span>' + n(S.lore) + ' Lore'));
@@ -9711,7 +9817,7 @@ var Overworld = (function () {
     var t = el('div', 'title');
     if (window.ART_IMG && ART_IMG.title) { var bg = el('div', 'title-bg'); bg.style.backgroundImage = 'url(' + ART_IMG.title + ')'; t.appendChild(bg); }
     t.appendChild(el('div', 'eyebrow', 'Math 10C · a practice world'));
-    t.appendChild(el('h1', null, 'Lorebound'));
+    t.appendChild(el('h1', null, 'LoreBounD'));
     t.appendChild(el('div', 'sub', 'Ten lands. Every creature is a problem. Every wrong answer is a death.'));
     app.appendChild(t);
     var f = el('div', 'title-form');
@@ -9825,15 +9931,19 @@ var Overworld = (function () {
     document.body.classList.add('in-map');
     S.seenOpen = S.seenOpen || {};
     var fresh = [];
+    var regionOf = function (L) { return L.region || L.id; }, landOf = {};
     var lands = LANDS.map(function (L) {
       var open = isOpen(L), cleared = open && landCleared(L), kills = L.creatures.filter(function (c) { return S.kills[c.id]; }).length;
+      landOf[regionOf(L)] = L.id;
       if (open && !S.seenOpen[L.id]) fresh.push(L.id);
-      return { id: L.id, name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject, locked: !open, cleared: cleared, fresh: open && !S.seenOpen[L.id],
+      if (L.finale) return { id: regionOf(L), name: open ? L.name : 'A land without a name', sub: open ? 'Beyond the ten lands · ' + L.subject : 'Beyond the ten lands', locked: !open, cleared: cleared, fresh: open && !S.seenOpen[L.id],
+        status: !open ? lockReason(L) : cleared ? 'You hold the throne ✓' : 'The Hollow Lord waits on the throne' };
+      return { id: regionOf(L), name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject, locked: !open, cleared: cleared, fresh: open && !S.seenOpen[L.id],
         status: !open ? lockReason(L) : cleared ? 'Boss slain ✓' : kills + ' of ' + L.creatures.length + ' creatures slain' };
     });
-    var cur = isOpen(landById(S.lastLand)) ? S.lastLand : 'L1';
-    app.appendChild(WorldMap.build({ lands: lands, current: cur, dropped: S.dropped ? S.dropped.land : null, heroNode: actorCanvas(Overworld.SP.heroActorId(heroClass().id, heroStage()), 'map-hero'),
-      onEnter: function (id) { S.lastLand = id; UI.landFresh = true; go('land', { land: id }); } }));
+    var curL = isOpen(landById(S.lastLand)) ? landById(S.lastLand) : LANDS[0], dropL = S.dropped ? landById(S.dropped.land) : null;
+    app.appendChild(WorldMap.build({ lands: lands, current: regionOf(curL), dropped: dropL ? regionOf(dropL) : null, heroNode: actorCanvas(Overworld.SP.heroActorId(heroClass().id, heroStage()), 'map-hero'),
+      onEnter: function (rid) { var id = landOf[rid] || rid; S.lastLand = id; UI.landFresh = true; go('land', { land: id }); } }));
     fresh.forEach(function (id) { S.seenOpen[id] = 1; });
     syncUnlocks(false);
   }
@@ -9899,7 +10009,7 @@ var Overworld = (function () {
     // boss
     var B = L.boss, open = bossOpen(L);
     var bc = el('div', 'panel boss-card');
-    bc.innerHTML = '<div class="foe">' + portrait(B.sigil) + '<div><div class="tag" style="color:var(--boss)">Boss · ' + B.gens.length + ' questions · ' + n(LEVELS.BOSS.lore) + ' Lore</div><h2>' + esc(B.name) + '</h2><p class="muted" style="margin:6px 0 0">' + esc(B.flavor) + '</p>' + (S.dropped && S.dropped.creature === B.id ? '<p class="drop-pill" style="display:inline-block">' + n(S.dropped.amount) + ' Lore lies here</p>' : '') + '</div></div>';
+    bc.innerHTML = '<div class="foe">' + portrait(B.sigil) + '<div><div class="tag" style="color:var(--boss)">' + (B.finale ? 'Final boss · ' + B.gens.length + ' Mastery questions, one per outcome · ' : 'Boss · ' + B.gens.length + ' questions · ') + n((LEVELS[B.level] || LEVELS.BOSS).lore) + ' Lore</div><h2>' + esc(B.name) + '</h2><p class="muted" style="margin:6px 0 0">' + esc(B.flavor) + '</p>' + (S.dropped && S.dropped.creature === B.id ? '<p class="drop-pill" style="display:inline-block">' + n(S.dropped.amount) + ' Lore lies here</p>' : '') + '</div></div>';
     var act = el('div', 'actions', ''); act.style.marginTop = '12px';
     var bb = el('button', 'btn', open ? 'Seal broken — find the gate' : 'Sealed'); bb.type = 'button'; bb.disabled = !open;
     bb.onclick = function () { toast('The gate lies at the far side of ' + esc(theLand(L)) + '. Bring the key.'); };
@@ -10026,7 +10136,8 @@ var Overworld = (function () {
   function closeSatchel() { if (UI.satchel) { UI.satchel.remove(); UI.satchel = null; } try { if (!UI.modal) Overworld.freeze(false); } catch (e) {} renderHud(); }
 
   function startBattle(L, c, isBoss, inst, practice) {
-    var qs = (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
+    var qs = c.pool ? c.pool.map(function (p) { var q = QGen.make(p.gens[Math.floor(Math.random() * p.gens.length)]); q.outcome = p.outcome; q.level = 'MAS'; return q; })
+      : (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
     var home = UI.land;
     UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null, practice: !!practice, home: home };
     if (!practice) { S.met = S.met || {}; S.met[c.id] = 1; }
@@ -10099,7 +10210,7 @@ var Overworld = (function () {
     var head = el('div', 'panel');
     var foeEl = el('div', 'foe'); foeEl.style.setProperty('--lvl', lvlColor);
     var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
-    var tagTxt = (B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore');
+    var tagTxt = (foe.finale ? 'Final boss · question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' · Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore');
     foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + tagTxt + '</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
     if (window.Overworld && Overworld.SP.actor && Overworld.SP.actor('cr:' + (foe.sigil || foe.id))) {
@@ -10196,17 +10307,18 @@ var Overworld = (function () {
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
-    var nextL = B.isBoss ? LANDS[LANDS.indexOf(B.land) + 1] : null, wasOpen = nextL && isOpen(nextL);
+    var openBefore = B.isBoss ? LANDS.filter(isOpen).map(function (L) { return L.id; }) : null;
     if (B.isBoss) { S.bossKills[B.land.id] = (S.bossKills[B.land.id] || 0) + 1; if (S.titles.indexOf(foe.title) < 0) S.titles.push(foe.title); }
     if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
     B.done = true; B.phase = 'result'; B.outcome = 'won'; sfx('correct');
     var html = '<h2>' + (B.isBoss ? esc(foe.name) + ' falls' : esc(foe.name) + ' is slain') + '</h2><div class="gain">+' + n(rw.amount) + ' Lore</div><div class="breakdown">' + rw.parts.map(function (p) { return p.k + ' ' + p.m; }).join(' · ') + '</div>' +
       (reclaimed ? '<p><b style="color:var(--lore)">You reclaim ' + n(reclaimed) + ' Lore</b> from where you fell.</p>' : '') +
-      (B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
-      (nextL && !wasOpen && isOpen(nextL) ? '<p class="land-opens">A new land opens on the world map: <b>' + esc(nextL.name) + '</b>.</p>' : '') +
+      (foe.finale ? '<p>The throne is empty, and then it is not. You are the <b>' + esc(LEVEL.crown) + '</b>.</p>' : B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
+      (openBefore ? LANDS.filter(function (L) { return isOpen(L) && openBefore.indexOf(L.id) < 0; }).map(function (L) { return '<p class="land-opens">' + (L.finale ? 'The last seal breaks. Far to the west a road opens through the fire: <b>' + esc(L.name) + '</b>.' : 'A new land opens on the world map: <b>' + esc(L.name) + '</b>.') + '</p>'; }).join('') : '') +
       youTyped(B) + solutionBlock(q);
     var res = el('div', 'result win', html);
     res.appendChild(afterActions(true));
+    if (foe.finale) setTimeout(throneSplash, 400);
     B.result = res; render();
   }
   function shieldBreak(how) {
@@ -10258,6 +10370,19 @@ var Overworld = (function () {
     B.result = res; render();
   }
   function leavePractice() { var B = UI.battle; UI.battle = null; if (B) UI.land = B.home; UI.screen = 'bonfire'; UI.bonfireTab = 'beast'; render(); window.scrollTo(0, 0); }
+  /* the end of the road: the hero on the throne (painted per class when the art exists, else the stage-3 portrait, crowned) */
+  function throneSplash() {
+    var old = document.querySelector('.throne-splash'); if (old) old.remove();
+    var c = heroClass(), art = window.ART_IMG && ART_IMG['throne-' + c.id], hero = S.hero ? S.hero.name : S.name;
+    var sp = el('div', 'throne-splash' + (art ? ' painted' : ''));
+    sp.setAttribute('role', 'dialog'); sp.setAttribute('aria-label', 'You have become the Lord of Lore');
+    sp.innerHTML = (art ? '<img class="ts-art" src="' + art + '" alt="">' : '<div class="ts-seat"><div class="ts-crown">♛</div>' + (ART_IMG && ART_IMG['hero-' + c.id + '-3'] ? '<img src="' + ART_IMG['hero-' + c.id + '-3'] + '" alt="">' : '') + '</div>') +
+      '<div class="ts-glow"></div><div class="ts-cap"><div class="eyebrow">' + esc(hero) + ' · ' + esc(c.name) + '</div><h1>The lands have been vanquished,<br>you have become the Lord of Lore!</h1></div>';
+    var b = el('button', 'btn big ts-rise', 'Rise, ' + esc(LEVEL.crown)); b.type = 'button'; b.onclick = function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 600); };
+    sp.querySelector('.ts-cap').appendChild(b);
+    document.body.appendChild(sp); sfx('bonfire');
+    setTimeout(function () { try { b.focus(); } catch (e) {} }, 1200);
+  }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
     var label = B.outcome === 'died' && B.land.explore === 2 ? 'Wake at the bonfire' : won ? 'Return to ' + esc(theLand(B.land)) : 'Back to ' + esc(theLand(B.land));
@@ -10603,7 +10728,8 @@ var Overworld = (function () {
       if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
     }
     pn.appendChild(row); app.appendChild(pn);
-    var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') + '</div>' +
+    var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') +
+      '<span class="crown' + (isLordOfLore() ? ' got' : '') + '"><b>♛</b> ' + esc(LEVEL.crown) + ' <i>' + (isLordOfLore() ? 'yours' : 'no level reaches it: slay the final boss') + '</i></span></div>' +
       '<p class="muted">Every level costs more than the last (' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore). Lore spent on levels, like Lore spent on gear, can never be lost.</p>';
     app.appendChild(ladder);
   }
@@ -10675,6 +10801,7 @@ var Overworld = (function () {
     app.appendChild(campHall('help', 'Rules', 'How Lorebound works.', function () { go('bonfire'); }));
     app.appendChild(el('div', 'panel', '<ul class="rules">' +
       '<li><b>Each land is a unit of Math 10C.</b> Each creature is one outcome at one level: Beginning, Progressing or Mastery. The same creature always asks the same kind of question, but never the same numbers.</li>' +
+      '<li><b>Ten bosses are ten seals.</b> Slay the boss of every land and an eleventh opens in the far west: the Unwritten Throne, where the Hollow Lord asks one Mastery question from every outcome. Answer them all and you become the <b>Lord of Lore</b>.</li>' +
       '<li><b>To fight is to answer.</b> Right answer: the creature dies and you earn Lore. Wrong answer: you die.</li>' +
       '<li><b>When you die, the Lore you were carrying drops where you fell.</b> Defeat that same creature to take it back. If you die anywhere before you do, that Lore is gone forever.</li>' +
       '<li><b>Lore you spend is safe.</b> Rest at a bonfire to <b>imbue Lore into Legacy</b> (level up: more Lore per kill, more time per question, faster feet) and to buy gear at the Forge: Ward keeps you alive, Insight helps you understand, Greed pays more, Swiftness outruns, Patience slows the clock. Tier 2 needs level ' + LEVEL.gate[2] + '; tier 3 needs level ' + LEVEL.gate[3] + ' and a boss kill.</li>' +
@@ -10812,6 +10939,7 @@ var Overworld = (function () {
     p.appendChild(el('p', 'muted', 'Land 1 is always open, and a student opens the next land on their own by slaying the boss of the land before it. Open a land here to let ' + (LG.klass ? 'everyone in ' + esc(LG.klass) : 'every class') + ' in early, as the semester reaches that unit. Students see the change within a minute or two. A land a student has already entered stays open for them.'));
     var row = el('div', 'lands-toggle');
     LANDS.forEach(function (L, i) {
+      if (L.finale) return; // opens only when a student has slain all ten bosses
       var on = i === 0 || mine.indexOf(L.id) >= 0, viaAll = key !== '*' && all.indexOf(L.id) >= 0;
       var b = el('button', 'land-chip' + (on || viaAll ? ' on' : '') + (i === 0 || viaAll ? ' fixed' : ''), '<span class="u">' + L.unit + '</span><span class="nm">' + esc(L.name) + '</span><span class="sj">' + (i === 0 ? 'always open' : viaAll ? 'open for every class' : on ? 'open' : 'locked') + '</span>');
       b.type = 'button'; b.disabled = i === 0 || viaAll; b.setAttribute('aria-pressed', on || viaAll ? 'true' : 'false');

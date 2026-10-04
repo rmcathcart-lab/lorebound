@@ -28,6 +28,7 @@ var Overworld = (function () {
     L7: { name: 'thorn', ground: ['#34301f', '#2e2a1c'], path: '#5a4e34', wall: 'tree', water: '#1f3340', deco: ['stump', 'rock-small'], wallDensity: 0.36, waterDensity: 0.03 },
     L8: { name: 'citadel', ground: ['#2e2c2a', '#292725'], path: '#4a4640', wall: 'wall', water: '#14181e', deco: ['rock-small', 'bones'], wallDensity: 0.34, waterDensity: 0.04 },
     L9: { name: 'spire', ground: ['#2a2a32', '#25252d'], path: '#46444e', wall: 'rock', water: '#151a28', deco: ['rock-small', 'bones'], wallDensity: 0.34, waterDensity: 0.05 },
+    L11: { name: 'throne', ground: ['#2a2230', '#251e2b'], path: '#4a4050', wall: 'rock', water: '#b8441e', deco: ['ember', 'bones'], wallDensity: 0.3, waterDensity: 0.1, lava: true, decoP: 0.03 },
     L10: { name: 'frost', ground: ['#3a4048', '#343a42'], path: '#5a6068', wall: 'rock', water: '#2a4458', deco: ['rock-small', 'bones'], wallDensity: 0.32, waterDensity: 0.1 },
     def: { name: 'wild', ground: ['#2e342c', '#293026'], path: '#4a4030', wall: 'tree', water: '#1b2b3a', deco: ['rock-small', 'bones'], wallDensity: 0.3, waterDensity: 0.05 }
   };
@@ -286,7 +287,8 @@ var Overworld = (function () {
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
-    R = { container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
+    var braz = {}; (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
+    R = { braz: braz, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
       player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0, clock: 0, act: null }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
@@ -315,7 +317,7 @@ var Overworld = (function () {
       base.kind = 'creature'; base.wander = 0; base.state = 'idle'; base.lost = 0; base.stun = 0; ents.push(base);
     });
     ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
-    if (!w.key) ents.push({ kind: 'key', x: map.key.x * T + T / 2, y: map.key.y * T + T / 2, anim: 0 });
+    if (!w.key && map.key) ents.push({ kind: 'key', x: map.key.x * T + T / 2, y: map.key.y * T + T / 2, anim: 0 });
     map.chests.forEach(function (c) { if (w.chests.indexOf(c.n) < 0) ents.push({ kind: 'chest', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
     map.pages.forEach(function (c) { if (w.pages.indexOf(c.n) < 0) ents.push({ kind: 'page', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
     return ents;
@@ -362,11 +364,11 @@ var Overworld = (function () {
   }
 
   /* ---------- simulation ---------- */
-  function solidAt(px, py) { var tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return true; var t = R.map.tiles[ty * MW + tx]; if (t === G.GATE) return !gateOpen(); if (t === G.FIRE) return true; return !!SOLID[t]; }
+  function solidAt(px, py) { var tx = Math.floor(px / T), ty = Math.floor(py / T); if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) return true; var t = R.map.tiles[ty * MW + tx]; if (R.braz[ty * MW + tx]) return true; if (t === G.GATE) return !gateOpen(); if (t === G.FIRE) return true; return !!SOLID[t]; }
   function blocked(x, y) { // feet hitbox 10x6 around (x, y+4)
     return solidAt(x - 5, y + 1) || solidAt(x + 5, y + 1) || solidAt(x - 5, y + 7) || solidAt(x + 5, y + 7);
   }
-  function gateOpen() { return !!(R.w.key && R.opts.bossOpen && R.opts.bossOpen()); }
+  function gateOpen() { return !!((R.w.key || !R.map.key) && R.opts.bossOpen && R.opts.bossOpen()); } // a land with no key (the final land) has an open gate
   function frame(now) {
     if (!R) return;
     var dt = Math.max(0, Math.min(50, now - R.last)) / 1000; R.last = now; R.t += dt;
@@ -493,7 +495,8 @@ var Overworld = (function () {
     }
     if (SP.ready && SP.overlay) SP.overlay(ctx, th, x0, y0, x1, y1, camx, camy, R.map.tiles, R.seen, R.t);
     // entities sorted by y
-    var list = R.ents.slice(); list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
+    var list = R.ents.slice(); (R.map.braziers || []).forEach(function (b, bi) { list.push({ kind: 'brazier', x: b.x * T + T / 2, y: b.y * T + T / 2 + 4, seed: bi }); });
+    list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
     list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving && !R.cut, anim: p.anim, clock: p.clock, act: p.act, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
     list.sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (e) { if (e.kind !== 'hero' && !R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'corpse') drawCorpse(ctx, e, e.x - camx, e.y - camy); else drawEnt(ctx, e, e.x - camx, e.y - camy); });
@@ -504,6 +507,14 @@ var Overworld = (function () {
     for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
     var grad = ctx.createRadialGradient(p.x - camx, p.y - camy, T * 2, p.x - camx, p.y - camy, T * 7.5);
     grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = grad; ctx.fillRect(0, 0, cvw, cvh);
+    // brazier light burns through the dark: warm pools along the road wherever it has been seen
+    if (R.map.braziers && R.map.braziers.length) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      R.map.braziers.forEach(function (b, bi) { if (!R.seen[b.y * MW + b.x]) return; var bx = b.x * T + T / 2 - camx, by = b.y * T - 6 - camy; if (bx < -60 || by < -60 || bx > cvw + 60 || by > cvh + 60) return;
+        var fl = 0.75 + Math.sin(R.t * 7.3 + bi * 1.7) * 0.12 + Math.sin(R.t * 13.1 + bi) * 0.08, gr = ctx.createRadialGradient(bx, by, 1, bx, by, T * 3.2);
+        gr.addColorStop(0, 'rgba(255,150,60,' + (0.34 * fl) + ')'); gr.addColorStop(0.5, 'rgba(255,100,30,' + (0.12 * fl) + ')'); gr.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = gr; ctx.fillRect(bx - T * 3.3, by - T * 3.3, T * 6.6, T * 6.6); });
+      ctx.restore();
+    }
     // minimap (explored tiles only)
     if (cvw >= 300) {
     var mx = cvw - MW - 4, my = 4; ctx.fillStyle = 'rgba(10,8,12,.75)'; ctx.fillRect(mx - 2, my - 2, MW + 4, MH + 4);
@@ -572,6 +583,18 @@ var Overworld = (function () {
     if (!d) { ctx.fillStyle = '#3a3030'; ctx.fillRect(x - 6, y, 12, 4); return; }
     var f = d.frames[0]; ctx.save(); ctx.translate(x, y + 3); ctx.rotate(e.dir < 0 ? Math.PI / 2 : -Math.PI / 2); ctx.globalAlpha = 0.8; ctx.drawImage(d.img || SP.img, f.x, f.y, f.w, f.h, -f.w / 2, -f.h + 2, f.w, f.h); ctx.restore();
   }
+  /* a standing brazier: stone plinth, iron bowl, living flame (drawn, not a sprite sheet) */
+  function drawBrazier(ctx, e, x, y) {
+    var t = R.t + e.seed * 0.37, fl = Math.sin(t * 9) * 0.6 + Math.sin(t * 15.7) * 0.4;
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x, y + 1, 7, 2.5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2a2430'; ctx.fillRect(x - 4, y - 9, 8, 10); ctx.fillStyle = '#3a3242'; ctx.fillRect(x - 5, y - 10, 10, 2); ctx.fillRect(x - 5, y - 1, 10, 2); // plinth
+    ctx.fillStyle = '#1a1416'; ctx.beginPath(); ctx.moveTo(x - 7, y - 14); ctx.lineTo(x + 7, y - 14); ctx.lineTo(x + 4, y - 10); ctx.lineTo(x - 4, y - 10); ctx.closePath(); ctx.fill(); // bowl
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - 7, y - 15, 14, 1.5);
+    var h = 11 + fl * 2;
+    [['rgba(255,90,20,.9)', 6, h], ['rgba(255,170,60,.95)', 4, h * 0.72], ['rgba(255,240,190,.95)', 2, h * 0.42]].forEach(function (f, j) {
+      var w = f[1], hh = f[2], sway = Math.sin(t * 6 + j) * 1.2; ctx.fillStyle = f[0]; ctx.beginPath(); ctx.moveTo(x - w, y - 15); ctx.quadraticCurveTo(x - w * 0.8, y - 15 - hh * 0.6, x + sway, y - 15 - hh); ctx.quadraticCurveTo(x + w * 0.8, y - 15 - hh * 0.6, x + w, y - 15); ctx.closePath(); ctx.fill();
+    });
+  }
   function drawEnt(ctx, e, x, y) {
     var aid = SP.actorFor && SP.actorFor(e), ad = aid && SP.actor(aid);
     if (ad) {
@@ -581,6 +604,7 @@ var Overworld = (function () {
       var tint = e.kind === 'hero' && e.stage > 1 && aid.indexOf('cr:') !== 0 ? (e.stage === 3 ? 'rgba(255,200,80,.22)' : 'rgba(140,210,255,.2)') : null;
       if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
     }
+    if (e.kind === 'brazier') { drawBrazier(ctx, e, x, y); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
     if (name) { if (e.kind === 'hero' || e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, e.kind === 'boss' ? 10 : 6, e.kind === 'boss' ? 4 : 2.5, 0, 0, 7); ctx.fill(); }
       else if (e.kind === 'key' || e.kind === 'page') { y += Math.sin(e.anim) * 1.5; }

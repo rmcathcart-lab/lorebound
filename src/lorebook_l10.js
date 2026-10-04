@@ -118,7 +118,7 @@ LOREBOOK.L10 = (function () {
         { rule: 'SA_{\\text{cone}} = \\pi r^{2} + \\pi rs \\qquad SA_{\\text{pyramid}} = \\text{area of base} + \\text{area of triangular faces}' },
         { steps: ['h = 12,\\ d = 10 \\Rightarrow r = 5,\\quad s = \\sqrt{12^{2} + 5^{2}} = 13', 'V = \\tfrac{1}{3}\\pi(5)^{2}(12) = 100\\pi \\approx 314.2\\text{ cm}^{3}', 'SA = \\pi(5)^{2} + \\pi(5)(13) = 90\\pi \\approx 282.7\\text{ cm}^{2}'] }
       ] },
-    { title: 'The Buried Domes', lore: 'Under the snow lie the domes of the last city: floorless half-spheres, silos capped with cones, boilers rounded at both ends. Hjalmvor sleeps coiled around them. To know what they hold, add the pieces; to know what they cost, count only the skin.',
+    { title: 'The Buried Domes', lore: 'Under the snow lie the domes of the last city: floorless half-spheres, silos capped with cones, boilers rounded at both ends. Hjalmvor sleeps coiled around them. To know what they hold, add the pieces; to know what they cost, count only the skin. The wyrm guards the last fire for a reason: past it the ten seals end, and the road to the Lord of Lore begins.',
       math: [
         { h: 'Spheres and hemispheres' },
         { fig: sphereInCylinder() },

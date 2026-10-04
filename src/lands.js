@@ -115,7 +115,7 @@ var LandMaps = (function () {
       if (best) k.seg(p.x, p.y, best.x, best.y, 2, PATH, function (v) { return v !== GATE && v !== EDGE; });
       sealBoss(k, bp.bossRoom); dist = flood();
     }
-    var must = [bp.bossRoom.front].concat(bp.areas.map(function (a) { return { x: Math.round(a.x), y: Math.round(a.y) }; }), bp.nooks, [bp.key]);
+    var must = [bp.bossRoom.front].concat(bp.areas.map(function (a) { return { x: Math.round(a.x), y: Math.round(a.y) }; }), bp.nooks, bp.key ? [bp.key] : []);
     must.forEach(function (p) { if (k.floor(p.x, p.y) && dist[p.y * W + p.x] >= 0) return; if (!k.floor(p.x, p.y)) k.rect(p.x, p.y, 2, 2, GROUND); if (dist[p.y * W + p.x] < 0) link(p); });
     // floor that cannot be reached becomes wall (no unreachable clearings showing through the fog)
     if (bp.fillPockets !== false) { var b0 = bp.bossRoom; for (i = 0; i < W * H; i++) { var px0 = i % W, py0 = (i / W) | 0; if (dist[i] < 0 && !SOLID[t[i]] && !(px0 >= b0.x && px0 < b0.x + b0.w && py0 >= b0.y && py0 < b0.y + b0.h)) t[i] = WALL; } }
@@ -144,13 +144,14 @@ var LandMaps = (function () {
       });
     });
     function spot(p) { if (ok(p.x, p.y, 1)) return { x: p.x, y: p.y }; return freeIn({ x: p.x, y: p.y, rx: 2, ry: 2 }, 1); }
-    var keyP = spot(bp.key) || freeIn(bp.areas[bp.areas.length - 1], 1); keyP.kind = 'key'; used.push(keyP);
-    var chests = [], pages = [], nooks = bp.nooks.slice(), pi = 0;
+    var keyP = null, chests = [], pages = [], nooks = bp.nooks.slice(), pi = 0;
+    if (!bp.bare) { keyP = spot(bp.key) || freeIn(bp.areas[bp.areas.length - 1], 1); keyP.kind = 'key'; used.push(keyP); } // a bare land (the final one) has no key, chests or pages
     function nextSpot() { while (nooks.length) { var p = spot(nooks.shift()); if (p) return p; } var a = bp.areas[(pi++ * 5 + 3) % bp.areas.length]; return freeIn(a, 1); }
-    for (i = 0; i < 9; i++) { var cp = nextSpot(); if (!cp) continue; cp.kind = 'chest'; cp.n = i; used.push(cp); chests.push(cp); }
-    for (i = 0; i < 5; i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
+    for (i = 0; i < (bp.bare ? 0 : 9); i++) { var cp = nextSpot(); if (!cp) continue; cp.kind = 'chest'; cp.n = i; used.push(cp); chests.push(cp); }
+    for (i = 0; i < (bp.bare ? 0 : 5); i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
     var b = bp.bossRoom;
-    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name };
+    (bp.braziers || []).forEach(function (p) { if (k.get(p.x, p.y) === DECO || k.get(p.x, p.y) === GROUND2) k.set(p.x, p.y, GROUND); });
+    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name, braziers: bp.braziers || [] };
   }
 
   /* =====================================================================
@@ -600,7 +601,30 @@ var LandMaps = (function () {
     };
   };
 
-  var SIZES = { L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
+  /* L11 · The Unwritten Throne — THE ROAD THROUGH THE FIRE (the finale).
+   * No creatures, no key, no treasure: a bonfire on a ledge, then one road climbing north across a sea of lava,
+   * lined both sides with standing pillars like an avenue of statues. Two round landings break the climb, and the
+   * throne room's gate is in sight from the very first step. Short, straight and grand: the walk is the ceremony. */
+  BP.L11 = function (k) {
+    var W = k.W, H = k.H, x, y, cx = 22;
+    k.rect(1, 1, W - 2, H - 2, WALL);
+    k.ell(cx, 42, 19, 33, WATER, 0.35);                                  // the lava sea
+    var nz = k.noise(4); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { var e = Math.min(x, W - 1 - x); if (e < 2 + nz(x, y) * 3) k.set(x, y, WALL); }
+    var fire = { x: cx - 2, y: 68 };
+    k.disc(cx, 68, 5.5, GROUND, 0.3);                                    // the bonfire ledge
+    k.rect(cx - 3, 18, 6, 50, GROUND);                                   // the causeway: shoulders...
+    k.rect(cx - 1, 18, 4, 50, PATH);                                     // ...and the road
+    [[cx + 0.5, 50, 5.5], [cx + 0.5, 32, 6]].forEach(function (l) { k.disc(l[0], l[1], l[2], GROUND, 0.2); k.disc(l[0], l[1], l[2] - 2.5, PATH); }); // two landings
+    var braziers = [];
+    for (y = 20; y < 64; y += 4) { if (Math.abs(y - 50) < 6 || Math.abs(y - 32) < 7) continue; braziers.push({ x: cx - 3, y: y }, { x: cx + 2, y: y }); } // the avenue of braziers
+    [[cx - 4, 50], [cx + 5, 50], [cx - 5, 32], [cx + 6, 32], [cx - 4, 18], [cx + 3, 18]].forEach(function (p) { braziers.push({ x: p[0], y: p[1] }); }); // round the landings, and either side of the gate
+    var boss = bossRoom(k, cx - 8, 3, 17, 11, 'S');
+    braziers.forEach(function (p) { k.set(p.x, p.y, GROUND); });
+    return { name: 'road through the fire', spawn: fire, bossRoom: boss, bare: true, fillPockets: true, braziers: braziers,
+      areas: [{ x: cx, y: 50, rx: 2, tier: 'BEG' }, { x: cx, y: 32, rx: 2, tier: 'PRG' }], key: null, nooks: [] };
+  };
+
+  var SIZES = { L11: [46, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
 
   function build(L, env) {
     var bpf = BP[L.id]; if (!bpf) return null;

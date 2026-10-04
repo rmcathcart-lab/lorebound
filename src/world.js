@@ -3,7 +3,8 @@ var LEVELS = {
   BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 68, color: 'var(--beg)' },
   PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 113, color: 'var(--prg)' },
   MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 180, color: 'var(--mas)' },
-  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 180, color: 'var(--boss)' }
+  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 180, color: 'var(--boss)' },
+  FINAL: { name: 'Final boss', short: 'FINAL', lore: 1500, time: 180, color: 'var(--boss)' }
 };
 
 var LANDS = [
@@ -145,9 +146,31 @@ var LANDS = [
       { id: 'icecolossus', name: 'Ice Colossus', outcome: 'M3', group: 'M3', level: 'MAS', sigil: 'icecolossus', gen: 'M3_MAS', flavor: 'Built of spheres, cylinders and domes stacked on one another. Find the whole from its parts.' }
     ],
     boss: { id: 'boss10', name: 'Hjalmvor, the Winter Wyrm', level: 'BOSS', sigil: 'boss10', gens: ['M12_PRG', 'M3_PRG', 'M12_MAS', 'M3_MAS'], title: 'Winterbane',
-      flavor: 'The last wyrm, coiled around the last fire at the end of the world. Four questions, four hundred Lore, and nothing left beyond.' }
+      flavor: 'The last wyrm, coiled around the last fire at the end of the world. Four questions, four hundred Lore, and beyond it only the road west, to a throne that has waited a thousand years.' }
+  },
+  /* The final land: no creatures, no key, no chests. A bonfire, a road up through the lava to the throne room, and the
+   * Hollow Lord, who asks one Mastery question from every outcome of the course. Opens only when all ten bosses are slain. */
+  { id: 'L11', unit: 11, name: 'The Unwritten Throne', subject: 'Every outcome, at Mastery', open: true, explore: 2, banner: 'banner-l11', finale: true, region: 'final-boss',
+    blurb: 'Ten bosses were ten seals, and the last of them is broken. West of every land, past the black needle of the fortress, the road climbs through fire to the throne of the Lord of Lore. Nothing lives on the road. Nothing needs to.',
+    outcomes: {},
+    creatures: [],
+    boss: { id: 'boss11', name: 'The Hollow Lord', level: 'FINAL', sigil: 'boss11', finale: true, gens: [], title: 'Lord of Lore',
+      flavor: 'The last Lord of Lore gathered the Lore of every land and spent none of it, until it hollowed him out. He asks one question from every outcome you have ever faced, every one at Mastery. Answer them all and the throne is yours.' }
   }
 ];
+var FINAL_ID = 'L11';
+/* The Hollow Lord's question pool: for every outcome of the course, the Mastery generators that test it. One is picked
+ * at random per outcome each time the fight starts, so the questions change like any other creature's. */
+(function () {
+  var F = LANDS.filter(function (L) { return L.id === FINAL_ID; })[0], seen = {}, pool = [];
+  LANDS.forEach(function (L) { L.creatures.forEach(function (c) {
+    if (c.level !== 'MAS') return;
+    var key = c.outcome; // (M1 has no Mastery creature of its own: its Mastery work lives in the M2 Glacier Wight)
+    if (!seen[key]) { seen[key] = { outcome: key, gens: [] }; pool.push(seen[key]); }
+    if (seen[key].gens.indexOf(c.gen) < 0) seen[key].gens.push(c.gen);
+  }); });
+  F.boss.pool = pool; F.boss.gens = pool.map(function (p) { return p.gens[0]; });
+})();
 
 /* Gear: five branches, three tiers. Tier 2 needs tier 1 and level 3; tier 3 needs tier 2, level 6 and a boss kill. */
 var GEAR = [
@@ -195,7 +218,8 @@ var LEVEL = {
   max: 30,
   cost: function (lv) { return 60 * lv + 15 * lv * lv; },          // Lore to go from level lv to lv + 1
   lorePct: 3, timePct: 3, speed: 1,
-  titles: [[1, 'Wanderer'], [5, 'Delver'], [10, 'Pathfinder'], [15, 'Lorekeeper'], [20, 'Warden of the Lands'], [25, 'Mythic']],
+  titles: [[1, 'Wanderer'], [5, 'Delver'], [10, 'Pathfinder'], [15, 'Warden of the Lands'], [20, 'Lorekeeper'], [25, 'Mythic']],
+  crown: 'Lord of Lore',                                           // above every rung: earned by slaying the final boss, at any level
   gate: { 2: 3, 3: 6 }                                             // gear tier -> level required
 };
 

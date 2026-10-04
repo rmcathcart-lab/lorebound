@@ -40,7 +40,7 @@
         { p: 'Clear fractions and decimals first, each equation by its own multiplier: \\(\\tfrac{p}{3} + \\tfrac{q}{2} = 5\\) becomes \\(2p + 3q = 30\\) (× 6), and \\(0.5x + 0.4y = 1.7\\) becomes \\(5x + 4y = 17\\) (× 10).' },
         { p: 'If both variables vanish, read what is left: a true statement such as \\(0 = 0\\) means infinitely many solutions; a false one such as \\(0 = 21\\) means no solution.' }
       ] },
-    { title: 'The Quartermaster\'s Two Ledgers', lore: 'The Quartermaster of the Citadels keeps two ledgers and trusts neither alone. One counts the barrels; the other counts the silver they cost. When both ledgers agree on a single pair of numbers the stores are honest. When they cannot, someone in the Citadels is lying.',
+    { title: 'The Quartermaster\'s Two Ledgers', lore: 'The Quartermaster of the Citadels keeps two ledgers and trusts neither alone. One counts the barrels; the other counts the silver they cost. When both ledgers agree on a single pair of numbers the stores are honest. When they cannot, someone in the Citadels is lying. Each king believed the Lord of Lore would name him heir. Neither was named. The throne in the west does not choose kings; it waits for whoever masters every land.',
       math: [
         { h: 'Modelling with a system' },
         { p: 'Define each variable <b>with its unit</b>, write one equation for each condition, solve, then check the answer against the <b>words</b>: counts whole and positive, totals that add up.' },

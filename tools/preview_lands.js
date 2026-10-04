@@ -10,7 +10,7 @@ for(const L of ctx.LANDS){ if(want.length&&want.indexOf(L.id)<0) continue; if(!c
   // checks: reach with gate open and closed
   function flood(gateOpen){const d=new Int32Array(W*H).fill(-1),q=[m.spawn.x,m.spawn.y];d[m.spawn.y*W+m.spawn.x]=0;let h=0;while(h<q.length){const x=q[h++],y=q[h++];for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H)continue;const v=t[ny*W+nx];if(SOLID[v]&&!(gateOpen&&v===6))continue;if(d[ny*W+nx]>=0)continue;d[ny*W+nx]=d[y*W+x]+1;q.push(nx,ny);}}return d;}
   const open=flood(true), shut=flood(false), I=(p)=>p.y*W+p.x;
-  const pois=[...m.lairs,m.key,...m.chests,...m.pages];
+  const pois=[...m.lairs,...(m.key?[m.key]:[]),...m.chests,...m.pages];
   const bad=pois.filter(p=>shut[I(p)]<0).map(p=>p.kind+'@'+p.x+','+p.y);
   const bossReachShut=shut[I(m.boss)]>=0, bossReachOpen=open[I(m.boss)]>=0;
   let floor=0; for(let i=0;i<W*H;i++) if(!SOLID[t[i]]) floor++;
@@ -19,7 +19,7 @@ for(const L of ctx.LANDS){ if(want.length&&want.indexOf(L.id)<0) continue; if(!c
   const avg=a=>a.length?Math.round(a.reduce((s,v)=>s+v,0)/a.length):0;
   console.log(L.id, m.name, W+'x'+H, 'floor%',Math.round(100*floor/(W*H)), 'lairs',m.lairs.length,'chests',m.chests.length,'pages',m.pages.length,
     '| unreachable',bad.length?bad.join(' '):0,'| boss sealed',!bossReachShut,'boss reachable via gate',bossReachOpen,'| near fire',fireNear,
-    '| walk to gate',open[I(m.gate)],'key',shut[I(m.key)],'| avg dist BEG/PRG/MAS',avg(tiers.BEG),avg(tiers.PRG),avg(tiers.MAS));
-  out[L.id]={w:W,h:H,t:Array.from(t),spawn:m.spawn,gate:m.gate,boss:{x:m.boss.x,y:m.boss.y},key:{x:m.key.x,y:m.key.y},lairs:m.lairs.map(p=>({x:p.x,y:p.y,lv:p.ref.level})),chests:m.chests.map(p=>({x:p.x,y:p.y})),pages:m.pages.map(p=>({x:p.x,y:p.y})),name:m.name};
+    '| walk to gate',open[I(m.gate)],'key',m.key?shut[I(m.key)]:'none','| avg dist BEG/PRG/MAS',avg(tiers.BEG),avg(tiers.PRG),avg(tiers.MAS));
+  out[L.id]={w:W,h:H,t:Array.from(t),spawn:m.spawn,gate:m.gate,boss:{x:m.boss.x,y:m.boss.y},key:m.key?{x:m.key.x,y:m.key.y}:null,lairs:m.lairs.map(p=>({x:p.x,y:p.y,lv:p.ref.level})),chests:m.chests.map(p=>({x:p.x,y:p.y})),pages:m.pages.map(p=>({x:p.x,y:p.y})),name:m.name};
 }
 fs.writeFileSync(process.env.OUT||'/tmp/lands_preview.json',JSON.stringify(out));

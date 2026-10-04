@@ -89,11 +89,15 @@
     var i = LANDS.indexOf(L); if (i <= 0) return true;
     if (!S) return false;
     if (teacherPreview()) return true;
+    if (L.finale) return finaleSeals() === finaleSealCount() || !!(S.visited && S.visited[L.id]);
     if (S.bossKills && S.bossKills[LANDS[i - 1].id]) return true;
     if (S.visited && S.visited[L.id]) return true;
     return !!(S.teacherOpen && S.teacherOpen.indexOf(L.id) >= 0);
   }
+  function finaleSealCount() { return LANDS.filter(function (L) { return !L.finale; }).length; }
+  function finaleSeals() { return LANDS.filter(function (L) { return !L.finale && S && S.bossKills && S.bossKills[L.id]; }).length; }
   function lockReason(L) {
+    if (L.finale) return 'Sealed by ten seals: the boss of every land. ' + finaleSeals() + ' of ' + finaleSealCount() + ' broken.';
     var i = LANDS.indexOf(L), P = LANDS[i - 1];
     return 'Locked · slay ' + esc(P.boss.name) + ' in ' + esc(P.name) + (S && S.klass ? ', or wait for your teacher to open it' : '') + '.';
   }
@@ -116,7 +120,8 @@
   /* ---------- perks from level and gear ---------- */
   function itemById(id) { return ITEMS.filter(function (i) { return i.id === id; })[0]; }
   function itemCount(id) { return (S && S.items && S.items[id]) || 0; }
-  function levelTitle() { var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
+  function isLordOfLore() { return !!(S && S.bossKills && S.bossKills[FINAL_ID]); }
+  function levelTitle() { if (isLordOfLore()) return LEVEL.crown; var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
   function levelLoreMult() { return 1 + LEVEL.lorePct / 100 * ((S.level || 1) - 1); }
   function timeMult() { var m = 1 + LEVEL.timePct / 100 * ((S.level || 1) - 1); if (owns('stillness')) m += 0.75; else if (owns('lichglass')) m += 0.4; else if (owns('sundial')) m += 0.2; return m; }
   function heroSpeed() { var v = 58 + LEVEL.speed * ((S.level || 1) - 1); if (owns('boots')) v *= 1.12; if (owns('ghost')) v *= 1.08; return v; }
@@ -162,7 +167,7 @@
   }
   function logAttempt(q, raw, result) {
     var B = UI.battle; if (!B || !S || !S.klass) return;
-    Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: B.foe.level, gen: q.key || '', boss: !!B.isBoss,
+    Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: q.outcome || B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: q.level || B.foe.level, gen: q.key || '', boss: !!B.isBoss,
       question: q.prompt, typed: raw, result: result, lore: S.lore, streak: S.streak, practice: !!B.practice });
   }
   setInterval(function () { // play-time clock: counts only while the tab is visible and the student is active
@@ -211,7 +216,7 @@
     if (!S) { hudEl.hidden = true; return; }
     hudEl.hidden = false;
     var w = el('div', 'hud-in');
-    w.appendChild(el('span', 'brand', 'Lorebound'));
+    w.appendChild(el('span', 'brand', 'LoreBounD'));
     if (S.hero) { var hp = el('span', 'hud-hero', heroPortrait('tiny')); hp.title = 'Chronicle'; hp.onclick = function () { if (!(UI.screen === 'battle' && UI.battle && !UI.battle.done)) go('chronicle'); }; w.appendChild(hp); }
     w.appendChild(el('span', 'who', esc(S.hero ? S.hero.name : S.name) + (S.hero ? '<span class="who-sub">' + esc(S.name) + '</span>' : '')));
     w.appendChild(el('span', 'lore-pill', '<span class="orb"></span>' + n(S.lore) + ' Lore'));
@@ -248,7 +253,7 @@
     var t = el('div', 'title');
     if (window.ART_IMG && ART_IMG.title) { var bg = el('div', 'title-bg'); bg.style.backgroundImage = 'url(' + ART_IMG.title + ')'; t.appendChild(bg); }
     t.appendChild(el('div', 'eyebrow', 'Math 10C · a practice world'));
-    t.appendChild(el('h1', null, 'Lorebound'));
+    t.appendChild(el('h1', null, 'LoreBounD'));
     t.appendChild(el('div', 'sub', 'Ten lands. Every creature is a problem. Every wrong answer is a death.'));
     app.appendChild(t);
     var f = el('div', 'title-form');
@@ -362,15 +367,19 @@
     document.body.classList.add('in-map');
     S.seenOpen = S.seenOpen || {};
     var fresh = [];
+    var regionOf = function (L) { return L.region || L.id; }, landOf = {};
     var lands = LANDS.map(function (L) {
       var open = isOpen(L), cleared = open && landCleared(L), kills = L.creatures.filter(function (c) { return S.kills[c.id]; }).length;
+      landOf[regionOf(L)] = L.id;
       if (open && !S.seenOpen[L.id]) fresh.push(L.id);
-      return { id: L.id, name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject, locked: !open, cleared: cleared, fresh: open && !S.seenOpen[L.id],
+      if (L.finale) return { id: regionOf(L), name: open ? L.name : 'A land without a name', sub: open ? 'Beyond the ten lands · ' + L.subject : 'Beyond the ten lands', locked: !open, cleared: cleared, fresh: open && !S.seenOpen[L.id],
+        status: !open ? lockReason(L) : cleared ? 'You hold the throne ✓' : 'The Hollow Lord waits on the throne' };
+      return { id: regionOf(L), name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject, locked: !open, cleared: cleared, fresh: open && !S.seenOpen[L.id],
         status: !open ? lockReason(L) : cleared ? 'Boss slain ✓' : kills + ' of ' + L.creatures.length + ' creatures slain' };
     });
-    var cur = isOpen(landById(S.lastLand)) ? S.lastLand : 'L1';
-    app.appendChild(WorldMap.build({ lands: lands, current: cur, dropped: S.dropped ? S.dropped.land : null, heroNode: actorCanvas(Overworld.SP.heroActorId(heroClass().id, heroStage()), 'map-hero'),
-      onEnter: function (id) { S.lastLand = id; UI.landFresh = true; go('land', { land: id }); } }));
+    var curL = isOpen(landById(S.lastLand)) ? landById(S.lastLand) : LANDS[0], dropL = S.dropped ? landById(S.dropped.land) : null;
+    app.appendChild(WorldMap.build({ lands: lands, current: regionOf(curL), dropped: dropL ? regionOf(dropL) : null, heroNode: actorCanvas(Overworld.SP.heroActorId(heroClass().id, heroStage()), 'map-hero'),
+      onEnter: function (rid) { var id = landOf[rid] || rid; S.lastLand = id; UI.landFresh = true; go('land', { land: id }); } }));
     fresh.forEach(function (id) { S.seenOpen[id] = 1; });
     syncUnlocks(false);
   }
@@ -436,7 +445,7 @@
     // boss
     var B = L.boss, open = bossOpen(L);
     var bc = el('div', 'panel boss-card');
-    bc.innerHTML = '<div class="foe">' + portrait(B.sigil) + '<div><div class="tag" style="color:var(--boss)">Boss · ' + B.gens.length + ' questions · ' + n(LEVELS.BOSS.lore) + ' Lore</div><h2>' + esc(B.name) + '</h2><p class="muted" style="margin:6px 0 0">' + esc(B.flavor) + '</p>' + (S.dropped && S.dropped.creature === B.id ? '<p class="drop-pill" style="display:inline-block">' + n(S.dropped.amount) + ' Lore lies here</p>' : '') + '</div></div>';
+    bc.innerHTML = '<div class="foe">' + portrait(B.sigil) + '<div><div class="tag" style="color:var(--boss)">' + (B.finale ? 'Final boss · ' + B.gens.length + ' Mastery questions, one per outcome · ' : 'Boss · ' + B.gens.length + ' questions · ') + n((LEVELS[B.level] || LEVELS.BOSS).lore) + ' Lore</div><h2>' + esc(B.name) + '</h2><p class="muted" style="margin:6px 0 0">' + esc(B.flavor) + '</p>' + (S.dropped && S.dropped.creature === B.id ? '<p class="drop-pill" style="display:inline-block">' + n(S.dropped.amount) + ' Lore lies here</p>' : '') + '</div></div>';
     var act = el('div', 'actions', ''); act.style.marginTop = '12px';
     var bb = el('button', 'btn', open ? 'Seal broken — find the gate' : 'Sealed'); bb.type = 'button'; bb.disabled = !open;
     bb.onclick = function () { toast('The gate lies at the far side of ' + esc(theLand(L)) + '. Bring the key.'); };
@@ -563,7 +572,8 @@
   function closeSatchel() { if (UI.satchel) { UI.satchel.remove(); UI.satchel = null; } try { if (!UI.modal) Overworld.freeze(false); } catch (e) {} renderHud(); }
 
   function startBattle(L, c, isBoss, inst, practice) {
-    var qs = (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
+    var qs = c.pool ? c.pool.map(function (p) { var q = QGen.make(p.gens[Math.floor(Math.random() * p.gens.length)]); q.outcome = p.outcome; q.level = 'MAS'; return q; })
+      : (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
     var home = UI.land;
     UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null, practice: !!practice, home: home };
     if (!practice) { S.met = S.met || {}; S.met[c.id] = 1; }
@@ -636,7 +646,7 @@
     var head = el('div', 'panel');
     var foeEl = el('div', 'foe'); foeEl.style.setProperty('--lvl', lvlColor);
     var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
-    var tagTxt = (B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore');
+    var tagTxt = (foe.finale ? 'Final boss · question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' · Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore');
     foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + tagTxt + '</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
     if (window.Overworld && Overworld.SP.actor && Overworld.SP.actor('cr:' + (foe.sigil || foe.id))) {
@@ -733,17 +743,18 @@
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
-    var nextL = B.isBoss ? LANDS[LANDS.indexOf(B.land) + 1] : null, wasOpen = nextL && isOpen(nextL);
+    var openBefore = B.isBoss ? LANDS.filter(isOpen).map(function (L) { return L.id; }) : null;
     if (B.isBoss) { S.bossKills[B.land.id] = (S.bossKills[B.land.id] || 0) + 1; if (S.titles.indexOf(foe.title) < 0) S.titles.push(foe.title); }
     if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
     B.done = true; B.phase = 'result'; B.outcome = 'won'; sfx('correct');
     var html = '<h2>' + (B.isBoss ? esc(foe.name) + ' falls' : esc(foe.name) + ' is slain') + '</h2><div class="gain">+' + n(rw.amount) + ' Lore</div><div class="breakdown">' + rw.parts.map(function (p) { return p.k + ' ' + p.m; }).join(' · ') + '</div>' +
       (reclaimed ? '<p><b style="color:var(--lore)">You reclaim ' + n(reclaimed) + ' Lore</b> from where you fell.</p>' : '') +
-      (B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
-      (nextL && !wasOpen && isOpen(nextL) ? '<p class="land-opens">A new land opens on the world map: <b>' + esc(nextL.name) + '</b>.</p>' : '') +
+      (foe.finale ? '<p>The throne is empty, and then it is not. You are the <b>' + esc(LEVEL.crown) + '</b>.</p>' : B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
+      (openBefore ? LANDS.filter(function (L) { return isOpen(L) && openBefore.indexOf(L.id) < 0; }).map(function (L) { return '<p class="land-opens">' + (L.finale ? 'The last seal breaks. Far to the west a road opens through the fire: <b>' + esc(L.name) + '</b>.' : 'A new land opens on the world map: <b>' + esc(L.name) + '</b>.') + '</p>'; }).join('') : '') +
       youTyped(B) + solutionBlock(q);
     var res = el('div', 'result win', html);
     res.appendChild(afterActions(true));
+    if (foe.finale) setTimeout(throneSplash, 400);
     B.result = res; render();
   }
   function shieldBreak(how) {
@@ -795,6 +806,19 @@
     B.result = res; render();
   }
   function leavePractice() { var B = UI.battle; UI.battle = null; if (B) UI.land = B.home; UI.screen = 'bonfire'; UI.bonfireTab = 'beast'; render(); window.scrollTo(0, 0); }
+  /* the end of the road: the hero on the throne (painted per class when the art exists, else the stage-3 portrait, crowned) */
+  function throneSplash() {
+    var old = document.querySelector('.throne-splash'); if (old) old.remove();
+    var c = heroClass(), art = window.ART_IMG && ART_IMG['throne-' + c.id], hero = S.hero ? S.hero.name : S.name;
+    var sp = el('div', 'throne-splash' + (art ? ' painted' : ''));
+    sp.setAttribute('role', 'dialog'); sp.setAttribute('aria-label', 'You have become the Lord of Lore');
+    sp.innerHTML = (art ? '<img class="ts-art" src="' + art + '" alt="">' : '<div class="ts-seat"><div class="ts-crown">♛</div>' + (ART_IMG && ART_IMG['hero-' + c.id + '-3'] ? '<img src="' + ART_IMG['hero-' + c.id + '-3'] + '" alt="">' : '') + '</div>') +
+      '<div class="ts-glow"></div><div class="ts-cap"><div class="eyebrow">' + esc(hero) + ' · ' + esc(c.name) + '</div><h1>The lands have been vanquished,<br>you have become the Lord of Lore!</h1></div>';
+    var b = el('button', 'btn big ts-rise', 'Rise, ' + esc(LEVEL.crown)); b.type = 'button'; b.onclick = function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 600); };
+    sp.querySelector('.ts-cap').appendChild(b);
+    document.body.appendChild(sp); sfx('bonfire');
+    setTimeout(function () { try { b.focus(); } catch (e) {} }, 1200);
+  }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
     var label = B.outcome === 'died' && B.land.explore === 2 ? 'Wake at the bonfire' : won ? 'Return to ' + esc(theLand(B.land)) : 'Back to ' + esc(theLand(B.land));
@@ -1140,7 +1164,8 @@
       if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
     }
     pn.appendChild(row); app.appendChild(pn);
-    var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') + '</div>' +
+    var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') +
+      '<span class="crown' + (isLordOfLore() ? ' got' : '') + '"><b>♛</b> ' + esc(LEVEL.crown) + ' <i>' + (isLordOfLore() ? 'yours' : 'no level reaches it: slay the final boss') + '</i></span></div>' +
       '<p class="muted">Every level costs more than the last (' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore). Lore spent on levels, like Lore spent on gear, can never be lost.</p>';
     app.appendChild(ladder);
   }
@@ -1212,6 +1237,7 @@
     app.appendChild(campHall('help', 'Rules', 'How Lorebound works.', function () { go('bonfire'); }));
     app.appendChild(el('div', 'panel', '<ul class="rules">' +
       '<li><b>Each land is a unit of Math 10C.</b> Each creature is one outcome at one level: Beginning, Progressing or Mastery. The same creature always asks the same kind of question, but never the same numbers.</li>' +
+      '<li><b>Ten bosses are ten seals.</b> Slay the boss of every land and an eleventh opens in the far west: the Unwritten Throne, where the Hollow Lord asks one Mastery question from every outcome. Answer them all and you become the <b>Lord of Lore</b>.</li>' +
       '<li><b>To fight is to answer.</b> Right answer: the creature dies and you earn Lore. Wrong answer: you die.</li>' +
       '<li><b>When you die, the Lore you were carrying drops where you fell.</b> Defeat that same creature to take it back. If you die anywhere before you do, that Lore is gone forever.</li>' +
       '<li><b>Lore you spend is safe.</b> Rest at a bonfire to <b>imbue Lore into Legacy</b> (level up: more Lore per kill, more time per question, faster feet) and to buy gear at the Forge: Ward keeps you alive, Insight helps you understand, Greed pays more, Swiftness outruns, Patience slows the clock. Tier 2 needs level ' + LEVEL.gate[2] + '; tier 3 needs level ' + LEVEL.gate[3] + ' and a boss kill.</li>' +
@@ -1349,6 +1375,7 @@
     p.appendChild(el('p', 'muted', 'Land 1 is always open, and a student opens the next land on their own by slaying the boss of the land before it. Open a land here to let ' + (LG.klass ? 'everyone in ' + esc(LG.klass) : 'every class') + ' in early, as the semester reaches that unit. Students see the change within a minute or two. A land a student has already entered stays open for them.'));
     var row = el('div', 'lands-toggle');
     LANDS.forEach(function (L, i) {
+      if (L.finale) return; // opens only when a student has slain all ten bosses
       var on = i === 0 || mine.indexOf(L.id) >= 0, viaAll = key !== '*' && all.indexOf(L.id) >= 0;
       var b = el('button', 'land-chip' + (on || viaAll ? ' on' : '') + (i === 0 || viaAll ? ' fixed' : ''), '<span class="u">' + L.unit + '</span><span class="nm">' + esc(L.name) + '</span><span class="sj">' + (i === 0 ? 'always open' : viaAll ? 'open for every class' : on ? 'open' : 'locked') + '</span>');
       b.type = 'button'; b.disabled = i === 0 || viaAll; b.setAttribute('aria-pressed', on || viaAll ? 'true' : 'false');

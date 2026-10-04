@@ -132,7 +132,7 @@ var LOREBOOK = (function () {
 
   return {
   L1: [
-    { title: 'The First Grave', lore: 'Before the fog there was a town here, and the town kept a ledger of its dead. The ledger counted in primes, because primes cannot be divided and neither, the gravediggers said, can the dead.',
+    { title: 'The First Grave', lore: 'Before the fog there was a town here, and the town kept a ledger of its dead. The ledger counted in primes, because primes cannot be divided and neither, the gravediggers said, can the dead. The oldest page of that ledger is not about the town at all. It names a Lord of Lore, and leaves the space beside his name empty.',
       math: [
         { h: 'Prime factorisation' },
         { p: 'Every whole number is built from primes. Divide by the <b>smallest prime that works</b>, and keep going until only primes are left.' },
@@ -168,7 +168,7 @@ var LOREBOOK = (function () {
         { fig: numberLine(5, 9, [5, 6, 7, 8, 9], [[5.74, '√33'], [6.32, '√40'], [7.07, '√50', true], [8.49, '√72']]) },
         { p: 'To order a mixed list, turn everything into a decimal estimate first: \\(2\\sqrt{3} \\approx 3.46\\), \\(\\sqrt[3]{30} \\approx 3.11\\), \\(\\tfrac{7}{2} = 3.5\\).' }
       ] },
-    { title: 'The Hollow Knight\'s Armour', lore: 'The knight\'s armour was forged entire, one piece of marsh-steel. Only later was it broken and mended with a number sewn outside and a number sewn in. Make it whole again and it falls apart.',
+    { title: 'The Hollow Knight\'s Armour', lore: 'The knight\'s armour was forged entire, one piece of marsh-steel. Only later was it broken and mended with a number sewn outside and a number sewn in. Make it whole again and it falls apart. It was forged for the guard of the Lord of Lore, in the years when there was still a guard, and still a lord worth guarding.',
       math: [
         { h: 'Entire → mixed: pull out the largest perfect square' },
         { fig: factorTree('72', [['72', '36', '2']]) },
@@ -212,7 +212,7 @@ var LOREBOOK = (function () {
         { steps: ['(3 \\times 10^{4})(2 \\times 10^{-7}) = 6 \\times 10^{-3}', '(4 \\times 10^{5})(3 \\times 10^{2}) = 12 \\times 10^{7} = 1.2 \\times 10^{8}'] },
         { p: 'Multiply the fronts, add the exponents, and if the front leaves \\([1, 10)\\), fix it.' }
       ] },
-    { title: 'The Unknown Scale', lore: 'The Ash Wyrm has one scale that does not match the others. It is the scale it hides. Find the law the rest obey and the hidden one has nowhere left to be.',
+    { title: 'The Unknown Scale', lore: 'The Ash Wyrm has one scale that does not match the others. It is the scale it hides. Find the law the rest obey and the hidden one has nowhere left to be. The wyrms say the hidden scale was a tithe: one scale from every beast, carried west each year to the Lord of Lore.',
       math: [
         { h: 'Solving for a missing exponent' },
         { p: 'Write both sides with the <b>same base</b>; then the exponents must be equal.' },
@@ -250,7 +250,7 @@ var LOREBOOK = (function () {
         { rule: '(a + b)^{2} = a^{2} + 2ab + b^{2} \\qquad (a - b)^{2} = a^{2} - 2ab + b^{2} \\qquad (a + b)(a - b) = a^{2} - b^{2}' },
         { steps: ['(3x - 4)^{2} = 9x^{2} - 24x + 16 \\quad (\\text{never } 9x^{2} + 16)', '(2x + 5)(2x - 5) = 4x^{2} - 25 \\quad (\\text{the middle cancels})', '(x + a)^{3} = x^{3} + 3ax^{2} + 3a^{2}x + a^{3}'] }
       ] },
-    { title: 'The Oak\'s Floor', lore: 'Under the Hollow Oak the roots have paved a floor in rectangles that are not rectangles, with corners cut away and gardens let in. Measure it by pieces, and multiply each piece out before you add.',
+    { title: 'The Oak\'s Floor', lore: 'Under the Hollow Oak the roots have paved a floor in rectangles that are not rectangles, with corners cut away and gardens let in. Measure it by pieces, and multiply each piece out before you add. The roots all run west, the Thornlings whisper, toward a throne that no one has sat on in a thousand years.',
       math: [
         { h: 'Area and perimeter with polynomials' },
         { fig: (typeof Fig !== 'undefined' ? Fig.cutout('2x + 3', 'x + 4', 7, 5, 'x', 2, 'corner') : '') },
@@ -295,7 +295,7 @@ var LOREBOOK = (function () {
         { rule: 'a^{2} \\pm 2ab + b^{2} = (a \\pm b)^{2}' },
         { eq: '4x^{2} - 12x + 9 = (2x - 3)^{2} \\quad\\text{check the middle: } 2 \\cdot 2x \\cdot 3 = 12x' }
       ] },
-    { title: 'Ossirion\'s Rule', lore: 'The Vaultkeeper allows one law in the Crypts: a thing that is nothing has at least one part that is nothing. Bring him a product that equals nothing and he must tell you which factor died.',
+    { title: 'Ossirion\'s Rule', lore: 'The Vaultkeeper allows one law in the Crypts: a thing that is nothing has at least one part that is nothing. Bring him a product that equals nothing and he must tell you which factor died. He keeps that law because the Lord of Lore gave it to him, and the Lord of Lore has never come back to take it away.',
       math: [
         { h: 'Solving by factoring: the zero-product rule' },
         { rule: '\\text{If } A \\cdot B = 0 \\text{ then } A = 0 \\text{ or } B = 0' },
@@ -340,7 +340,7 @@ var LOREBOOK = (function () {
         { steps: ['f(-5) = 2(-5)^{2} - 3(-5) + 1 = 50 + 15 + 1 = 66', 'f(x - 2) = 2(x - 2)^{2} - 3(x - 2) + 1 = 2x^{2} - 11x + 15'] },
         { p: '\\(f(4) = 2\\) is the same as “the point \\((4, 2)\\) is on the graph”. Solving \\(f(x) = 2\\) means finding every x where the graph is at height 2.' }
       ] },
-    { title: 'Seven Heads, Seven Hours', lore: 'The Fen Hydra watches the causeway all morning and counts what passes. It does not care how many came. It cares how fast the number changed, and between which two hours.',
+    { title: 'Seven Heads, Seven Hours', lore: 'The Fen Hydra watches the causeway all morning and counts what passes. It does not care how many came. It cares how fast the number changed, and between which two hours. There is one rate it counts and never tells: how fast the Lord of Lore has been fading, year upon year.',
       math: [
         { h: 'Rate of change' },
         { rule: '\\text{rate of change} = \\dfrac{\\text{change in the dependent variable}}{\\text{change in the independent variable}}' },
@@ -381,7 +381,7 @@ var LOREBOOK = (function () {
         { steps: ['P(-4, 7),\\ Q(8, -2): \; m_{PQ} = \\dfrac{-9}{12} = -\\dfrac{3}{4} \\Rightarrow m_{\\perp} = \\dfrac{4}{3}', '\\dfrac{3}{8} \\cdot \\dfrac{k}{6} = -1 \\Rightarrow \\dfrac{3k}{48} = -1 \\Rightarrow k = -16'] },
         { p: 'To test for a right angle in a triangle, find the slope of every side; the right angle is at the vertex where two sides have slopes that multiply to −1.' }
       ] },
-    { title: 'Three Points in Dark Water', lore: 'The Siren shows you three lights under the water and asks whether they lie on one line. Two slopes answer it. If they agree, the lights are collinear; if they do not, one of them is lying.',
+    { title: 'Three Points in Dark Water', lore: 'The Siren shows you three lights under the water and asks whether they lie on one line. Two slopes answer it. If they agree, the lights are collinear; if they do not, one of them is lying. On the clearest nights a fourth light burns far to the west, on the black needle of the fortress. It lies on no line at all.',
       math: [
         { h: 'Collinear points and shapes on the grid' },
         { p: 'Points are <b>collinear</b> when the slope between any two pairs is the same.' },
@@ -421,7 +421,7 @@ var LOREBOOK = (function () {
         { fig: (typeof Fig !== 'undefined' ? Fig.grid({ xmin: -5, xmax: 7, ymin: -3, ymax: 7, lines: [{ m: 1 / 3, b: 2 }], points: [[-3, 1, '(−3, 1)'], [3, 3, '(3, 3)']] }) : '') },
         { p: 'From the graph: \\(m = \\tfrac{3 - 1}{3 - (-3)} = \\tfrac{1}{3}\\), \\(b = 2\\), so \\(y = \\tfrac{1}{3}x + 2\\), or in general form \\(x - 3y + 6 = 0\\).' }
       ] },
-    { title: 'The Warden\'s Ledgers', lore: 'The Warden of the Pass keeps every ledger of the hold, and in every one of them something changes by the same amount each day: wages by the sale, fuel by the mile, people by the year. A steady change is a straight line.',
+    { title: 'The Warden\'s Ledgers', lore: 'The Warden of the Pass keeps every ledger of the hold, and in every one of them something changes by the same amount each day: wages by the sale, fuel by the mile, people by the year. A steady change is a straight line. The oldest ledger has one column that never changes: the tithe owed to the Lord of Lore. The hold still pays it, to no one.',
       math: [
         { h: 'Slope as a rate of change' },
         { p: 'When a quantity changes by the same amount for each unit of another, the relation is linear and the <b>slope is the rate</b>. The y-intercept is the starting amount (the fixed fee, the full tank, the base salary).' },
