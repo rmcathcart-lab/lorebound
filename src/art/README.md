@@ -171,8 +171,8 @@ Banner: `banner-l10.jpg` — frozen tundra under an aurora: snowfields, a frozen
 | `item-wisp.jpg` | Wisp in a Jar | https://www.canva.com/M/MAHW5S8vbjo |
 | `item-feather.jpg` | Phoenix Feather | https://www.canva.com/M/MAHW5fOmEzk |
 
-### Hero sprites (pending)
-The 12 hero portraits are copied into `Lorebound Game/Hero sprites - all classes/` with a brief for ChatGPT. When the pack arrives: `python3 tools/pack_creatures.py <pack> 96 124 80 --merge` (sheets are named hero-<class>-<stage>), and the game uses them automatically (SP.heroActorId prefers cr-hero-<class>-<stage>; until then the Ranger and Rogue borrow the knight's sprite and stages are shown with a tint).
+### Hero sprites (cr-hero-<class>-<stage>.webp)
+Ryan's "Lorebound Hero Sprites, All Classes" pack (ChatGPT/Codex, from the 12 portraits in `Lorebound Game/Hero sprites - all classes/`), packed with `python3 tools/pack_creatures.py <pack> 96 400 80 --merge`. The high cap (400) keeps all three stages of a class at the same scale even when a staff or halo makes a stage taller. The game picks the sheet for the hero's class and current stage (SP.heroActorId).
 
 ### Bonfire camp tiles and UI icons
 
