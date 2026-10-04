@@ -19,10 +19,10 @@ IMGS = {}
 for f in sorted(os.listdir('src/art')):
     if not f.lower().endswith(('.jpg','.jpeg','.png','.webp')): continue
     key=os.path.splitext(f)[0]
-    if key.startswith(('sheet-', 'cr-', 'tr-')):   # sprite sheets: packed already, untouched
+    if key.startswith(('sheet-', 'cr-', 'tr-', 'ui-')):   # sprite sheets and UI icons: packed already, untouched (keeps transparency)
         raw=open('src/art/'+f,'rb').read(); ext='webp' if f.endswith('.webp') else 'png'; IMGS[key]=(raw, 'image/'+ext, ext); print('sheet',key,len(raw)//1024,'KB'); continue
     im=Image.open('src/art/'+f).convert('RGB')
-    maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 280 if key.startswith(('gear-','item-')) else 400
+    maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 720 if key.startswith('camp-') else 280 if key.startswith(('gear-','item-')) else 400
     if im.width<maxw*0.6:   # tiny preview: upscale smoothly so it survives 2x screens
         im=im.resize((im.width*2, im.height*2), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=2))
     if im.width>maxw: im=im.resize((maxw, round(im.height*maxw/im.width)), Image.LANCZOS)

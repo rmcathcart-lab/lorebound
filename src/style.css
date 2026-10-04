@@ -454,3 +454,51 @@ body.in-world #app { padding: 0; max-width: none; }
 .creature.beast:hover, .creature.beast:focus-visible { border-color: var(--lvl); transform: translateY(-1px); }
 .creature.beast.boss { border-color: color-mix(in srgb, var(--boss) 45%, var(--edge)); }
 .creature .meta .practice-go { margin-left: auto; color: var(--ember); letter-spacing: .06em; text-transform: uppercase; font-size: 12px; }
+
+/* ---------- one-row header (no second row of buttons on any screen) ---------- */
+.hud-in { max-width: 1120px; flex-wrap: nowrap; gap: 12px; min-width: 0; }
+.hud-in > * { flex: none; }
+.hud .who { min-width: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drop-pill { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto !important; min-width: 0; }
+.hud-in .spacer { flex: 1 1 0; min-width: 0; }
+.nav { flex: none; align-items: center; }
+.nav button { white-space: nowrap; }
+.hud .nav .mute { padding: 2px 6px; display: inline-flex; align-items: center; justify-content: center; }
+.hud .nav .mute img { width: 28px; height: 28px; display: block; }
+.hud .nav .mute.off { opacity: 1; }
+.hud .nav .mute.off img { opacity: .8; }
+@media (max-width: 760px) { .hud .brand, .streak-pill { display: none; } .hud .who { max-width: 110px; } .drop-pill { max-width: 120px; } }
+@media (max-width: 520px) { .hud .who, .ledger-pill { display: none; } .hud-in { gap: 8px; padding: 6px 10px; } .nav button { padding: 6px 8px; } }
+
+/* ---------- the bonfire camp: the land's banner fills the screen behind it ---------- */
+.camp-backdrop { position: fixed; inset: 0; z-index: -1; background-size: cover; background-position: center 40%; pointer-events: none; }
+.camp-backdrop::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 30%, rgba(10,8,14,.35) 0%, rgba(10,8,14,.72) 60%, rgba(10,8,14,.9) 100%), linear-gradient(180deg, rgba(10,8,14,.55) 0%, rgba(10,8,14,.25) 35%, rgba(10,8,14,.85) 100%); }
+.camp-head { background: rgba(14,12,18,.62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); border-color: rgba(255,255,255,.08); }
+.camp-head::before { display: none; }
+.camp-firecv { width: 92px; height: 108px; flex: none; display: block; }
+.camp-grid { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.camp-tile { display: flex; flex-direction: column; padding: 0; overflow: hidden; background: rgba(20,17,24,.78); border-color: rgba(255,255,255,.09); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); transition: border-color .15s, transform .15s, box-shadow .15s; }
+.camp-tile:hover, .camp-tile:focus-visible { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.5); background: rgba(26,22,30,.86); }
+.camp-tile .camp-art { display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #0c0a10; }
+.camp-tile .camp-art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; filter: saturate(.92); }
+.camp-tile:hover .camp-art img { transform: scale(1.04); }
+.camp-tile .txt { padding: 12px 16px 14px; }
+.camp-art.thumb { width: 54px; height: 36px; border-radius: 4px; overflow: hidden; flex: none; display: inline-block; }
+.camp-art.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.camp-sub h2 { gap: 10px; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+/* camp layout v2: the three shops large, the four records smaller; the land banner shows through */
+.camp-backdrop::after { background: radial-gradient(ellipse at 50% 35%, rgba(10,8,14,.12) 0%, rgba(10,8,14,.45) 55%, rgba(10,8,14,.8) 100%), linear-gradient(180deg, rgba(10,8,14,.35) 0%, rgba(10,8,14,.05) 30%, rgba(10,8,14,.7) 100%); }
+.camp-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.camp-tile { gap: 0; grid-column: span 3; }
+.camp-tile:nth-child(-n+3) { grid-column: span 4; }
+.camp-tile:nth-child(n+4) .nm { font-size: 18px; }
+.camp-tile:nth-child(n+4) .txt { padding: 10px 13px 12px; }
+.camp-tile .txt { padding: 11px 16px 14px; }
+@media (max-width: 760px) {
+  .camp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .camp-tile, .camp-tile:nth-child(-n+3) { grid-column: span 1; }
+  .camp-tile:first-child { grid-column: span 2; }
+  .camp-tile .nm { font-size: 17px; } .camp-tile .desc { font-size: 13px; } .camp-tile .st { font-size: 12px; }
+  .camp-tile .txt, .camp-tile:nth-child(n+4) .txt { padding: 9px 11px 11px; }
+  .camp-firecv { width: 74px; height: 88px; }
+}

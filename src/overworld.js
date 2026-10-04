@@ -437,7 +437,7 @@ var Overworld = (function () {
     var h = '';
     if (R.near && R.near.e) { var e = R.near.e; h = (e.kind === 'boss' ? 'Challenge <b>' + e.ref.name + '</b>' : 'Fight <b>' + e.ref.name + '</b> (' + e.ref.level + ')') + ' — <kbd>E</kbd> or ⚔'; }
     else if (R.near && R.near.gate) h = R.w.key ? 'The gate is sealed until every creature in this land has been slain.' : 'A sealed gate. It needs a key — search the land.';
-    else if (R.near && R.near.fire) h = 'Rest at the <b>bonfire</b> (buy gear) — <kbd>E</kbd> or ⚔';
+    else if (R.near && R.near.fire) h = 'Rest at the <b>bonfire</b> — <kbd>E</kbd> or ⚔';
     if (h !== R.hintHtml) { R.hintHtml = h; R.hint.innerHTML = h; R.hint.style.opacity = h ? 1 : 0; }
     R.act.classList.toggle('on', !!(R.near && (R.near.e || R.near.fire)));
   }
