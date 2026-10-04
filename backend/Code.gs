@@ -11,6 +11,8 @@
  *   Attempts — one row per answered question
  *
  * Script property TEACHER_KEY protects the ledger (Project Settings → Script properties).
+ * Script property UNLOCKS holds the lands the teacher has opened, per class code ('*' = every class);
+ * it is written from the in-game ledger (Lands open) and read by the game when a student signs in.
  * ============================================================ */
 
 var PLAYER_COLS = ['key', 'class', 'name', 'hero', 'heroClass', 'stage', 'lore', 'legend', 'deaths', 'lostForever',
@@ -56,8 +58,10 @@ function doGet(e) {
     var action = p.action || 'ping';
     if (action === 'ping') return json_({ ok: true, t: Date.now() }, cb);
     if (action === 'hello') return json_(hello_(p), cb);
+    if (action === 'lands') return json_({ ok: true, lands: landsFor_(p['class']) }, cb);
     if (p.key !== teacherKey_() || !teacherKey_()) return json_({ ok: false, error: 'bad key' }, cb);
-    if (action === 'ledger') return json_(ledger_(), cb);
+    if (action === 'ledger') { var led = ledger_(); led.unlocks = unlocks_(); return json_(led, cb); }
+    if (action === 'setlands') return json_(setLands_(p['class'], p.lands), cb);
     if (action === 'player') return json_(playerDetail_(p.id), cb);
     if (action === 'purge') return json_(purge_(p['class']), cb);
     return json_({ ok: false, error: 'unknown action' }, cb);
@@ -68,9 +72,31 @@ function doGet(e) {
 function hello_(p) {
   var key = keyOf_(p['class'], p.name);
   var row = findPlayer_(key);
-  if (!row) return { ok: true, found: false };
+  var lands = landsFor_(p['class']);
+  if (!row) return { ok: true, found: false, lands: lands };
   var r = row.values;
-  return { ok: true, found: true, save: r[col_('save')] || '', saveUpdated: Number(r[col_('saveUpdated')] || 0), legend: Number(r[col_('legend')] || 0) };
+  return { ok: true, found: true, lands: lands, save: r[col_('save')] || '', saveUpdated: Number(r[col_('saveUpdated')] || 0), legend: Number(r[col_('legend')] || 0) };
+}
+
+/* ---------------- lands the teacher has opened ---------------- */
+function unlocks_() {
+  try { var u = JSON.parse(PropertiesService.getScriptProperties().getProperty('UNLOCKS') || '{}'); return (u && typeof u === 'object') ? u : {}; } catch (e) { return {}; }
+}
+function landsFor_(klass) {
+  var u = unlocks_(), k = norm_(klass), out = [];
+  (u['*'] || []).concat(k ? (u[k] || []) : []).forEach(function (id) { if (out.indexOf(id) < 0) out.push(id); });
+  return out;
+}
+/* Teacher-only: set the opened lands for one class code ('*' or empty = every class). lands = "L2,L3". */
+function setLands_(klass, csv) {
+  var k = String(klass || '').trim() === '*' ? '*' : norm_(klass) || '*';
+  var ids = String(csv || '').split(',').map(function (x) { return x.trim(); }).filter(function (x) { return /^L([1-9]|10)$/.test(x); });
+  var lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    var u = unlocks_(); if (ids.length) u[k] = ids; else delete u[k];
+    PropertiesService.getScriptProperties().setProperty('UNLOCKS', JSON.stringify(u));
+    return { ok: true, unlocks: u };
+  } finally { lock.releaseLock(); }
 }
 
 /* ---------------- writes ---------------- */

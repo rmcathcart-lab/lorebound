@@ -163,7 +163,6 @@ Banner: `banner-l10.jpg` — frozen tundra under an aurora: snowfields, a frozen
 | `hero-rogue-3.jpg` | Rogue, stage 3 (Nightglass Phantom) | https://www.canva.com/M/MAHXBWujlGo |
 | `fire.jpg` | Bonfire | https://www.canva.com/M/MAHWoEr4MBg |
 | `title.jpg` | Title screen / Land 1 banner | https://www.canva.com/M/MAHWoIlcKmE |
-| `map.jpg` | World map base | https://www.canva.com/M/MAHWokZzOq0 |
 | `item-hourglass.jpg` | Hourglass Shard | https://www.canva.com/M/MAHW5YWTxCc |
 | `item-lens.jpg` | Scholar's Lens | https://www.canva.com/M/MAHW5UyW82U |
 | `item-smoke.jpg` | Smoke Pellet | https://www.canva.com/M/MAHW5SM08x0 |
@@ -240,3 +239,18 @@ Made by Ryan with ChatGPT/Codex from the portraits and banners above ("Lorebound
 | `gear-frame_ember.jpg` | https://www.canva.com/M/MAHW_s10iS0 |
 | `gear-frame_lore.jpg` | https://www.canva.com/M/MAHW_uCBhRM |
 | `gear-frame_gold.jpg` | https://www.canva.com/M/MAHW_gE7lhk |
+
+
+### World map (layered)
+
+ChatGPT's layered world map (3840 × 2560 master, one transparent piece per land, exact masks and outlines), packed by
+`tools/pack_worldmap.py <extracted pack folder>`:
+
+| file | what |
+|---|---|
+| `wm-base.webp` | the whole painting at 2400 × 1600, the bottom layer |
+| `wm-l1.webp` … `wm-l10.webp` | one transparent layer per land, cut from the same downscaled painting (mask dilated 2 px so no seam shows) |
+| `wm-final-boss.webp` | the unnamed western fortress land; always shown grey and sealed |
+| `../worldmap_defs.js` | `WM_DEFS`: each layer's box, its label point and a simplified SVG outline used for hovering and clicking |
+
+The old single-image map (`map.jpg`, Canva MAHWokZzOq0) is retired.

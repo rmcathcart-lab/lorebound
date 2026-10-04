@@ -74,7 +74,45 @@
     return { v: 1, name: name, klass: '', created: Date.now(), updated: Date.now(), play: 0, lore: 0, legend: 0, dropped: null, gear: {}, items: {}, level: 1, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
   }
   function migrate() { if (!S) return; S.level = S.level || 1; S.items = S.items || {}; S.gear = S.gear || {}; S.world = S.world || {};
-    if (!S.met) { S.met = {}; Object.keys(S.kills || {}).concat(Object.keys(S.losses || {})).forEach(function (id) { S.met[id] = 1; }); } }
+    if (!S.met) { S.met = {}; Object.keys(S.kills || {}).concat(Object.keys(S.losses || {})).forEach(function (id) { S.met[id] = 1; }); }
+    if (!S.visited) { // lands already played before locks existed stay open
+      S.visited = {}; LANDS.forEach(function (L) { var played = (S.world && S.world[L.id]) || S.bossKills[L.id] || L.creatures.some(function (c) { return S.kills[c.id] || S.losses[c.id]; }); if (played) S.visited[L.id] = 1; });
+    }
+    if (!S.seenOpen) { S.seenOpen = {}; LANDS.forEach(function (L) { if (isOpen(L)) S.seenOpen[L.id] = 1; }); } }
+  /* ---------- which lands are open ----------
+   * Land 1 is always open. Any other land opens when the boss of the land before it is slain, when the teacher
+   * opens it for the class (Ledger → "Lands open"), or once the student has set foot in it. */
+  function teacherPreview() { try { return localStorage.getItem(SAVE_PREFIX + 'preview') === '1'; } catch (e) { return false; } }
+  function isOpen(L) {
+    if (!L || !L.open) return false;
+    if (window.LOREBOUND_DEBUG === true && window.LOREBOUND_LOCKS !== true) return true;
+    var i = LANDS.indexOf(L); if (i <= 0) return true;
+    if (!S) return false;
+    if (teacherPreview()) return true;
+    if (S.bossKills && S.bossKills[LANDS[i - 1].id]) return true;
+    if (S.visited && S.visited[L.id]) return true;
+    return !!(S.teacherOpen && S.teacherOpen.indexOf(L.id) >= 0);
+  }
+  function lockReason(L) {
+    var i = LANDS.indexOf(L), P = LANDS[i - 1];
+    return 'Locked · slay ' + esc(P.boss.name) + ' in ' + esc(P.name) + (S && S.klass ? ', or wait for your teacher to open it' : '') + '.';
+  }
+  var UNL = { at: 0, busy: false };
+  function syncUnlocks(force, cb) { // asks the teacher's ledger which lands are open for this class
+    if (!S || !S.klass || !Ledger.enabled() || UNL.busy) { if (cb) cb(); return; }
+    if (!force && Date.now() - UNL.at < 60000) { if (cb) cb(); return; }
+    UNL.busy = true; var who = S.name, changed = false;
+    Ledger.lands(S.klass, function (res) {
+      UNL.busy = false; UNL.at = Date.now();
+      if (res && res.ok && Array.isArray(res.lands) && S && S.name === who) {
+        var before = JSON.stringify(S.teacherOpen || []);
+        S.teacherOpen = res.lands.filter(function (id) { return /^L([1-9]|10)$/.test(id); });
+        changed = JSON.stringify(S.teacherOpen) !== before;
+        if (changed) { saveLocal(); if (UI.screen === 'map' || (UI.screen === 'bonfire' && (UI.bonfireTab || 'camp') === 'camp')) render(); }
+      }
+      if (cb) cb(changed);
+    });
+  }
   /* ---------- perks from level and gear ---------- */
   function itemById(id) { return ITEMS.filter(function (i) { return i.id === id; })[0]; }
   function itemCount(id) { return (S && S.items && S.items[id]) || 0; }
@@ -200,7 +238,7 @@
   function render() {
     migrate();
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
-    Overworld.unmount(); document.body.classList.remove('in-world'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
+    Overworld.unmount(); WorldMap.unmount(); document.body.classList.remove('in-world', 'in-map'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     app.classList.toggle('wide', UI.screen === 'bonfire');
     fn(); typeset(app); saveLocal();
@@ -227,9 +265,10 @@
       if (klass) st.klass = klass;
       if (!online || !st.klass) { S = st; go('map'); return; }
       Ledger.identify(st.klass, st.name);
-      var started = false, start = function (state, msg) { if (started) return; started = true; S = state; if (msg) toast(msg); go('map'); };
+      var started = false, lands = null, start = function (state, msg) { if (started) return; started = true; S = state; if (lands) { S.teacherOpen = lands; UNL.at = Date.now(); } if (msg) toast(msg); go('map'); };
       toast('Looking for your progress…');
       Ledger.hello(st.klass, st.name, function (res) {
+        if (res && res.ok && Array.isArray(res.lands)) lands = res.lands.filter(function (id) { return /^L([1-9]|10)$/.test(id); });
         if (res && res.ok && res.found && res.save && Number(res.saveUpdated || 0) > Number(st.updated || 0) + 1500) {
           try { var cloud = decode(res.save); cloud.klass = st.klass; start(cloud, 'Progress loaded from your teacher\'s ledger.'); return; } catch (e) {}
         }
@@ -313,25 +352,20 @@
   }
   function landCleared(L) { return !!(S.bossKills[L.id]); }
   function screenMap() {
-    var head = el('div', 'land-head');
-    head.appendChild(el('div', null, '<div class="eyebrow">The world</div><h1>Choose a land</h1>'));
-    app.appendChild(head);
-    if (S.dropped) { var DL = landById(S.dropped.land), DC = DL && creatureById(DL, S.dropped.creature); app.appendChild(el('div', 'panel', '<span class="eyebrow">Unfinished business</span><p><b>' + n(S.dropped.amount) + ' Lore</b> lies where you fell, at the feet of <b>' + esc(DC ? DC.name : '?') + '</b> in ' + esc(DL ? DL.name : '?') + '. Defeat that creature to take it back. Die first and it is gone.</p>')); }
-    var ln = ledgerNotice(); if (ln) app.appendChild(ln);
-    var mapWrap = WorldMap.build(S, landCleared);
-    app.appendChild(mapWrap);
-    mapWrap.querySelectorAll('.mnode.open').forEach(function (g) {
-      var open = function () { S.lastLand = g.getAttribute('data-land'); UI.landFresh = true; go('land', { land: S.lastLand }); };
-      g.addEventListener('click', open); g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    document.body.classList.add('in-map');
+    S.seenOpen = S.seenOpen || {};
+    var fresh = [];
+    var lands = LANDS.map(function (L) {
+      var open = isOpen(L), cleared = open && landCleared(L), kills = L.creatures.filter(function (c) { return S.kills[c.id]; }).length;
+      if (open && !S.seenOpen[L.id]) fresh.push(L.id);
+      return { id: L.id, name: L.name, sub: 'Land ' + L.unit + ' · ' + L.subject, locked: !open, cleared: cleared, fresh: open && !S.seenOpen[L.id],
+        status: !open ? lockReason(L) : cleared ? 'Boss slain ✓' : kills + ' of ' + L.creatures.length + ' creatures slain' };
     });
-    var list = el('div', 'land-list');
-    LANDS.forEach(function (L) {
-      var b = el('button', 'land-row' + (L.open ? ' open' : ' fog')); b.type = 'button'; b.disabled = !L.open;
-      b.innerHTML = '<span class="num">' + L.unit + '</span><span class="nm">' + esc(L.name) + '</span><span class="sj">' + esc(L.subject) + '</span><span class="st">' + (L.open ? (landCleared(L) ? 'Boss slain' : L.creatures.filter(function (c) { return S.kills[c.id]; }).length + ' / ' + L.creatures.length + ' slain') : 'Fog') + '</span>';
-      if (L.open) b.onclick = function () { S.lastLand = L.id; UI.landFresh = true; go('land', { land: L.id }); };
-      list.appendChild(b);
-    });
-    app.appendChild(list);
+    var cur = isOpen(landById(S.lastLand)) ? S.lastLand : 'L1';
+    app.appendChild(WorldMap.build({ lands: lands, current: cur, dropped: S.dropped ? S.dropped.land : null, heroHtml: heroPortrait('tiny'),
+      onEnter: function (id) { S.lastLand = id; UI.landFresh = true; go('land', { land: id }); } }));
+    fresh.forEach(function (id) { S.seenOpen[id] = 1; });
+    syncUnlocks(false);
   }
 
   function bossOpen(L) { return L.creatures.every(function (c) { return S.kills[c.id]; }); }
@@ -355,7 +389,8 @@
     try { var run = Overworld.run(); Sfx.ambient(run ? run.map.theme.name : null); } catch (e) {}
   }
   function screenLand() {
-    var L = landById(UI.land || S.lastLand || 'L1'); if (!L || !L.open) { go('map'); return; }
+    var L = landById(UI.land || S.lastLand || 'L1'); if (!isOpen(L)) { go('map'); return; }
+    S.visited = S.visited || {}; S.visited[L.id] = 1; S.seenOpen = S.seenOpen || {}; S.seenOpen[L.id] = 1;
     if (L.explore === 2) { screenWorld(L); return; }
     var head = el('div', 'land-head' + (L.banner && window.ART_IMG && ART_IMG[L.banner] ? ' banner' : ''));
     if (L.banner && window.ART_IMG && ART_IMG[L.banner]) { var bn = el('div', 'banner-img'); bn.style.backgroundImage = 'url(' + ART_IMG[L.banner] + ')'; head.appendChild(bn); }
@@ -504,7 +539,7 @@
         });
       } else {
         var any = false;
-        LANDS.filter(function (L) { return L.open && LOREBOOK[L.id]; }).forEach(function (L) {
+        LANDS.filter(function (L) { return isOpen(L) && LOREBOOK[L.id]; }).forEach(function (L) {
           var w = (S.world && S.world[L.id]) || { pages: [] }, got = (w.pages || []).slice().sort();
           var sec = el('div', 'book-land'); sec.appendChild(el('div', 'eyebrow', esc(L.name) + ' · ' + got.length + (got.length === 1 ? ' page' : ' pages') + ' found'));
           if (!got.length) sec.appendChild(el('p', 'muted', 'No pages found here yet.'));
@@ -691,12 +726,14 @@
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
+    var nextL = B.isBoss ? LANDS[LANDS.indexOf(B.land) + 1] : null, wasOpen = nextL && isOpen(nextL);
     if (B.isBoss) { S.bossKills[B.land.id] = (S.bossKills[B.land.id] || 0) + 1; if (S.titles.indexOf(foe.title) < 0) S.titles.push(foe.title); }
     if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
     B.done = true; B.phase = 'result'; B.outcome = 'won'; sfx('correct');
     var html = '<h2>' + (B.isBoss ? esc(foe.name) + ' falls' : esc(foe.name) + ' is slain') + '</h2><div class="gain">+' + n(rw.amount) + ' Lore</div><div class="breakdown">' + rw.parts.map(function (p) { return p.k + ' ' + p.m; }).join(' · ') + '</div>' +
       (reclaimed ? '<p><b style="color:var(--lore)">You reclaim ' + n(reclaimed) + ' Lore</b> from where you fell.</p>' : '') +
       (B.isBoss ? '<p>The seal breaks. You carry the title <b>' + esc(foe.title) + '</b>.</p>' : '') +
+      (nextL && !wasOpen && isOpen(nextL) ? '<p class="land-opens">A new land opens on the world map: <b>' + esc(nextL.name) + '</b>.</p>' : '') +
       youTyped(B) + solutionBlock(q);
     var res = el('div', 'result win', html);
     res.appendChild(afterActions(true));
@@ -941,12 +978,13 @@
     }
     if (id === 'level') { var lv = S.level || 1; if (lv >= LEVEL.max) return 'Level ' + lv + ' · the top of the ladder'; var c = LEVEL.cost(lv); return 'Level ' + lv + ' · next costs ' + n(c) + ' Lore' + (S.lore >= c ? ' · <b>ready</b>' : ''); }
     if (id === 'shop') { var cnt = 0; ITEMS.forEach(function (it) { cnt += itemCount(it.id); }); var cheap = ITEMS.filter(function (it) { return S.lore >= it.cost; }).length; return cnt + (cnt === 1 ? ' item' : ' items') + ' in your Satchel' + (cheap ? ' · ' + cheap + ' kinds within reach' : ''); }
-    if (id === 'book') { var found = 0, total = 0; LANDS.forEach(function (L) { if (!L.open || !LOREBOOK[L.id]) return; total += LOREBOOK[L.id].length; found += (((S.world && S.world[L.id]) || {}).pages || []).length; }); return found + ' of ' + total + ' pages found'; }
-    if (id === 'beast') { var met = 0, tot = 0; LANDS.forEach(function (L) { if (!L.open) return; L.creatures.concat([L.boss]).forEach(function (c) { tot++; if (S.met && S.met[c.id]) met++; }); }); return met + ' of ' + tot + ' creatures met'; }
+    if (id === 'book') { var found = 0, total = 0; LANDS.forEach(function (L) { if (!isOpen(L) || !LOREBOOK[L.id]) return; total += LOREBOOK[L.id].length; found += (((S.world && S.world[L.id]) || {}).pages || []).length; }); return found + ' of ' + total + ' pages found'; }
+    if (id === 'beast') { var met = 0, tot = 0; LANDS.forEach(function (L) { if (!isOpen(L)) return; L.creatures.concat([L.boss]).forEach(function (c) { tot++; if (S.met && S.met[c.id]) met++; }); }); return met + ' of ' + tot + ' creatures met'; }
     if (id === 'chronicle') return 'Legend ' + n(S.legend) + ' · ' + n(S.deaths) + (S.deaths === 1 ? ' death' : ' deaths') + ' · save code';
     return 'How Lore, death and the lands work';
   }
   function screenBonfire() {
+    syncUnlocks(false);
     var tab = UI.bonfireTab || 'camp', Lc = landById(UI.land || S.lastLand || 'L1');
     if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast') {} else tab = 'camp';
     var bkey = Lc && (Lc.banner || (Lc.id === 'L1' ? 'title' : null));
@@ -960,6 +998,7 @@
     head.appendChild(nav); app.appendChild(head);
     var TILES = [['gear', 'The Forge', 'Permanent upgrades, six branches.'], ['level', 'Imbue Lore into Legacy', 'Spend Lore to grow stronger.'], ['shop', 'The Merchant', 'One-use items for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
     if (tab === 'camp') {
+      var notes = campNotices(); if (notes) app.appendChild(notes);
       var grid = el('div', 'camp-grid');
       TILES.forEach(function (t) {
         var b = el('button', 'camp-tile', campArt(t[0]) + '<div class="txt"><div class="nm">' + t[1] + '</div><div class="desc">' + t[2] + '</div><div class="st">' + campStatus(t[0]) + '</div></div>'); b.type = 'button';
@@ -977,10 +1016,25 @@
     sub.appendChild(tabs); app.appendChild(sub);
     if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else bonfireBook();
   }
+  function campNotices() { // news for the student: what used to sit above the map now waits at the bonfire
+    var box = el('div', 'camp-notes'), any = false;
+    var fresh = LANDS.filter(function (L) { return isOpen(L) && !(S.seenOpen && S.seenOpen[L.id]); });
+    if (fresh.length) {
+      any = true;
+      var nl = el('div', 'panel camp-note new-land', '<span class="eyebrow">' + (fresh.length > 1 ? 'New lands open' : 'A new land opens') + '</span><p>' + fresh.map(function (L) { return '<b>' + esc(L.name) + '</b> (Land ' + L.unit + ' · ' + esc(L.subject) + ')'; }).join(', ') + ' ' + (fresh.length > 1 ? 'are' : 'is') + ' now open. Find ' + (fresh.length > 1 ? 'them' : 'it') + ' on the world map.</p>');
+      var mb = el('button', 'btn', 'Open the world map'); mb.type = 'button'; mb.onclick = function () { go('map'); }; nl.appendChild(mb); box.appendChild(nl);
+    }
+    if (S.dropped) {
+      any = true; var DL = landById(S.dropped.land), DC = DL && creatureById(DL, S.dropped.creature);
+      box.appendChild(el('div', 'panel camp-note dropped', '<span class="eyebrow">Unfinished business</span><p><b>' + n(S.dropped.amount) + ' Lore</b> lies where you fell, at the feet of <b>' + esc(DC ? DC.name : '?') + '</b> in ' + esc(DL ? DL.name : '?') + '. Defeat that creature to take it back. Die first and it is gone.</p>'));
+    }
+    var ln = ledgerNotice(); if (ln) { any = true; ln.classList.add('camp-note'); box.appendChild(ln); }
+    return any ? box : null;
+  }
   function bonfireBestiary() {
     app.appendChild(el('p', 'muted', 'Every creature you have faced is recorded here. Practise against any of them: the question is just as real, but no Lore is won or lost, no gear or items are used up, and nothing in the lands changes.'));
     var any = false;
-    LANDS.filter(function (L) { return L.open; }).forEach(function (L) {
+    LANDS.filter(function (L) { return isOpen(L); }).forEach(function (L) {
       var all = L.creatures.concat([L.boss]), met = all.filter(function (c) { return S.met && S.met[c.id]; });
       if (!met.length) return; any = true;
       var sec = el('div', 'panel beast-land');
@@ -1078,7 +1132,7 @@
   function bonfireBook() {
     var any = false, wrap = el('div', 'panel');
     wrap.appendChild(el('p', 'muted', 'Pages of the Lorebook lie hidden in every land. Each holds a piece of the story and a piece of the math. Found pages can be read here or from your Satchel at any time, even mid-fight.'));
-    LANDS.filter(function (L) { return L.open && LOREBOOK[L.id]; }).forEach(function (L) {
+    LANDS.filter(function (L) { return isOpen(L) && LOREBOOK[L.id]; }).forEach(function (L) {
       var w = (S.world && S.world[L.id]) || { pages: [] }, got = (w.pages || []).slice().sort();
       var sec = el('div', 'book-land'); sec.appendChild(el('div', 'eyebrow', esc(L.name) + ' · ' + got.length + (got.length === 1 ? ' page' : ' pages') + ' found'));
       got.forEach(function (nn) { any = true; var pg = LOREBOOK[L.id][nn]; if (!pg) return; var b = el('button', 'page-btn', '<b>' + esc(pg.title) + '</b><span>page ' + (nn + 1) + '</span>'); b.type = 'button'; b.onclick = function () { showPage(L, nn, false); }; sec.appendChild(b); });
@@ -1101,7 +1155,7 @@
     });
     st.appendChild(stats);
     st.appendChild(el('p', 'muted', 'Legend is every Lore you have ever earned. It never goes down, even when you die.'));
-    var books = LANDS.filter(function (L) { return L.open; }).map(function (L) { var w = (S.world && S.world[L.id]) || {}; return '<span>' + esc(L.name) + ': ' + ((w.pages || []).length) + ' pages · ' + ((w.chests || []).length) + ' chests' + (w.key ? ' · key' : '') + '</span>'; });
+    var books = LANDS.filter(function (L) { return isOpen(L); }).map(function (L) { var w = (S.world && S.world[L.id]) || {}; return '<span>' + esc(L.name) + ': ' + ((w.pages || []).length) + ' pages · ' + ((w.chests || []).length) + ' chests' + (w.key ? ' · key' : '') + '</span>'; });
     st.appendChild(el('div', 'ow-stat', books.join('')));
     app.appendChild(st);
     var oc = el('div', 'panel', '<span class="eyebrow">By outcome</span>');
@@ -1209,6 +1263,7 @@
       bar.appendChild(pg); }
     bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
     app.appendChild(bar);
+    ledgerLands();
     // class summary
     var tot = { students: players.length, play: 0, attempts: 0, correct: 0, bosses: 0, legend: 0, deaths: 0 };
     players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.attempts += Number(p.attempts) || 0; tot.correct += Number(p.correct) || 0; tot.bosses += Number(p.bossKills) || 0; tot.legend += Number(p.legend) || 0; tot.deaths += Number(p.deaths) || 0; });
@@ -1228,6 +1283,36 @@
     // detail
     var dp = el('div'); dp.id = 'ledger-detail'; app.appendChild(dp);
     if (LG.sel) renderLedgerDetail();
+  }
+  function normClass(k) { return String(k == null ? '' : k).trim().toLowerCase().replace(/\s+/g, ' '); }
+  function ledgerLands() { // which lands the teacher has opened for the chosen class (or for every class)
+    var p = el('div', 'panel ledger-lands'), unl = LG.data.unlocks, key = LG.klass ? normClass(LG.klass) : '*';
+    p.appendChild(el('div', 'eyebrow', 'Lands open · ' + (LG.klass ? 'class ' + esc(LG.klass) : 'every class')));
+    if (!unl) { p.appendChild(el('p', 'muted', 'To open lands from here, paste the newest <b>backend/Code.gs</b> into the Apps Script project and deploy a new version (Deploy → Manage deployments → edit → New version). Until then, each student opens the next land by slaying the boss of the land before it.')); app.appendChild(p); return; }
+    var mine = unl[key] || [], all = unl['*'] || [];
+    p.appendChild(el('p', 'muted', 'Land 1 is always open, and a student opens the next land on their own by slaying the boss of the land before it. Open a land here to let ' + (LG.klass ? 'everyone in ' + esc(LG.klass) : 'every class') + ' in early, as the semester reaches that unit. Students see the change within a minute or two. A land a student has already entered stays open for them.'));
+    var row = el('div', 'lands-toggle');
+    LANDS.forEach(function (L, i) {
+      var on = i === 0 || mine.indexOf(L.id) >= 0, viaAll = key !== '*' && all.indexOf(L.id) >= 0;
+      var b = el('button', 'land-chip' + (on || viaAll ? ' on' : '') + (i === 0 || viaAll ? ' fixed' : ''), '<span class="u">' + L.unit + '</span><span class="nm">' + esc(L.name) + '</span><span class="sj">' + (i === 0 ? 'always open' : viaAll ? 'open for every class' : on ? 'open' : 'locked') + '</span>');
+      b.type = 'button'; b.disabled = i === 0 || viaAll; b.setAttribute('aria-pressed', on || viaAll ? 'true' : 'false');
+      b.onclick = function () {
+        var next = mine.filter(function (id) { return id !== L.id; }); if (!on) next.push(L.id);
+        next.sort(function (a, c) { return Number(a.slice(1)) - Number(c.slice(1)); });
+        row.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+        Ledger.setLands(LG.key, LG.klass || '*', next, function (res) {
+          if (res && res.ok) { LG.data.unlocks = res.unlocks || LG.data.unlocks; toast((on ? 'Locked ' : 'Opened ') + L.name + ' for ' + (LG.klass || 'every class') + '.'); }
+          else toast('Could not save: ' + ((res && res.error) || 'no reply'));
+          render();
+        });
+      };
+      row.appendChild(b);
+    });
+    p.appendChild(row);
+    var pv = teacherPreview(), tb = el('button', 'btn ghost small', pv ? 'Turn off teacher preview on this device' : 'Teacher preview: open every land on this device'); tb.type = 'button';
+    tb.onclick = function () { try { if (pv) localStorage.removeItem(SAVE_PREFIX + 'preview'); else localStorage.setItem(SAVE_PREFIX + 'preview', '1'); } catch (e) {} toast(pv ? 'Teacher preview is off.' : 'Every land is open on this device, for any hero played here.'); render(); };
+    p.appendChild(tb);
+    app.appendChild(p);
   }
   function heatTable(outcomeMaps) {
     var agg = {}; outcomeMaps.forEach(function (m) { Object.keys(m).forEach(function (o) { agg[o] = agg[o] || {}; Object.keys(m[o]).forEach(function (lv) { var c = agg[o][lv] = agg[o][lv] || { a: 0, c: 0, f: 0 }; c.a += m[o][lv].a || 0; c.c += m[o][lv].c || 0; c.f += m[o][lv].f || 0; }); }); });
@@ -1287,7 +1372,7 @@
   function boot(data) {
     if (data && data.S) { S = data.S; UI.screen = data.screen === 'battle' ? 'land' : (data.screen || 'map'); UI.land = data.land; }
     else { try { var last = localStorage.getItem(SAVE_PREFIX + 'last'); if (last) { var st = JSON.parse(localStorage.getItem(SAVE_PREFIX + last)); if (st && st.name) { S = st; UI.screen = 'map'; } } } catch (e) {} }
-    if (S && S.klass && Ledger.enabled()) { Ledger.identify(S.klass, S.name); Ledger.ping(function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln && Ledger.status() === 'ok') ln.remove(); }); }
+    if (S && S.klass && Ledger.enabled()) { Ledger.identify(S.klass, S.name); syncUnlocks(true, function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln && Ledger.status() === 'ok') ln.remove(); }); }
     render();
   }
   try { if (window.claude && window.claude.hot && window.claude.hot.snapshot) window.claude.hot.snapshot(function () { return { S: S, screen: UI.screen, land: UI.land }; }); } catch (e) {}

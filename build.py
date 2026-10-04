@@ -14,12 +14,12 @@ import io, hashlib, shutil
 # Every image is prepared once. The standalone file inlines them all (it must work from a double-click);
 # the web build (artifact + GitHub Pages) serves them as separate files under art/, which keeps the page small.
 # A few stay inline in the web build too, because the game reads their pixels back from a canvas.
-INLINE_ALWAYS = {'map', 'sheet-dt', 'sheet-kenney'}
+INLINE_ALWAYS = {'sheet-dt', 'sheet-kenney'}
 IMGS = {}
 for f in sorted(os.listdir('src/art')):
     if not f.lower().endswith(('.jpg','.jpeg','.png','.webp')): continue
     key=os.path.splitext(f)[0]
-    if key.startswith(('sheet-', 'cr-', 'tr-', 'ui-')):   # sprite sheets and UI icons: packed already, untouched (keeps transparency)
+    if key.startswith(('sheet-', 'cr-', 'tr-', 'ui-', 'wm-')):   # sprite sheets and UI icons: packed already, untouched (keeps transparency)
         raw=open('src/art/'+f,'rb').read(); ext='webp' if f.endswith('.webp') else 'png'; IMGS[key]=(raw, 'image/'+ext, ext); print('sheet',key,len(raw)//1024,'KB'); continue
     im=Image.open('src/art/'+f).convert('RGB')
     maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 720 if key.startswith('camp-') else 560 if key.startswith(('gear-','item-')) else 560
@@ -42,7 +42,7 @@ web_js='var ART_IMG = '+json.dumps(WEB)+';'
 html=src('index.html')
 html=html.replace('/*KATEX_CSS*/',css).replace('/*GAME_CSS*/',src('style.css'))
 html=html.replace('/*KATEX_JS*/',open(K+'/katex.min.js').read()).replace('/*AUTORENDER_JS*/',open(K+'/contrib/auto-render.min.js').read())
-for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('QUESTIONS_U5_JS','questions_u5.js'),('QUESTIONS_U6_JS','questions_u6.js'),('QUESTIONS_U7_JS','questions_u7.js'),('QUESTIONS_U8_JS','questions_u8.js'),('QUESTIONS_U9_JS','questions_u9.js'),('QUESTIONS_U10_JS','questions_u10.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('LOREBOOK_L8_JS','lorebook_l8.js'),('LOREBOOK_L9_JS','lorebook_l9.js'),('LOREBOOK_L10_JS','lorebook_l10.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('HD_DEFS_JS','hd_defs.js'),('CREATURE_DEFS_JS','creature_defs.js'),('TERRAIN_DEFS_JS','terrain_defs.js'),('SPRITES_JS','sprites.js'),('LANDS_JS','lands.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
+for tag,f in [('CHECKER_JS','checker.js'),('GRADER_JS','grader.js'),('CONFIG_JS','config.js'),('LEDGER_JS','ledger.js'),('SOUND_JS','sound.js'),('FIGURES_JS','figures.js'),('QUESTIONS_JS','questions.js'),('QUESTIONS_U2_JS','questions_u2.js'),('QUESTIONS_U3_JS','questions_u3.js'),('QUESTIONS_U4_JS','questions_u4.js'),('QUESTIONS_U5_JS','questions_u5.js'),('QUESTIONS_U6_JS','questions_u6.js'),('QUESTIONS_U7_JS','questions_u7.js'),('QUESTIONS_U8_JS','questions_u8.js'),('QUESTIONS_U9_JS','questions_u9.js'),('QUESTIONS_U10_JS','questions_u10.js'),('ART_JS','art.js'),('WORLD_JS','world.js'),('LOREBOOK_JS','lorebook.js'),('LOREBOOK_L8_JS','lorebook_l8.js'),('LOREBOOK_L9_JS','lorebook_l9.js'),('LOREBOOK_L10_JS','lorebook_l10.js'),('WORLDMAP_DEFS_JS','worldmap_defs.js'),('MAP_JS','map.js'),('SPRITE_DEFS_JS','sprite_defs.js'),('HD_DEFS_JS','hd_defs.js'),('CREATURE_DEFS_JS','creature_defs.js'),('TERRAIN_DEFS_JS','terrain_defs.js'),('SPRITES_JS','sprites.js'),('LANDS_JS','lands.js'),('OVERWORLD_JS','overworld.js'),('GAME_JS','game.js')]:
     html=html.replace('/*%s*/'%tag, js(f))
 os.makedirs('dist',exist_ok=True)
 web=html.replace('/*ART_IMG_JS*/', web_js)
