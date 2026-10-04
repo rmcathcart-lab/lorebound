@@ -445,3 +445,12 @@ body.in-world #app { padding: 0; max-width: none; }
 .gear-top { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
 .gear-img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; border: 1px solid var(--edge); flex: none; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
 .gear.locked .gear-img { filter: grayscale(.7) brightness(.6); }
+
+/* Bestiary (camp): practise against creatures already met */
+.beast-land { margin-top: 14px; }
+.beast-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.beast-head h3 { margin: 0; font-family: var(--font-display); font-size: 20px; }
+.creature.beast { cursor: pointer; transition: border-color .15s, transform .15s; }
+.creature.beast:hover, .creature.beast:focus-visible { border-color: var(--lvl); transform: translateY(-1px); }
+.creature.beast.boss { border-color: color-mix(in srgb, var(--boss) 45%, var(--edge)); }
+.creature .meta .practice-go { margin-left: auto; color: var(--ember); letter-spacing: .06em; text-transform: uppercase; font-size: 12px; }

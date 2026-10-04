@@ -54,7 +54,7 @@
       var m = P([[k, e, 0]]), b = lin(a, c), prod = pMul(m, b);
       return { prompt: 'Expand: ' + T(pTex(m, [v, 'y']) + bin(a, c, [v, 'y'])), type: 'expr', answers: [pTex(prod, [v, 'y'])], check: 'exact',
         hint: 'Multiply the monomial by each term in the bracket: coefficients multiply, exponents of the same base add.',
-        solution: steps([T(pTex(m, [v, 'y']) + '\\cdot' + pTex(lin(a, 0), [v, 'y']) + ' = ' + pTex(P([[k * a, e + 1, 0]]), [v, 'y'])) + ' and ' + T(pTex(m, [v, 'y']) + '\\cdot(' + c + ') = ' + pTex(P([[k * c, e, 0]]), [v, 'y'])) + '.', T('= ' + pTex(prod, [v, 'y'])) + '.']) };
+        solution: steps([T(pTex(m, [v, 'y']) + '\\cdot ' + pTex(lin(a, 0), [v, 'y']) + ' = ' + pTex(P([[k * a, e + 1, 0]]), [v, 'y'])) + ' and ' + T(pTex(m, [v, 'y']) + '\\cdot(' + c + ') = ' + pTex(P([[k * c, e, 0]]), [v, 'y'])) + '.', T('= ' + pTex(prod, [v, 'y'])) + '.']) };
     },
     function () { // combine like terms with two variables
       var p = P([[rnz(-5, 5), 2, 0], [rnz(-6, 6), 1, 1], [rnz(-5, 5), 0, 2], [rnz(-5, 5), 2, 0], [rnz(-6, 6), 1, 1], [rnz(-5, 5), 0, 2]]);

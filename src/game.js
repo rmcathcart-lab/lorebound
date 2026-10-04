@@ -9,7 +9,34 @@
   /* ---------- helpers ---------- */
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function typeset(node) { try { if (window.renderMathInElement) renderMathInElement(node, { delimiters: [{ left: '\\(', right: '\\)', display: false }, { left: '\\[', right: '\\]', display: true }], throwOnError: false }); } catch (e) {} }
+  /* Typeset \( inline \) and \[ display \] math in a DOM subtree with KaTeX directly.
+   * (KaTeX's auto-render helper silently stopped working in newer Chrome, so this is our own small version.) */
+  function typeset(node) {
+    if (!node || !window.katex) return;
+    var skip = 'script,style,textarea,pre,code,option,svg,math-field,.katex';
+    var w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, null), nodes = [], t;
+    while ((t = w.nextNode())) { if (/\\[(\[]/.test(t.nodeValue) && !(t.parentElement && t.parentElement.closest(skip))) nodes.push(t); }
+    nodes.forEach(function (tn) { try { typesetText(tn); } catch (e) {} });
+  }
+  function mathDelim(s, from, d) { // index of delimiter d at or after from, not escaped by a preceding backslash
+    for (var k = s.indexOf(d, from); k >= 0; k = s.indexOf(d, k + 1)) { var bs = 0, m = k - 1; while (m >= 0 && s.charAt(m) === '\\') { bs++; m--; } if (bs % 2 === 0) return k; }
+    return -1;
+  }
+  function typesetText(tn) {
+    var s = tn.nodeValue, frag = document.createDocumentFragment(), pos = 0, changed = false;
+    while (pos < s.length) {
+      var a = mathDelim(s, pos, '\\('), b = mathDelim(s, pos, '\\['), open = a < 0 ? b : b < 0 ? a : Math.min(a, b);
+      if (open < 0) break;
+      var disp = open === b, close = mathDelim(s, open + 2, disp ? '\\]' : '\\)');
+      if (close < 0) break;
+      if (open > pos) frag.appendChild(document.createTextNode(s.slice(pos, open)));
+      var sp = document.createElement('span'); sp.innerHTML = katex.renderToString(s.slice(open + 2, close), { displayMode: disp, throwOnError: false });
+      frag.appendChild(sp.childNodes.length === 1 ? sp.firstChild : sp); pos = close + 2; changed = true;
+    }
+    if (!changed) return;
+    if (pos < s.length) frag.appendChild(document.createTextNode(s.slice(pos)));
+    tn.parentNode.replaceChild(frag, tn);
+  }
   function tex(latex) { try { if (window.katex) return katex.renderToString(String(latex), { throwOnError: false }); } catch (e) {} return esc(latex); }
   function typedTex(raw) { if (/\\/.test(String(raw))) return tex(raw); try { var t = mathParseLenient_(String(raw)); if (t) return tex(treeToLatex(t)); } catch (e) {} return esc(raw); }
   function sfx(name) { try { if (window.Sfx) Sfx.play(name); } catch (e) {} }
@@ -45,7 +72,8 @@
   function newState(name) {
     return { v: 1, name: name, klass: '', created: Date.now(), updated: Date.now(), play: 0, lore: 0, legend: 0, dropped: null, gear: {}, items: {}, level: 1, kills: {}, losses: {}, bossKills: {}, deaths: 0, lostForever: 0, streak: 0, bestStreak: 0, titles: [], lastLand: 'L1', hero: null };
   }
-  function migrate() { if (!S) return; S.level = S.level || 1; S.items = S.items || {}; S.gear = S.gear || {}; S.world = S.world || {}; }
+  function migrate() { if (!S) return; S.level = S.level || 1; S.items = S.items || {}; S.gear = S.gear || {}; S.world = S.world || {};
+    if (!S.met) { S.met = {}; Object.keys(S.kills || {}).concat(Object.keys(S.losses || {})).forEach(function (id) { S.met[id] = 1; }); } }
   /* ---------- perks from level and gear ---------- */
   function itemById(id) { return ITEMS.filter(function (i) { return i.id === id; })[0]; }
   function itemCount(id) { return (S && S.items && S.items[id]) || 0; }
@@ -96,7 +124,7 @@
   function logAttempt(q, raw, result) {
     var B = UI.battle; if (!B || !S || !S.klass) return;
     Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: B.foe.level, gen: q.key || '', boss: !!B.isBoss,
-      question: q.prompt, typed: raw, result: result, lore: S.lore, streak: S.streak });
+      question: q.prompt, typed: raw, result: result, lore: S.lore, streak: S.streak, practice: !!B.practice });
   }
   setInterval(function () { // play-time clock: counts only while the tab is visible and the student is active
     if (!S || UI.screen === 'title' || UI.screen === 'ledger') return;
@@ -351,7 +379,7 @@
     var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore on gear here. Lore you spend can never be lost; Lore you carry can.</span></div>');
     var bfb = el('button', 'btn', 'Rest at the bonfire'); bfb.type = 'button'; bfb.onclick = function () { go('bonfire'); }; bf.appendChild(bfb);
     app.appendChild(bf);
-    var best = el('details', 'bestiary'); best.innerHTML = '<summary>Bestiary · every creature of this land</summary>';
+    var best = el('details', 'bestiary'); best.innerHTML = '<summary>Creatures of this land</summary>';
     Object.keys(L.outcomes).forEach(function (oc) {
       var g = el('div', 'outcome-group'); g.appendChild(el('h3', null, (L.outcomes[oc].indexOf(oc) === 0 || /^AN\d+ ·/.test(L.outcomes[oc]) ? '' : oc + ' · ') + esc(L.outcomes[oc])));
       var grid = el('div', 'creatures');
@@ -488,9 +516,11 @@
   }
   function closeSatchel() { if (UI.satchel) { UI.satchel.remove(); UI.satchel = null; } try { if (!UI.modal) Overworld.freeze(false); } catch (e) {} renderHud(); }
 
-  function startBattle(L, c, isBoss, inst) {
+  function startBattle(L, c, isBoss, inst, practice) {
     var qs = (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
-    UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null };
+    var home = UI.land;
+    UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null, practice: !!practice, home: home };
+    if (!practice) { S.met = S.met || {}; S.met[c.id] = 1; }
     armTimer();
     UI.land = L.id; go('battle'); sfx(isBoss ? 'boss' : 'alert');
   }
@@ -560,14 +590,15 @@
     var head = el('div', 'panel');
     var foeEl = el('div', 'foe'); foeEl.style.setProperty('--lvl', lvlColor);
     var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
-    foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + (B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + n(LEVELS[foe.level].lore) + ' Lore</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
+    var tagTxt = (B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore');
+    foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + tagTxt + '</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
     if (window.Overworld && Overworld.SP.actor && Overworld.SP.actor('cr:' + (foe.sigil || foe.id))) {
       var stage = el('div', 'bstage'), bnr = B.land && (B.land.banner || 'title');
       if (bnr && window.ART_IMG && ART_IMG[bnr]) stage.style.backgroundImage = 'url(' + ART_IMG[bnr] + ')';
       stage.appendChild(stageCanvas(B));
       stage.appendChild(el('div', 'bstage-cap hero', '<span class="nm">' + esc(S.hero ? S.hero.name : S.name) + '</span><span class="tag">' + esc(heroTitle()) + '</span>'));
-      stage.appendChild(el('div', 'bstage-cap foe', '<div class="tag" style="color:' + lvlColor + '">' + (B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + n(LEVELS[foe.level].lore) + ' Lore</div><span class="nm">' + esc(foe.name) + '</span>' + prog));
+      stage.appendChild(el('div', 'bstage-cap foe', '<div class="tag" style="color:' + lvlColor + '">' + tagTxt + '</div><span class="nm">' + esc(foe.name) + '</span>' + prog));
       arena.className = 'arena staged'; arena.appendChild(stage);
     } else {
       arena.appendChild(el('div', 'hero-side', heroPortrait('at-arena') + '<div class="hero-cap"><span class="nm">' + esc(S.hero ? S.hero.name : S.name) + '</span><span class="tag">' + esc(heroTitle()) + '</span></div>'));
@@ -606,11 +637,11 @@
         var atk = el('button', 'btn big', 'Strike'); atk.type = 'button'; atk.onclick = function () { submit(mf.value()); }; acts.appendChild(atk);
         mf.onEnter(function () { submit(mf.value()); });
         if (owns('lantern') && !B.hintShown) { var hb = el('button', 'btn ghost', 'Lantern: hint (Lore ×0.75)'); hb.type = 'button'; hb.onclick = function () { B.hintShown = true; B.used.hint = true; render(); }; acts.appendChild(hb); }
-        if (itemCount('lens') > 0 && !B.hintShown) { var lb = el('button', 'btn ghost', 'Scholar\'s Lens: free hint (' + itemCount('lens') + ')'); lb.type = 'button'; lb.onclick = function () { useItem('lens'); }; acts.appendChild(lb); }
-        if (itemCount('hourglass') > 0 && B.deadline) { var gb = el('button', 'btn ghost', 'Hourglass: +60 s (' + itemCount('hourglass') + ')'); gb.type = 'button'; gb.onclick = function () { useItem('hourglass'); }; acts.appendChild(gb); }
+        if (itemCount('lens') > 0 && !B.hintShown && !B.practice) { var lb = el('button', 'btn ghost', 'Scholar\'s Lens: free hint (' + itemCount('lens') + ')'); lb.type = 'button'; lb.onclick = function () { useItem('lens'); }; acts.appendChild(lb); }
+        if (itemCount('hourglass') > 0 && B.deadline && !B.practice) { var gb = el('button', 'btn ghost', 'Hourglass: +60 s (' + itemCount('hourglass') + ')'); gb.type = 'button'; gb.onclick = function () { useItem('hourglass'); }; acts.appendChild(gb); }
         if (owns('tome') && !B.tomeQ) { var tb = el('button', 'btn ghost', 'Tome: worked example (Lore ×0.5)'); tb.type = 'button'; tb.onclick = function () { B.tomeQ = QGen.make(q.key); B.used.tome = true; render(); }; acts.appendChild(tb); }
         acts.appendChild(el('span', 'spacer'));
-        var fl = el('button', 'btn ghost', 'Flee (lose 10% Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
+        var fl = el('button', 'btn ghost', B.practice ? 'Leave practice' : 'Flee (lose 10% Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
         qp.appendChild(acts);
         setTimeout(function () { try { mf.focus(); } catch (e) {} }, 50);
       }
@@ -637,6 +668,7 @@
   }
   function loseExchange() { // a wrong answer (or the clock): the creature strikes, and what it costs depends on your gear
     var B = UI.battle;
+    if (B.practice) { exchange(false, true, practiceEnd); return; }
     if (charges('sight') > 0 && !B.sightUsed) { exchange(false, false, function () { B.phase = 'sight'; render(); }); return; }
     if (charges('shield') > 0) { exchange(false, false, function () { shieldBreak(); }); return; }
     if (itemCount('draught') > 0) { exchange(false, false, function () { shieldBreak('draught'); }); return; }
@@ -651,6 +683,7 @@
       B.i++; B.hintShown = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; armTimer();
       toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); sfx('correct'); render(); return;
     }
+    if (B.practice) { practiceEnd(true); return; }
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
@@ -694,11 +727,26 @@
     res.appendChild(afterActions(false)); B.result = res; render();
   }
   function flee() {
+    if (UI.battle && UI.battle.practice) { leavePractice(); return; }
     var B = UI.battle, cost = Math.floor(S.lore * 0.10);
     S.lore -= cost; sfx('flee'); B.done = true; B.outcome = 'fled';
     toast(cost ? 'You escape, but ' + esc(B.foe.name) + ' claws ' + n(cost) + ' Lore from you.' : 'You slip away.');
     UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: 'fled' }; UI.battle = null; go('land');
   }
+  /* Bestiary practice: a fight with nothing at stake. No Lore won or lost, no gear or items spent, the lands untouched. */
+  function practiceEnd(won) {
+    var B = UI.battle, q = B.qs[B.i], foe = B.foe;
+    B.done = true; B.phase = 'result'; B.outcome = won ? 'won' : 'died'; sfx(won ? 'correct' : 'death');
+    var html = won ? '<h2>' + esc(foe.name) + (B.isBoss ? ' falls' : ' is slain') + '</h2><p class="muted">A practice fight: no Lore won, and the lands are unchanged. The real thing is out there.</p>'
+      : '<h2>You fell</h2><p class="muted">Only practice. Nothing is lost: your Lore, gear and items are as you left them.</p>';
+    var res = el('div', 'result ' + (won ? 'win' : 'lose'), html + youTyped(B) + solutionBlock(q));
+    var acts = el('div', 'actions'); acts.style.marginTop = '14px';
+    var again = el('button', 'btn big', 'Fight it again'); again.type = 'button'; again.onclick = function () { var L = B.land, c = B.foe, ib = B.isBoss; UI.land = B.home; startBattle(L, c, ib, null, true); };
+    var back = el('button', 'btn ghost', 'Back to the Bestiary'); back.type = 'button'; back.onclick = leavePractice;
+    acts.appendChild(again); acts.appendChild(back); res.appendChild(acts);
+    B.result = res; render();
+  }
+  function leavePractice() { var B = UI.battle; UI.battle = null; if (B) UI.land = B.home; UI.screen = 'bonfire'; UI.bonfireTab = 'beast'; render(); window.scrollTo(0, 0); }
   function afterActions(won) {
     var B = UI.battle, acts = el('div', 'actions'); acts.style.marginTop = '14px';
     var label = B.outcome === 'died' && B.land.explore === 2 ? 'Wake at the bonfire' : won ? 'Return to ' + esc(theLand(B.land)) : 'Back to ' + esc(theLand(B.land));
@@ -854,6 +902,7 @@
     shop: '<path d="M5 9h14l-1 11H6z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/>',
     book: '<path d="M4 5h7a2 2 0 0 1 2 2v13a2 2 0 0 0-2-2H4z"/><path d="M20 5h-7a2 2 0 0 0-2 2v13a2 2 0 0 1 2-2h7z"/>',
     chronicle: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>',
+    beast: '<path d="M5 20c0-6 3-10 7-10s7 4 7 10"/><path d="M8 11 6 4l4 4M16 11l2-7-4 4"/><path d="M10 15h.01M14 15h.01"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"/><path d="M12 17h.01"/>'
   };
   function campIcon(id) { return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + CAMP_ICONS[id] + '</svg>'; }
@@ -866,12 +915,13 @@
     if (id === 'level') { var lv = S.level || 1; if (lv >= LEVEL.max) return 'Level ' + lv + ' · the top of the ladder'; var c = LEVEL.cost(lv); return 'Level ' + lv + ' · next costs ' + n(c) + ' Lore' + (S.lore >= c ? ' · <b>ready</b>' : ''); }
     if (id === 'shop') { var cnt = 0; ITEMS.forEach(function (it) { cnt += itemCount(it.id); }); var cheap = ITEMS.filter(function (it) { return S.lore >= it.cost; }).length; return cnt + (cnt === 1 ? ' item' : ' items') + ' in your Satchel' + (cheap ? ' · ' + cheap + ' kinds within reach' : ''); }
     if (id === 'book') { var found = 0, total = 0; LANDS.forEach(function (L) { if (!L.open || !LOREBOOK[L.id]) return; total += LOREBOOK[L.id].length; found += (((S.world && S.world[L.id]) || {}).pages || []).length; }); return found + ' of ' + total + ' pages found'; }
+    if (id === 'beast') { var met = 0, tot = 0; LANDS.forEach(function (L) { if (!L.open) return; L.creatures.concat([L.boss]).forEach(function (c) { tot++; if (S.met && S.met[c.id]) met++; }); }); return met + ' of ' + tot + ' creatures met'; }
     if (id === 'chronicle') return 'Legend ' + n(S.legend) + ' · ' + n(S.deaths) + (S.deaths === 1 ? ' death' : ' deaths') + ' · save code';
     return 'How Lore, death and the lands work';
   }
   function screenBonfire() {
     var tab = UI.bonfireTab || 'camp', Lc = landById(UI.land || S.lastLand || 'L1');
-    if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book') {} else tab = 'camp';
+    if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast') {} else tab = 'camp';
     var head = el('div', 'camp-head');
     if (Lc && Lc.banner && window.ART_IMG && ART_IMG[Lc.banner]) { var bn = el('div', 'banner-img'); bn.style.backgroundImage = 'url(' + ART_IMG[Lc.banner] + ')'; head.appendChild(bn); }
     head.appendChild(el('div', 'who', portrait('fire', 'square camp-fire') + '<div><div class="eyebrow">Bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>You rest a while</h1><p class="muted">You carry <b style="color:var(--lore)">' + n(S.lore) + ' Lore</b> · ' + esc(heroLevelLine()) + '. Anything you buy is yours for good.</p></div>'));
@@ -879,7 +929,7 @@
     var back = el('button', 'btn', 'Return to ' + esc(Lc ? theLand(Lc) : 'the land')); back.type = 'button'; back.onclick = function () { go('land'); }; nav.appendChild(back);
     var travel = el('button', 'btn ghost', 'World map'); travel.type = 'button'; travel.onclick = function () { go('map'); }; nav.appendChild(travel);
     head.appendChild(nav); app.appendChild(head);
-    var TILES = [['gear', 'Gear', 'Permanent upgrades, six branches.'], ['level', 'Level up', 'Spend Lore on your character.'], ['shop', 'Provisions', 'One-use items for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
+    var TILES = [['gear', 'Gear', 'Permanent upgrades, six branches.'], ['level', 'Level up', 'Spend Lore on your character.'], ['shop', 'Provisions', 'One-use items for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
     if (tab === 'camp') {
       var grid = el('div', 'camp-grid');
       TILES.forEach(function (t) {
@@ -894,9 +944,30 @@
     var bk = el('button', 'btn ghost small', '◀ Camp'); bk.type = 'button'; bk.onclick = function () { UI.bonfireTab = 'camp'; render(); }; sub.appendChild(bk);
     sub.appendChild(el('h2', null, campIcon(tab) + cur[1]));
     var tabs = el('div', 'camp-tabs');
-    TILES.slice(0, 4).forEach(function (t) { if (t[0] === tab) return; var b = el('button', 'tab', t[1]); b.type = 'button'; b.onclick = function () { UI.bonfireTab = t[0]; render(); }; tabs.appendChild(b); });
+    TILES.slice(0, 5).forEach(function (t) { if (t[0] === tab) return; var b = el('button', 'tab', t[1]); b.type = 'button'; b.onclick = function () { UI.bonfireTab = t[0]; render(); }; tabs.appendChild(b); });
     sub.appendChild(tabs); app.appendChild(sub);
-    if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else bonfireBook();
+    if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else bonfireBook();
+  }
+  function bonfireBestiary() {
+    app.appendChild(el('p', 'muted', 'Every creature you have faced is recorded here. Practise against any of them: the question is just as real, but no Lore is won or lost, no gear or items are used up, and nothing in the lands changes.'));
+    var any = false;
+    LANDS.filter(function (L) { return L.open; }).forEach(function (L) {
+      var all = L.creatures.concat([L.boss]), met = all.filter(function (c) { return S.met && S.met[c.id]; });
+      if (!met.length) return; any = true;
+      var sec = el('div', 'panel beast-land');
+      sec.appendChild(el('div', 'beast-head', '<h3>' + esc(L.name) + '</h3><span class="muted">' + esc(L.subject) + ' · ' + met.length + ' of ' + all.length + ' met' + (met.length < all.length ? ' · the rest still lurk in ' + esc(theLand(L)) : '') + '</span>'));
+      var grid = el('div', 'creatures');
+      met.forEach(function (c) {
+        var isBoss = c === L.boss, lv = isBoss ? LEVELS.BOSS : LEVELS[c.level];
+        var b = el('button', 'creature beast' + (isBoss ? ' boss' : '')); b.type = 'button'; b.style.setProperty('--lvl', isBoss ? 'var(--boss)' : lv.color);
+        var k = S.kills[c.id] || 0, l = S.losses[c.id] || 0;
+        b.innerHTML = portrait(c.sigil) + '<span><span class="nm">' + esc(c.name) + '</span><span class="tag">' + (isBoss ? 'Boss · ' + c.gens.length + ' questions' : c.outcome + ' · ' + lv.name) + '</span><span class="fl">' + esc(c.flavor || '') + '</span><span class="meta"><span>Slain ' + n(k) + '×</span>' + (l ? '<span>Fell to it ' + n(l) + '×</span>' : '') + '<span class="practice-go">⚔ Practice</span></span></span>';
+        b.onclick = function () { startBattle(L, c, isBoss, null, true); };
+        grid.appendChild(b);
+      });
+      sec.appendChild(grid); app.appendChild(sec);
+    });
+    if (!any) app.appendChild(el('div', 'panel', '<p class="muted" style="margin:0">No creatures yet. Venture into a land: every creature you face will be written here.</p>'));
   }
   function bonfireGear() {
     app.appendChild(el('p', 'muted', 'Tier 2 needs tier 1 and level ' + LEVEL.gate[2] + '. Tier 3 needs tier 2, level ' + LEVEL.gate[3] + ' and a boss kill.'));
