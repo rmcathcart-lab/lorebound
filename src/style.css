@@ -373,7 +373,6 @@ body.in-world #app { padding: 0; max-width: none; }
 .item-card > div { flex: 1; min-width: 0; }
 .item-card h2 { margin: 2px 0 6px; font-size: 22px; }
 .item-card p { margin: 4px 0; }
-.satchel-head { margin-bottom: 8px; }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 12px; }
 .tab { border: 1px solid var(--edge); background: var(--ash); color: var(--bone-dim); border-radius: 4px; padding: 8px 14px; font-family: var(--font-ui); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
 .tab.on { color: var(--bone); border-color: var(--ember); background: var(--ember-deep); }
@@ -808,3 +807,43 @@ html.has-hall { overflow-x: clip; }
   .legacy-ladder .rung img { width: 60px; height: 60px; } .legacy-ladder .rung .cr { width: 42px; height: 42px; margin: 4px 0 8px; font-size: 22px; }
   .legacy-hero .legacy-portrait { width: 84px; height: 112px; }
 }
+
+/* ---------- the Satchel popup ---------- */
+.modal.satchel { position: relative; padding: 22px 24px 18px; background: radial-gradient(ellipse 70% 40% at 12% 0%, rgba(217,120,46,.10), transparent 70%), var(--ash-2); }
+.satchel-head { display: flex; align-items: center; gap: 18px; margin: 0 40px 16px 0; }
+.sh-bag { position: relative; width: 92px; height: 92px; flex: none; }
+.sh-bag::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: radial-gradient(circle, rgba(232,170,90,.28), rgba(232,170,90,0) 68%); }
+.sh-bag img { position: relative; width: 100%; height: 100%; display: block; filter: drop-shadow(0 8px 14px rgba(0,0,0,.6)); }
+.sh-text { min-width: 0; }
+.sh-text .eyebrow { color: #e9c98d; }
+.sh-text h2 { font-size: 26px; line-height: 1.15; margin: 4px 0 4px; overflow-wrap: anywhere; }
+.sh-line { font-family: var(--font-ui); font-size: 13.5px; letter-spacing: .04em; color: var(--bone-dim); }
+.sh-lore { color: var(--lore); }
+.sh-x { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--edge); background: rgba(12,10,16,.5); color: var(--bone-dim); font-size: 14px; line-height: 1; display: grid; place-items: center; }
+.sh-x:hover { color: var(--bone); border-color: var(--bone-dim); }
+.sh-tabs { border-bottom: 1px solid var(--edge); padding-bottom: 12px; margin: 0 0 14px; }
+.sh-tabs .tab .ct { display: inline-block; min-width: 20px; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: rgba(0,0,0,.35); font-size: 11.5px; letter-spacing: 0; }
+.sh-item { border: 1px solid var(--edge); border-radius: 8px; background: rgba(12,10,16,.42); padding: 14px; }
+.sh-item + .sh-item { margin-top: 10px; }
+.sh-item .item-card { margin: 0; }
+.sh-item .item-card .item-img { width: 96px; height: 96px; }
+.sh-item .item-card h2 { font-size: 20px; }
+.sh-item .item-card p { font-size: 16.5px; line-height: 1.45; }
+.sh-item .item-card .btn { margin-top: 8px; font-size: 13px; padding: 8px 16px; }
+.sh-empty { text-align: center; padding: 18px 8px; }
+.sh-foot { justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--edge); }
+.sh-keys { font-family: var(--font-ui); font-size: 12px; letter-spacing: .04em; color: var(--bone-dim); }
+.sh-keys kbd { font-family: var(--font-ui); font-size: 11px; padding: 1px 6px; border: 1px solid var(--edge); border-bottom-width: 2px; border-radius: 4px; color: var(--bone); background: rgba(0,0,0,.3); }
+@media (max-width: 560px) {
+  .modal.satchel { padding: 18px 16px 14px; }
+  .satchel-head { gap: 12px; margin-right: 36px; } .sh-bag { width: 68px; height: 68px; } .sh-text h2 { font-size: 21px; }
+  .sh-item .item-card { flex-direction: row; } .sh-item .item-card .item-img { width: 72px; height: 72px; }
+  .sh-keys { display: none; }
+}
+/* the keeper's greeting under a camp banner (Richard, Laura, Callum) */
+.keeper-says { margin: -2px auto 22px; max-width: 640px; text-align: center; }
+.keeper-says blockquote { margin: 0; font-style: italic; font-size: 19px; line-height: 1.45; color: var(--bone); }
+.keeper-says blockquote::before { content: "\201C"; } .keeper-says blockquote::after { content: "\201D"; }
+.keeper-says figcaption { margin-top: 6px; font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #e9c98d; }
+.keeper-says figcaption::before { content: "— "; }
+.sh-lore { white-space: nowrap; }

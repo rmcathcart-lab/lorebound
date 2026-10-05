@@ -213,6 +213,25 @@ var GEAR = [
     desc: 'Gold and bone, torn from the throne of a slain boss. Needs a boss kill.' }
 ];
 
+/* The keepers of every bonfire. Each greets the hero with one of their lines when their page opens. */
+var KEEPERS = {
+  gear: { name: 'Richard', role: 'the blacksmith', lines: [
+    'Measure twice, forge once. Then measure again, because you rounded.',
+    'Steel is only iron that showed its work.',
+    'Bring me Lore and I will bring you an edge. Bring me excuses and I will bring you a broom.',
+    'Every blade here is balanced like an equation: what comes off one side comes off the other.'] },
+  level: { name: 'Laura', role: 'keeper of Legacy', lines: [
+    'Every level is a sum you have already paid. I only write down the total.',
+    'Lore you carry can be lost. Lore you give to me becomes part of you.',
+    'Hold still. The constellations are fussy about their order of operations.',
+    'Every Mythic I have known began at level one.'] },
+  shop: { name: 'Callum', role: 'the merchant', lines: [
+    'Everything is for sale and every price is exact. I do not do estimates.',
+    'Homeward Embers! Get them while they last. They always last. I have crates of them.',
+    'No refunds, no haggling, no negative numbers.',
+    'A wise hero buys a Lens before the fight, not after it.'] }
+};
+
 /* Character level: bought with Lore at a bonfire. Every level adds +3% Lore from kills, +3% question time and a little speed. */
 var LEVEL = {
   max: 30,
@@ -232,11 +251,11 @@ var ITEMS = [
   { id: 'smoke', name: 'Smoke Pellet', cost: 70, where: 'world', weight: 20, art: 'item-smoke',
     desc: 'Crush it in a land: everything chasing you loses you at once and stays blind for a few seconds.', flavor: 'Marsh-gas and ash, wrapped in a dead leaf.' },
   { id: 'draught', name: 'Ember Draught', cost: 150, where: 'auto', weight: 15, art: 'item-draught',
-    desc: 'Carried into a fight, it is drunk the instant a wrong answer would kill you: you survive, keep your Lore, and the creature stands. One use.', flavor: 'It tastes like a forge. It is drunk whether you want it or not.' },
+    desc: 'Carried into a fight, it is drunk the instant a wrong answer would kill you: you survive, keep your Lore, and the creature stands. One use.', flavor: 'Richard brews it in his quenching trough. It tastes like a forge, and it is drunk whether you want it or not.' },
   { id: 'wisp', name: 'Wisp in a Jar', cost: 120, where: 'world', weight: 12, art: 'item-wisp',
     desc: 'Open it in a land: the wisp flies the whole labyrinth and draws every path on your minimap.', flavor: 'It is not happy in there. It will be happier out.' },
   { id: 'homeward', name: 'Homeward Ember', cost: 120, where: 'world', weight: 10, art: 'item-homeward',
-    desc: 'Breathe on it in any land and it carries you back to that land\'s bonfire, with every scrap of your Lore.', flavor: 'A coal from a bonfire that remembers where it was lit.' },
+    desc: 'Breathe on it in any land and it carries you back to that land\'s bonfire, with every scrap of your Lore.', flavor: 'A coal from a bonfire that remembers where it was lit. Callum swears every one is his last.' },
   { id: 'cinder', name: 'Cinder of Return', cost: 0, where: 'world', weight: 0, permanent: true, art: 'item-cinder',
     desc: 'Crush it in any land to wake at that land\'s bonfire. All the Lore you carry burns away for good. It never runs out.', flavor: 'Every hero is given one. Most are too proud to use it.' },
   { id: 'feather', name: 'Phoenix Feather', cost: 200, where: 'auto', weight: 8, art: 'item-feather',

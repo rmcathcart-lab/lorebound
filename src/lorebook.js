@@ -132,7 +132,7 @@ var LOREBOOK = (function () {
 
   return {
   L1: [
-    { title: 'The First Grave', lore: 'Before the fog there was a town here, and the town kept a ledger of its dead. The ledger counted in primes, because primes cannot be divided and neither, the gravediggers said, can the dead. The oldest page of that ledger is not about the town at all. It names a Lord of Lore, and leaves the space beside his name empty.',
+    { title: 'The First Grave', lore: 'Before the fog there was a town here, and the town kept a ledger of its dead. The ledger counted in primes, because primes cannot be divided and neither, the gravediggers said, can the dead. The oldest page of that ledger is not about the town at all. It names a Lord of Lore, and leaves the space beside his name empty. Laura, who imbues Lore into Legacy at every bonfire, says the space is not empty. It is waiting.',
       math: [
         { h: 'Prime factorisation' },
         { p: 'Every whole number is built from primes. Divide by the <b>smallest prime that works</b>, and keep going until only primes are left.' },
@@ -168,7 +168,7 @@ var LOREBOOK = (function () {
         { fig: numberLine(5, 9, [5, 6, 7, 8, 9], [[5.74, '√33'], [6.32, '√40'], [7.07, '√50', true], [8.49, '√72']]) },
         { p: 'To order a mixed list, turn everything into a decimal estimate first: \\(2\\sqrt{3} \\approx 3.46\\), \\(\\sqrt[3]{30} \\approx 3.11\\), \\(\\tfrac{7}{2} = 3.5\\).' }
       ] },
-    { title: 'The Hollow Knight\'s Armour', lore: 'The knight\'s armour was forged entire, one piece of marsh-steel. Only later was it broken and mended with a number sewn outside and a number sewn in. Make it whole again and it falls apart. It was forged for the guard of the Lord of Lore, in the years when there was still a guard, and still a lord worth guarding.',
+    { title: 'The Hollow Knight\'s Armour', lore: 'The knight\'s armour was forged entire, one piece of marsh-steel. Only later was it broken and mended with a number sewn outside and a number sewn in. Make it whole again and it falls apart. It was forged for the guard of the Lord of Lore, in the years when there was still a guard, and still a lord worth guarding. Richard, the smith who keeps a forge at every bonfire, says he could mend it in an afternoon. He has been saying so for years.',
       math: [
         { h: 'Entire → mixed: pull out the largest perfect square' },
         { fig: factorTree('72', [['72', '36', '2']]) },
@@ -179,7 +179,7 @@ var LOREBOOK = (function () {
       ] }
   ],
   L2: [
-    { title: 'The Forge-Born', lore: 'Nothing in the Peaks is born once. A cinder imp is born of a cinder imp, which is born of a cinder imp, and the mountain counts the generations as a small number written above a larger one.',
+    { title: 'The Forge-Born', lore: 'Nothing in the Peaks is born once. A cinder imp is born of a cinder imp, which is born of a cinder imp, and the mountain counts the generations as a small number written above a larger one. Richard buys his coal from the imps, and haggles with them in powers of ten.',
       math: [
         { h: 'The exponent laws (same base)' },
         { cols: LAWS.map(function (l) { return [l[0], l[1] + ' &nbsp; e.g. ' + l[2]]; }) },
@@ -358,7 +358,7 @@ var LOREBOOK = (function () {
         { p: 'Diagonal: the run and the rise are the legs of a right triangle, so the length is the hypotenuse.' },
         { eq: 'AB = \\sqrt{\\text{run}^{2} + \\text{rise}^{2}} = \\sqrt{6^{2} + 4^{2}} = \\sqrt{52} = 2\\sqrt{13}' }
       ] },
-    { title: 'The Sailor\'s Reckoning', lore: 'The Drowned Sailor still works the distance to shore from where he lies, and the point exactly halfway, where he thought he would be safe. His numbers are exact. He never rounded, and it did not save him.',
+    { title: 'The Sailor\'s Reckoning', lore: 'The Drowned Sailor still works the distance to shore from where he lies, and the point exactly halfway, where he thought he would be safe. His numbers are exact. He never rounded, and it did not save him. Callum the Merchant bought the sailor\'s compass off the tide, and will sell it to anyone who asks, at a price that is exactly fair and not one Lore less.',
       math: [
         { h: 'Distance and midpoint formulas' },
         { rule: 'd = \\sqrt{(x_2 - x_1)^{2} + (y_2 - y_1)^{2}} \\qquad M = \\left(\\dfrac{x_1 + x_2}{2},\\ \\dfrac{y_1 + y_2}{2}\\right)' },

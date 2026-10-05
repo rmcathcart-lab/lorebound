@@ -454,7 +454,7 @@
       onSave: function () { saveLocal(); } });
     if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
     try { var run = Overworld.run(); Sfx.ambient(run ? run.map.theme.name : null); } catch (e) {}
-    var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore at the Forge, the Merchant and the guide who imbues Lore into Legacy. Lore you spend can never be lost; Lore you carry can.</span></div>');
+    var bf = el('div', 'panel bonfire-card', portrait('fire', 'square') + '<div style="flex:1;min-width:200px"><b>Bonfire.</b> <span class="muted">Spend Lore with Richard at the Forge, with Callum the Merchant, and with Laura, who imbues Lore into Legacy. Lore you spend can never be lost; Lore you carry can.</span></div>');
     var bfb = el('button', 'btn', 'Rest at the bonfire'); bfb.type = 'button'; bfb.onclick = function () { go('bonfire'); }; bf.appendChild(bfb);
     app.appendChild(bf);
     var best = el('details', 'bestiary'); best.innerHTML = '<summary>Creatures of this land</summary>';
@@ -569,16 +569,20 @@
     var ov = el('div', 'modal-ov'), box = el('div', 'modal satchel'); UI.satchel = ov;
     var tab = UI.satchelTab || 'items';
     function draw() {
-      box.innerHTML = '<div class="satchel-head"><div><div class="eyebrow">Satchel</div><h2>' + esc(S.hero ? S.hero.name : S.name) + ' · ' + esc(heroLevelLine()) + '</h2></div></div>';
-      var tabs = el('div', 'tabs');
-      [['items', 'Items'], ['book', 'Lorebook']].forEach(function (t) { var b = el('button', 'tab' + (tab === t[0] ? ' on' : ''), t[1]); b.type = 'button'; b.onclick = function () { tab = UI.satchelTab = t[0]; draw(); }; tabs.appendChild(b); });
+      var bag = window.ART_IMG && (ART_IMG['ui-satchel-open-lg'] || ART_IMG['ui-satchel-open']);
+      var have = ITEMS.filter(function (it) { return itemCount(it.id) > 0; }), pagesFound = 0;
+      LANDS.forEach(function (L) { pagesFound += (((S.world && S.world[L.id]) || {}).pages || []).length; });
+      box.innerHTML = '<div class="satchel-head">' + (bag ? '<div class="sh-bag"><img src="' + bag + '" alt=""></div>' : '') +
+        '<div class="sh-text"><div class="eyebrow">Satchel</div><h2>' + esc(S.hero ? S.hero.name : S.name) + '</h2><div class="sh-line">' + esc(heroLevelLine()) + ' · <span class="sh-lore">' + n(S.lore) + ' Lore carried</span></div></div></div>';
+      var x = el('button', 'sh-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Close the Satchel'); x.onclick = closeSatchel; box.appendChild(x);
+      var tabs = el('div', 'tabs sh-tabs');
+      [['items', 'Items', have.length], ['book', 'Lorebook', pagesFound]].forEach(function (t) { var b = el('button', 'tab' + (tab === t[0] ? ' on' : ''), t[1] + ' <span class="ct">' + t[2] + '</span>'); b.type = 'button'; b.onclick = function () { tab = UI.satchelTab = t[0]; draw(); }; tabs.appendChild(b); });
       box.appendChild(tabs);
       if (tab === 'items') {
-        var have = ITEMS.filter(function (it) { return itemCount(it.id) > 0; });
-        if (!have.length) box.appendChild(el('p', 'muted', 'Nothing yet. Chests in the lands hold items; the bonfire sells them.'));
+        if (!have.length) box.appendChild(el('p', 'muted sh-empty', 'Nothing yet. Chests in the lands hold items, and Callum the Merchant sells them at every bonfire.'));
         have.sort(function (a, b) { return (a.permanent ? 1 : 0) - (b.permanent ? 1 : 0); });
         have.forEach(function (it) {
-          var card = el('div', null, itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + (it.permanent ? ' · always in your Satchel' : ' · you carry ' + itemCount(it.id))));
+          var card = el('div', 'sh-item', itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + (it.permanent ? ' · always in your Satchel' : ' · you carry ' + itemCount(it.id))));
           var canUse = it.where !== 'auto'; var ub = el('button', 'btn' + (canUse ? '' : ' ghost'), canUse ? 'Use' : 'Automatic'); ub.type = 'button'; ub.disabled = !canUse;
           var armed = false;
           ub.onclick = function () {
@@ -599,7 +603,7 @@
         });
         if (!any) box.appendChild(el('p', 'muted', 'Pages of the Lorebook lie scattered through every land. Each one holds a piece of the story and a piece of the math.'));
       }
-      var row = el('div', 'actions'); var cb = el('button', 'btn', 'Close'); cb.type = 'button'; cb.onclick = closeSatchel; row.appendChild(cb); box.appendChild(row); typeset(box);
+      var row = el('div', 'actions sh-foot'); var cb = el('button', 'btn ghost', 'Close'); cb.type = 'button'; cb.onclick = closeSatchel; row.appendChild(el('span', 'sh-keys', 'Press <kbd>I</kbd> to open or close · <kbd>Esc</kbd> to close')); row.appendChild(cb); box.appendChild(row); typeset(box);
     }
     draw(); ov.appendChild(box); document.body.appendChild(ov);
     try { Overworld.freeze(true); } catch (e) {} renderHud();
@@ -1076,10 +1080,12 @@
     if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast') {} else tab = 'camp';
     var bkey = Lc && (Lc.banner || (Lc.id === 'L1' ? 'title' : null));
     if (bkey && window.ART_IMG && ART_IMG[bkey]) { var bd = el('div', 'camp-backdrop'); bd.style.backgroundImage = 'url(' + ART_IMG[bkey] + ')'; app.appendChild(bd); }
-    var TILES = [['gear', 'The Forge', 'Permanent upgrades, six branches.'], ['level', 'Imbue Lore into Legacy', 'Spend Lore to grow stronger.'], ['shop', 'The Merchant', 'One-use items for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
+    var TILES = [['gear', 'The Forge', 'Richard the blacksmith\'s permanent upgrades, in six branches.'], ['level', 'Imbue Lore into Legacy', 'Laura turns the Lore you spend into strength.'], ['shop', 'The Merchant', 'Callum\'s one-use wares for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
     if (tab !== 'camp') { // entering one of the camp's places: a full-width painting, then its contents
       var cur = TILES.filter(function (t) { return t[0] === tab; })[0];
       app.appendChild(campHall(tab, cur[1], cur[2], function () { UI.bonfireTab = 'camp'; render(); window.scrollTo(0, 0); }));
+      var kp = window.KEEPERS && KEEPERS[tab];
+      if (kp) { var li = kp.lines[Math.floor(Math.random() * kp.lines.length)]; app.appendChild(el('figure', 'keeper-says', '<blockquote>' + esc(li) + '</blockquote><figcaption>' + esc(kp.name) + ', ' + esc(kp.role) + '</figcaption>')); }
       if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else bonfireBook();
       return;
     }
@@ -1353,12 +1359,12 @@
       '<li><b>Ten bosses are ten seals.</b> Slay the boss of every land and an eleventh opens in the far west: the Purloined Throne, where the Hollow Lord asks one Mastery question from every outcome. Answer them all and you become the <b>Lord of Lore</b>.</li>' +
       '<li><b>To fight is to answer.</b> Right answer: the creature dies and you earn Lore. Wrong answer: you die.</li>' +
       '<li><b>When you die, the Lore you were carrying drops where you fell.</b> Defeat that same creature to take it back. If you die anywhere before you do, that Lore is gone forever.</li>' +
-      '<li><b>Lore you spend is safe.</b> Rest at a bonfire to <b>imbue Lore into Legacy</b> (level up: more Lore per kill, more time per question, faster feet) and to buy gear at the Forge: Ward keeps you alive, Insight helps you understand, Greed pays more, Swiftness outruns, Patience slows the clock. Tier 2 needs level ' + LEVEL.gate[2] + '; tier 3 needs level ' + LEVEL.gate[3] + ' and a boss kill.</li>' +
+      '<li><b>Lore you spend is safe.</b> Rest at a bonfire and let Laura <b>imbue Lore into Legacy</b> (level up: more Lore per kill, more time per question, faster feet) and buy gear from Richard at the Forge: Ward keeps you alive, Insight helps you understand, Greed pays more, Swiftness outruns, Patience slows the clock. Tier 2 needs level ' + LEVEL.gate[2] + '; tier 3 needs level ' + LEVEL.gate[3] + ' and a boss kill.</li>' +
       '<li><b>The Satchel</b> holds items (from chests, or bought as Provisions) and every page of the Lorebook you have found. Open it any time, even in a fight.</li>' +
       '<li><b>Chests</b> hold Lore, or an item — or a trap. Mimics bite, moths eat Lore, alarms bring every creature nearby. <b>Pages</b> teach the math of the land they are hidden in.</li>' +
       '<li><b>Win streaks pay.</b> Every kill in a row adds 5% (up to +50%). A death resets it.</li>' +
       '<li><b>Answers must be in the form asked for.</b> A right value in the wrong form staggers the creature once; the second time it kills you.</li>' +
-      '<li><b>Fleeing</b> a fight costs half the Lore you carry. To get home from deep in a land, crush the <b>Cinder of Return</b> that every Satchel holds (it burns all the Lore you carry), or buy a <b>Homeward Ember</b> from the Merchant (it keeps your Lore).</li>' +
+      '<li><b>Fleeing</b> a fight costs half the Lore you carry. To get home from deep in a land, crush the <b>Cinder of Return</b> that every Satchel holds (it burns all the Lore you carry), or buy a <b>Homeward Ember</b> from Callum the Merchant (it keeps your Lore).</li>' +
       '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance a wrong answer does not kill. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form. To rename your hero (free) or take up another class (' + n(CLASS_CHANGE_COST) + ' Lore), go to Imbue Lore into Legacy at the bonfire.</li>' +
       '<li><b>The clock.</b> Each question has a time limit (Beginning ' + LEVELS.BEG.time + ' s, Progressing ' + LEVELS.PRG.time + ' s, Mastery and bosses ' + LEVELS.MAS.time + ' s, longer with levels and Patience gear). Out of time counts as a wrong answer.</li>' +
       '<li><b>The lands are labyrinths.</b> Creatures roam them in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again. The boss door needs the Gate Key and every kind of creature slain once.</li>' +
