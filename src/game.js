@@ -243,7 +243,7 @@
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
     Overworld.unmount(); WorldMap.unmount(); document.body.classList.remove('in-world', 'in-map'); document.documentElement.classList.remove('has-hall'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
-    app.classList.toggle('wide', UI.screen === 'bonfire' || UI.screen === 'chronicle' || UI.screen === 'help');
+    app.classList.toggle('wide', UI.screen === 'bonfire' || UI.screen === 'chronicle' || UI.screen === 'help' || UI.screen === 'ledger');
     if (S && S.inFight && !(UI.battle && !UI.battle.done && UI.screen === 'battle')) S.inFight = null;
     fn(); typeset(app); saveLocal();
   }
@@ -1038,7 +1038,7 @@
     beast: '<path d="M5 20c0-6 3-10 7-10s7 4 7 10"/><path d="M8 11 6 4l4 4M16 11l2-7-4 4"/><path d="M10 15h.01M14 15h.01"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"/><path d="M12 17h.01"/>'
   };
-  var CAMP_ART = { gear: 'camp-forge', level: 'camp-legacy', shop: 'camp-merchant', book: 'camp-lorebook', beast: 'camp-bestiary', chronicle: 'camp-chronicle', help: 'camp-rules' };
+  var CAMP_ART = { ledger: 'camp-ledger', gear: 'camp-forge', level: 'camp-legacy', shop: 'camp-merchant', book: 'camp-lorebook', beast: 'camp-bestiary', chronicle: 'camp-chronicle', help: 'camp-rules' };
   function campArt(id, cls) { var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k]; return src ? '<span class="camp-art' + (cls ? ' ' + cls : '') + '"><img src="' + src + '" alt=""></span>' : campIcon(id); }
   /* the bonfire at the top of the camp: the painted shrine sprite, crackling */
   var campFireRaf = 0;
@@ -1122,16 +1122,16 @@
     });
     app.appendChild(grid);
   }
-  var HALL_FOCUS = { gear: 'center 16%', level: 'center 10%', shop: 'center 48%', book: 'center 45%', beast: 'center 40%', chronicle: 'center 40%', help: 'center 45%' };
-  function campHall(id, title, desc, back) { // the banner at the top of a camp place; the only way out is back to the bonfire
-    document.documentElement.classList.add('has-hall');
-    var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = landById(UI.land || S.lastLand || 'L1');
+  var HALL_FOCUS = { ledger: 'center 28%', gear: 'center 16%', level: 'center 10%', shop: 'center 48%', book: 'center 45%', beast: 'center 40%', chronicle: 'center 40%', help: 'center 45%' };
+  function campHall(id, title, desc, back, o) { // the banner at the top of a camp place; the only way out is back to the bonfire
+    document.documentElement.classList.add('has-hall'); o = o || {};
+    var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = S ? landById(UI.land || S.lastLand || 'L1') : null;
     var h = el('div', 'camp-hall' + (src ? '' : ' plain'));
     if (src) { var im = el('img'); im.src = src; im.alt = ''; im.style.objectPosition = HALL_FOCUS[id] || 'center 40%'; h.appendChild(im); }
     var spend = id === 'gear' || id === 'level' || id === 'shop';
-    h.appendChild(el('div', 'hall-cap', '<div class="eyebrow">The bonfire · ' + esc(Lc ? Lc.name : '') + '</div><h1>' + title + '</h1><p>' + desc + (spend ? ' You carry <b class="lore-amt">' + n(S.lore) + ' Lore</b>.' : '') + '</p>'));
-    var Lw = (id === 'chronicle' || id === 'help') && S.where && landById(S.where);
-    var bk = el('button', 'btn hall-back', Lw ? '◀ Back to ' + esc(theLand(Lw)) : '◀ Back to the bonfire'); bk.type = 'button'; bk.onclick = back; h.appendChild(bk);
+    h.appendChild(el('div', 'hall-cap', '<div class="eyebrow">' + (o.eyebrow || 'The bonfire · ' + esc(Lc ? Lc.name : '')) + '</div><h1>' + title + '</h1><p>' + desc + (spend ? ' You carry <b class="lore-amt">' + n(S.lore) + ' Lore</b>.' : '') + '</p>'));
+    var Lw = (id === 'chronicle' || id === 'help') && S && S.where && landById(S.where);
+    var bk = el('button', 'btn hall-back', o.backLabel || (Lw ? '◀ Back to ' + esc(theLand(Lw)) : '◀ Back to the bonfire')); bk.type = 'button'; bk.onclick = back; h.appendChild(bk);
     return h;
   }
   function campNotices() { // news for the student: what used to sit above the map now waits at the bonfire
@@ -1403,11 +1403,9 @@
   function accColor(pct) { if (pct == null) return 'transparent'; var h = Math.round(pct * 1.2); return 'hsla(' + h + ', 55%, 45%, ' + (0.25 + 0.45 * Math.abs(pct - 50) / 50) + ')'; }
   function outcomeOrder() { var seen = [], out = []; LANDS.forEach(function (L) { if (!L.creatures) return; L.creatures.forEach(function (c) { if (seen.indexOf(c.outcome) < 0) { seen.push(c.outcome); out.push({ id: c.outcome, land: L }); } }); }); return out; }
   function screenLedger() {
-    var head = el('div', 'land-head');
-    head.appendChild(el('div', null, '<div class="eyebrow">For the teacher</div><h1>The Chronicler\'s Ledger</h1><p class="muted" style="margin:6px 0 0">Every student who has entered a class code, what they have fought, and how it went. Students never see this page.' + (UI.ledgerOnly ? ' Bookmark this page to come straight back here.' : '') + '</p>'));
-    var back = el('button', 'btn ghost', UI.ledgerOnly ? 'Open the game →' : '← Title screen'); back.type = 'button';
-    back.onclick = function () { if (UI.ledgerOnly) { location.href = location.pathname.replace(/ledger\/?(index\.html)?$/, ''); return; } go('title'); }; head.appendChild(back);
-    app.appendChild(head);
+    app.appendChild(campHall('ledger', 'The Chronicler\'s Ledger', 'Every student who has entered a class code, what they have fought, and how it went. Students never see this page.' + (UI.ledgerOnly ? ' Bookmark this page to come straight back here.' : ''),
+      function () { if (UI.ledgerOnly) { location.href = location.pathname.replace(/ledger\/?(index\.html)?$/, ''); return; } go('title'); },
+      { eyebrow: 'For the teacher', backLabel: UI.ledgerOnly ? 'Open the game ▶' : '◀ Title screen' }));
     if (!LG.key || !LG.data) { ledgerLogin(); return; }
     ledgerBody();
   }
