@@ -1188,23 +1188,60 @@
       sec.appendChild(row); app.appendChild(sec);
     });
   }
+  /* the hero on the Legacy page: idles in place; a level-up plays its celebration (tools/pack_levelup.py), holding the peak */
+  var LVL_DUR = [0.14, 0.16, 0.2, 0.6, 0.28, 0.16], LVL_GLOW = { 1: '255,236,190', 2: '255,170,70', 3: '120,190,255' };
+  function heroAltar(lv) {
+    var wrap = el('div', 'lvl-altar'), cv = el('canvas', 'lvl-hero'), badge = el('div', 'level-badge', '<div class="k">Level</div><div class="v">' + lv + '</div>');
+    cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', (S.hero ? S.hero.name : 'Your hero') + ', level ' + lv); cv.title = 'Tap your hero';
+    wrap.appendChild(cv); wrap.appendChild(badge);
+    var SP = window.Overworld && Overworld.SP, stage = heroStage(), cls = (S.hero && S.hero.cls) || 'knight';
+    var d = SP && SP.actor && SP.actor('cr:hero-' + cls + '-' + stage + '-lvl');
+    if (!d) { wrap.classList.add('no-hero'); return wrap; }
+    var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var t0 = performance.now(), fx = null; // fx: { at, from, to, popped }
+    function play(from, to) { fx = { at: performance.now(), from: from, to: to, popped: false }; if (from != null) badge.querySelector('.v').textContent = from; }
+    function pop() { if (!fx || fx.popped) return; fx.popped = true; if (fx.to != null) badge.querySelector('.v').textContent = fx.to; badge.classList.remove('pop'); void badge.offsetWidth; badge.classList.add('pop'); }
+    cv.onclick = function () { if (!still) play(null, null); };
+    if (UI.lvlFx && performance.now() - UI.lvlFx.at < 1500) { if (still) { badge.classList.add('pop'); } else play(UI.lvlFx.from, UI.lvlFx.to); } UI.lvlFx = null;
+    var total = LVL_DUR.reduce(function (a, b) { return a + b; }, 0), glow = LVL_GLOW[stage] || LVL_GLOW[1];
+    (function frame() {
+      if (!cv.isConnected && performance.now() - t0 > 2000) return; requestAnimationFrame(frame);
+      var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+      if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      var ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+      var fx0 = W * 0.48, fy = H - 16, mul = (H * 0.66) / 230, anim = 'idle', at = (performance.now() - t0) / 1000, heat = 0;
+      if (fx) {
+        var e = (performance.now() - fx.at) / 1000;
+        if (e >= total) { pop(); fx = null; }
+        else { var acc = 0, fi = 0; while (fi < LVL_DUR.length - 1 && e >= acc + LVL_DUR[fi]) { acc += LVL_DUR[fi]; fi++; }
+          anim = 'levelup'; at = (fi + 0.5) / d.anims.levelup.fps; heat = fi === 3 ? 1 : fi === 2 || fi === 4 ? 0.55 : fi === 1 ? 0.2 : 0;
+          if (fi >= 3) pop(); }
+      }
+      var gr = Math.min(W * 0.5, H * 0.5), g = ctx.createRadialGradient(fx0, fy - H * 0.36, 4, fx0, fy - H * 0.36, gr); // the light the hero gathers
+      g.addColorStop(0, 'rgba(' + glow + ',' + (0.06 + 0.3 * heat) + ')'); g.addColorStop(1, 'rgba(' + glow + ',0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(fx0 + 4, fy, W * 0.2, 5, 0, 0, Math.PI * 2); ctx.fill();
+      SP.drawActor(ctx, d, anim, at, fx0, fy, false, { mul: mul });
+    })();
+    return wrap;
+  }
   function bonfireLevel() {
     var lv = S.level || 1, cost = LEVEL.cost(lv), maxed = lv >= LEVEL.max;
     var pn = el('div', 'panel level-panel');
     var perks = '<ul class="perks"><li><b>+' + (LEVEL.lorePct * (lv - 1)) + '%</b> Lore from every kill (next: +' + (LEVEL.lorePct * lv) + '%)</li><li><b>+' + (LEVEL.timePct * (lv - 1)) + '%</b> time on every question (next: +' + (LEVEL.timePct * lv) + '%)</li><li><b>' + Math.round(heroSpeed()) + '</b> walking speed (creatures chase at 40–46)</li><li>Gear: tier 2 at level ' + LEVEL.gate[2] + ', tier 3 at level ' + LEVEL.gate[3] + '</li></ul>';
     var next = ''; LEVEL.titles.forEach(function (t) { if (!next && t[0] > lv) next = 'At level ' + t[0] + ' you become <b>' + t[1] + '</b>.'; });
-    pn.innerHTML = '<div class="row"><div class="level-badge"><div class="k">Level</div><div class="v">' + lv + '</div></div><div style="flex:1;min-width:220px"><div class="eyebrow">' + esc(levelTitle()) + '</div><h2 style="margin:4px 0 8px">' + esc(S.hero ? S.hero.name : S.name) + '</h2>' + perks + '<p class="muted">' + next + ' Legend so far: ' + n(S.legend) + '.</p></div></div>';
+    pn.innerHTML = '<div class="row"><div class="altar-slot"></div><div style="flex:1;min-width:220px"><div class="eyebrow">' + esc(levelTitle()) + '</div><h2 style="margin:4px 0 8px">' + esc(S.hero ? S.hero.name : S.name) + '</h2>' + perks + '<p class="muted">' + next + ' Legend so far: ' + n(S.legend) + '.</p></div></div>';
+    pn.querySelector('.altar-slot').replaceWith(heroAltar(lv));
     var row = el('div', 'actions');
     if (maxed) row.appendChild(el('span', 'muted', 'You have reached the highest level.'));
     else {
       var b = el('button', 'btn big', 'Level up · ' + n(cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < cost;
-      b.onclick = function () { S.lore -= cost; S.level = lv + 1; sfx('levelup'); toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
+      b.onclick = function () { S.lore -= cost; S.level = lv + 1; UI.lvlFx = { at: performance.now(), from: lv, to: lv + 1 }; sfx('levelup'); toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
       row.appendChild(b);
       if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
     }
     pn.appendChild(row); app.appendChild(pn);
     var hc = heroClass(), hp = el('div', 'panel hero-panel');
-    hp.innerHTML = '<div class="row">' + heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Your hero</div><h2 style="margin:4px 0 6px">' + esc(S.hero ? S.hero.name : S.name) + ' · ' + esc(hc.name) + '</h2>' + (hc.perk ? '<p class="class-perk">' + esc(hc.perk) + '</p>' : '') +
+    hp.innerHTML = '<div class="row"><div style="flex:1;min-width:220px"><div class="eyebrow">Your hero</div><h2 style="margin:4px 0 6px">' + esc(S.hero ? S.hero.name : S.name) + ' · ' + esc(hc.name) + '</h2>' + (hc.perk ? '<p class="class-perk">' + esc(hc.perk) + '</p>' : '') +
       '<p class="muted" style="margin:6px 0 0">Renaming your hero is free. Taking up a different class costs ' + n(CLASS_CHANGE_COST) + ' Lore.</p></div></div>';
     var hr = el('div', 'actions'), hb = el('button', 'btn', 'Change hero'); hb.type = 'button'; hb.onclick = function () { go('hero'); }; hr.appendChild(hb); hp.appendChild(hr); app.appendChild(hp);
     var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') +
