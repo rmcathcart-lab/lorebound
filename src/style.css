@@ -785,7 +785,7 @@ html.has-hall { overflow-x: clip; }
 .legacy-ladder .ladder { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 0; }
 .legacy-ladder .rung { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 10px 4px 12px; border-radius: 6px; border: 1px solid transparent; color: var(--bone-dim); position: relative; }
 .legacy-ladder .ladder span { border: 0; padding: 0; border-radius: 0; }
-.legacy-ladder .rung img { width: 76px; height: 76px; margin-top: -6px; margin-bottom: 4px; filter: grayscale(1) brightness(.55); }
+.legacy-ladder .rung img { width: 76px; height: 76px; margin-top: -6px; margin-bottom: 4px; filter: grayscale(.55) brightness(.62); }
 .legacy-ladder .rung .cr { width: 54px; height: 54px; margin: 9px 0 11px; display: grid; place-items: center; font-size: 30px; color: #6b6070; border-radius: 50%; border: 1px dashed var(--edge); }
 .legacy-ladder .rung .t { font-family: var(--font-ui); font-size: 13px; letter-spacing: .03em; line-height: 1.25; }
 .legacy-ladder .rung .l { font-size: 13px; opacity: .8; }
