@@ -119,7 +119,7 @@
   }
   /* ---------- perks from level and gear ---------- */
   function itemById(id) { return ITEMS.filter(function (i) { return i.id === id; })[0]; }
-  function itemCount(id) { return (S && S.items && S.items[id]) || 0; }
+  function itemCount(id) { var it = itemById(id); if (it && it.permanent) return S ? 1 : 0; return (S && S.items && S.items[id]) || 0; } // permanent items never run out
   function isLordOfLore() { return !!(S && S.bossKills && S.bossKills[FINAL_ID]); }
   function levelTitle() { if (isLordOfLore()) return LEVEL.crown; var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
   function levelLoreMult() { return 1 + LEVEL.lorePct / 100 * ((S.level || 1) - 1); }
@@ -231,7 +231,9 @@
         var btn = el('button', UI.screen === b[0] ? 'on' : '', b[1]); btn.type = 'button'; btn.onclick = function () { go(b[0]); }; nav.appendChild(btn);
       });
     }
-    var sb = el('button', UI.satchel ? 'on' : '', 'Satchel' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? ' ●' : '')); sb.type = 'button'; sb.onclick = function () { openSatchel(); }; nav.appendChild(sb);
+    var ic = window.ART_IMG && ART_IMG['ui-satchel-closed'], io = window.ART_IMG && ART_IMG['ui-satchel-open'];
+    var sb = el('button', 'satchel-btn' + (UI.satchel ? ' on' : ''), (ic ? '<span class="sbi"><img class="c" src="' + ic + '" alt=""><img class="o" src="' + io + '" alt=""></span>' : '') + '<span class="sbl">Satchel</span>' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? '<span class="dot">●</span>' : ''));
+    sb.type = 'button'; sb.title = 'Satchel (press I)'; sb.setAttribute('aria-label', 'Satchel (press I)'); sb.setAttribute('aria-expanded', UI.satchel ? 'true' : 'false'); sb.onclick = function () { openSatchel(); }; nav.appendChild(sb);
     var mb = el('button', 'mute'); mb.type = 'button';
     function muteFace() { var m = window.Sfx && Sfx.isMuted(), src = window.ART_IMG && ART_IMG[m ? 'ui-sound-off' : 'ui-sound-on']; mb.innerHTML = src ? '<img src="' + src + '" alt="">' : (m ? '🔇' : '🔊'); mb.classList.toggle('off', !!m); mb.title = m ? 'Unmute sound effects' : 'Mute sound effects'; mb.setAttribute('aria-label', mb.title); }
     muteFace(); mb.onclick = function () { var m = Sfx.toggle(); muteFace(); if (!m && UI.screen === 'land') { var rn = Overworld.run(); Sfx.ambient(rn ? rn.map.theme.name : null); } }; nav.appendChild(mb);
@@ -331,7 +333,7 @@
     CLASSES.forEach(function (c) {
       var b = el('button', 'class-card' + (c.id === chosen ? ' on' : '')); b.type = 'button';
       var img = window.ART_IMG && ART_IMG['hero-' + c.id + '-1'];
-      b.innerHTML = '<span class="sig portrait">' + (img ? '<img src="' + img + '" alt="">' : '') + '</span><span class="cc-body"><span class="nm">' + esc(c.name) + '</span><span class="fl">' + esc(c.blurb) + '</span><span class="stages">' + c.stages.map(function (sName, i) { return '<span>' + (i + 1) + ' · ' + esc(sName) + '</span>'; }).join('') + '</span></span>';
+      b.innerHTML = '<span class="sig portrait">' + (img ? '<img src="' + img + '" alt="">' : '') + '</span><span class="cc-body"><span class="nm">' + esc(c.name) + '</span><span class="fl">' + esc(c.blurb) + '</span>' + (c.perk ? '<span class="perk">' + esc(c.perk) + '</span>' : '') + '<span class="stages">' + c.stages.map(function (sName, i) { return '<span>' + (i + 1) + ' · ' + esc(sName) + '</span>'; }).join('') + '</span></span>';
       b.onclick = function () { chosen = c.id; Object.keys(cards).forEach(function (k) { cards[k].classList.toggle('on', k === chosen); }); };
       cards[c.id] = b; grid.appendChild(b);
     });
@@ -523,8 +525,13 @@
     if (it.where === 'auto') { toast(it.name + ' works on its own when the moment comes. Keep it in the Satchel.'); return; }
     if (it.where === 'world') {
       if (!inWorld) { toast('Use the ' + it.name + ' while you are out in a land.'); return; }
-      S.items[id]--; closeSatchel();
+      if (!it.permanent) S.items[id]--; closeSatchel();
       sfx('flee');
+      if (id === 'homeward' || id === 'cinder') {
+        var burnt = 0; if (id === 'cinder') { burnt = S.lore; S.lostForever += burnt; S.lore = 0; S.streak = 0; }
+        Overworld.warpHome();
+        Overworld.announce(id === 'homeward' ? 'The ember flares, and you are standing by the bonfire, your Lore still with you.' : (burnt ? 'The cinder crumbles. You wake by the bonfire; ' + n(burnt) + ' Lore burned away with it.' : 'The cinder crumbles. You wake by the bonfire, carrying nothing.'));
+      }
       if (id === 'smoke') { Overworld.smoke(); Overworld.announce('Smoke. Whatever was chasing you has lost you.'); }
       if (id === 'wisp') { Overworld.revealAll(); Overworld.announce('The wisp flies the labyrinth. Every path is on your minimap.'); }
       renderHud(); saveLocal(); return;
@@ -548,9 +555,16 @@
       if (tab === 'items') {
         var have = ITEMS.filter(function (it) { return itemCount(it.id) > 0; });
         if (!have.length) box.appendChild(el('p', 'muted', 'Nothing yet. Chests in the lands hold items; the bonfire sells them.'));
+        have.sort(function (a, b) { return (a.permanent ? 1 : 0) - (b.permanent ? 1 : 0); });
         have.forEach(function (it) {
-          var card = el('div', null, itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + ' · you carry ' + itemCount(it.id)));
-          var canUse = it.where !== 'auto'; var ub = el('button', 'btn' + (canUse ? '' : ' ghost'), canUse ? 'Use' : 'Automatic'); ub.type = 'button'; ub.disabled = !canUse; ub.onclick = function () { useItem(it.id); }; card.querySelector('.item-card > div').appendChild(ub);
+          var card = el('div', null, itemCard(it, (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + (it.permanent ? ' · always in your Satchel' : ' · you carry ' + itemCount(it.id))));
+          var canUse = it.where !== 'auto'; var ub = el('button', 'btn' + (canUse ? '' : ' ghost'), canUse ? 'Use' : 'Automatic'); ub.type = 'button'; ub.disabled = !canUse;
+          var armed = false;
+          ub.onclick = function () {
+            if (it.id === 'cinder' && S.lore > 0 && Overworld.run() && !armed) { armed = true; ub.textContent = 'Burn all ' + n(S.lore) + ' Lore? Click again'; ub.classList.add('danger'); setTimeout(function () { armed = false; ub.textContent = 'Use'; ub.classList.remove('danger'); }, 5000); return; }
+            useItem(it.id);
+          };
+          card.querySelector('.item-card > div').appendChild(ub);
           box.appendChild(card);
         });
       } else {
@@ -576,11 +590,14 @@
       : (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
     var home = UI.land;
     UI.battle = { land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null, practice: !!practice, home: home };
+    rollInsight(UI.battle);
     if (!practice) { S.met = S.met || {}; S.met[c.id] = 1; }
     armTimer();
     UI.land = L.id; go('battle'); sfx(isBoss ? 'boss' : 'alert');
   }
-  function questionTime(B) { var t = (B.isBoss ? LEVELS.BOSS : LEVELS[B.foe.level]).time || 0; return t ? Math.round(t * timeMult()) : 0; }
+  function classId() { return (S && S.hero && S.hero.cls) || 'knight'; }
+  function questionTime(B) { var t = (B.isBoss ? (LEVELS[B.foe.level] || LEVELS.BOSS) : LEVELS[B.foe.level]).time || 0; return t ? Math.round(t * timeMult() * (classId() === 'ranger' ? 1.5 : 1)) : 0; } // Ranger: patient aim
+  function rollInsight(B) { if (classId() === 'sorcerer' && !B.hintShown && Math.random() < 0.2) { B.hintShown = true; B.freeHint = 'insight'; } } // Sorcerer: arcane insight
   function armTimer() { var B = UI.battle; if (!B) return; var t = questionTime(B); B.deadline = t ? Date.now() + t * 1000 : 0; }
   function tickTimer() {
     var B = UI.battle; if (!B || B.done || !B.deadline || UI.screen !== 'battle') return;
@@ -682,7 +699,7 @@
         var no = el('button', 'btn ghost', 'Accept fate'); no.type = 'button'; no.onclick = function () { stagePlay('hero', 'death'); die(); };
         row.appendChild(use); row.appendChild(no); sp.appendChild(row); qp.appendChild(sp);
       }
-      if (B.hintShown) qp.appendChild(el('div', 'aid', '<div class="eyebrow">' + (B.freeHint ? 'Scholar\'s Lens' : 'Lantern of Hints') + '</div>' + esc(q.hint)));
+      if (B.hintShown) qp.appendChild(el('div', 'aid', '<div class="eyebrow">' + (B.freeHint === 'insight' ? 'Arcane insight · the Sorcerer sees the way in' : B.freeHint ? 'Scholar\'s Lens' : 'Lantern of Hints') + '</div>' + esc(q.hint)));
       if (B.tomeQ) qp.appendChild(el('div', 'aid', '<div class="eyebrow">Scholar\'s Tome · a similar problem, worked</div><div class="question" style="font-size:17px">' + B.tomeQ.prompt + '</div><div class="solution"><div class="eyebrow">Solution</div>' + B.tomeQ.solution + '</div>'));
       if (B.phase !== 'sight') {
         var ar = el('div', 'answer-row'); ar.appendChild(el('label', null, 'Your answer'));
@@ -697,7 +714,7 @@
         if (itemCount('hourglass') > 0 && B.deadline && !B.practice) { var gb = el('button', 'btn ghost', 'Hourglass: +60 s (' + itemCount('hourglass') + ')'); gb.type = 'button'; gb.onclick = function () { useItem('hourglass'); }; acts.appendChild(gb); }
         if (owns('tome') && !B.tomeQ) { var tb = el('button', 'btn ghost', 'Tome: worked example (Lore ×0.5)'); tb.type = 'button'; tb.onclick = function () { B.tomeQ = QGen.make(q.key); B.used.tome = true; render(); }; acts.appendChild(tb); }
         acts.appendChild(el('span', 'spacer'));
-        var fl = el('button', 'btn ghost', B.practice ? 'Leave practice' : 'Flee (lose 10% Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
+        var fl = el('button', 'btn ghost', B.practice ? 'Leave practice' : 'Flee (lose half your Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
         qp.appendChild(acts);
         setTimeout(function () { try { mf.focus(); } catch (e) {} }, 50);
       }
@@ -718,6 +735,7 @@
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
     logAttempt(q, raw, r.ok ? 'correct' : r.reason);
     B.deadline = 0;
+    if (!r.ok && r.reason === 'form' && classId() === 'rogue') { r = { ok: true }; toast('Wrong form, right value. A kill is a kill.'); } // Rogue (the ledger still records it as "form")
     if (r.ok) { exchange(true, !B.isBoss || B.i === B.qs.length - 1, win); return; }
     if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; try { B.formEx = QGen.makeLike(q); } catch (e) { B.formEx = null; } exchange(true, false, function () { B.phase = 'warn'; armTimer(); sfx('wrong'); render(); }); return; }
     loseExchange();
@@ -725,6 +743,7 @@
   function loseExchange() { // a wrong answer (or the clock): the creature strikes, and what it costs depends on your gear
     var B = UI.battle;
     if (B.practice) { exchange(false, true, practiceEnd); return; }
+    if (classId() === 'knight' && Math.random() < 0.1) { exchange(false, false, function () { shieldBreak('knight'); }); return; } // Knight: armour that holds
     if (charges('sight') > 0 && !B.sightUsed) { exchange(false, false, function () { B.phase = 'sight'; render(); }); return; }
     if (charges('shield') > 0) { exchange(false, false, function () { shieldBreak(); }); return; }
     if (itemCount('draught') > 0) { exchange(false, false, function () { shieldBreak('draught'); }); return; }
@@ -736,7 +755,7 @@
   function win() {
     var B = UI.battle, q = B.qs[B.i], foe = B.foe;
     if (B.isBoss && B.i < B.qs.length - 1) { // next boss question
-      B.i++; B.hintShown = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; armTimer();
+      B.i++; B.hintShown = false; B.freeHint = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; rollInsight(B); armTimer();
       toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); sfx('correct'); render(); return;
     }
     if (B.practice) { practiceEnd(true); return; }
@@ -759,10 +778,10 @@
   }
   function shieldBreak(how) {
     var B = UI.battle, q = B.qs[B.i];
-    if (how === 'draught') S.items.draught--; else S.gear.shield.charges--;
+    if (how === 'draught') S.items.draught--; else if (how !== 'knight') S.gear.shield.charges--;
     S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1; sfx('shield');
     B.done = true; B.phase = 'result'; B.outcome = 'fled';
-    var res = el('div', 'result warn', how === 'draught' ? '<h2>You drink the Ember Draught</h2><p>Fire in your throat, and the blow that should have killed you lands on nothing. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. The draught is gone.</p>' + youTyped(B) + solutionBlock(q)
+    var res = el('div', 'result warn', how === 'knight' ? '<h2>Your armour holds</h2><p>The blow that should have killed you glances off your plate. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Try it again when you are ready.</p>' + youTyped(B) + solutionBlock(q) : how === 'draught' ? '<h2>You drink the Ember Draught</h2><p>Fire in your throat, and the blow that should have killed you lands on nothing. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. The draught is gone.</p>' + youTyped(B) + solutionBlock(q)
       : '<h2>Your Bone Shield shatters</h2><p>The blow that should have killed you breaks on the shield. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Recharge the shield at a bonfire.</p>' + youTyped(B) + solutionBlock(q));
     res.appendChild(afterActions(false)); B.result = res; render();
   }
@@ -787,7 +806,7 @@
   }
   function flee() {
     if (UI.battle && UI.battle.practice) { leavePractice(); return; }
-    var B = UI.battle, cost = Math.floor(S.lore * 0.10);
+    var B = UI.battle, cost = Math.floor(S.lore * 0.5);
     S.lore -= cost; sfx('flee'); B.done = true; B.outcome = 'fled';
     toast(cost ? 'You escape, but ' + esc(B.foe.name) + ' claws ' + n(cost) + ' Lore from you.' : 'You slip away.');
     UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: 'fled' }; UI.battle = null; go('land');
@@ -1172,7 +1191,7 @@
   function bonfireShop() {
     app.appendChild(el('p', 'muted', 'Provisions go in your Satchel. Chests in the lands hold the same things, for free, if you can find them.'));
     var grid = el('div', 'wares');
-    ITEMS.forEach(function (it) {
+    ITEMS.filter(function (it) { return !it.permanent; }).forEach(function (it) {
       var img = window.ART_IMG && ART_IMG[it.art], have = itemCount(it.id);
       var card = el('div', 'ware' + (S.lore >= it.cost ? '' : ' short'));
       card.innerHTML = '<div class="fc-art">' + (img ? '<img src="' + img + '" alt="">' : '') + '<span class="fc-tier">' + (it.where === 'battle' ? 'Use in a fight' : it.where === 'world' ? 'Use in a land' : 'Works on its own') + '</span>' +
@@ -1200,7 +1219,7 @@
   function screenChronicle() {
     app.appendChild(campHall('chronicle', 'Chronicle', 'Your record, by outcome.', function () { go('bonfire'); }));
     var head = el('div', 'land-head');
-    head.appendChild(el('div', 'row', heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Chronicle · ' + esc(heroClass().name) + ' · ' + esc(heroTitle()) + '</div><h1>' + esc(S.hero ? S.hero.name : S.name) + (S.titles.length ? ', ' + esc(S.titles.join(', ')) : '') + '</h1><p class="muted" style="margin:6px 0 0">Played by ' + esc(S.name) + '. ' + (heroStage() < 3 ? 'Next look: ' + (heroStage() === 1 ? 'own any tier-2 item.' : 'own a tier-3 item and slay a boss.') : 'Final form reached.') + '</p></div>'));
+    head.appendChild(el('div', 'row', heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Chronicle · ' + esc(heroClass().name) + ' · ' + esc(heroTitle()) + '</div><h1>' + esc(S.hero ? S.hero.name : S.name) + (S.titles.length ? ', ' + esc(S.titles.join(', ')) : '') + '</h1>' + (heroClass().perk ? '<p class="class-perk">' + esc(heroClass().name) + ' · ' + esc(heroClass().perk) + '</p>' : '') + '<p class="muted" style="margin:6px 0 0">Played by ' + esc(S.name) + '. ' + (heroStage() < 3 ? 'Next look: ' + (heroStage() === 1 ? 'own any tier-2 item.' : 'own a tier-3 item and slay a boss.') : 'Final form reached.') + '</p></div>'));
     var ed = el('button', 'btn ghost', 'Change hero'); ed.type = 'button'; ed.onclick = function () { go('hero'); }; head.appendChild(ed);
     app.appendChild(head);
     var st = el('div', 'panel');
@@ -1245,7 +1264,8 @@
       '<li><b>Chests</b> hold Lore, or an item — or a trap. Mimics bite, moths eat Lore, alarms bring every creature nearby. <b>Pages</b> teach the math of the land they are hidden in.</li>' +
       '<li><b>Win streaks pay.</b> Every kill in a row adds 5% (up to +50%). A death resets it.</li>' +
       '<li><b>Answers must be in the form asked for.</b> A right value in the wrong form staggers the creature once; the second time it kills you.</li>' +
-      '<li><b>Fleeing</b> a fight costs 10% of the Lore you carry.</li>' +
+      '<li><b>Fleeing</b> a fight costs half the Lore you carry. To get home from deep in a land, crush the <b>Cinder of Return</b> that every Satchel holds (it burns all the Lore you carry), or buy a <b>Homeward Ember</b> from the Merchant (it keeps your Lore).</li>' +
+      '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance a wrong answer does not kill. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form.</li>' +
       '<li><b>The clock.</b> Each question has a time limit (Beginning ' + LEVELS.BEG.time + ' s, Progressing ' + LEVELS.PRG.time + ' s, Mastery and bosses ' + LEVELS.MAS.time + ' s, longer with levels and Patience gear). Out of time counts as a wrong answer.</li>' +
       '<li><b>The lands are labyrinths.</b> Creatures roam them in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again. The boss door needs the Gate Key and every kind of creature slain once.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +
@@ -1449,6 +1469,13 @@
     dp.appendChild(pn); typeset(dp);
   }
 
+  document.addEventListener('keydown', function (e) {
+    if (!S || !S.hero || e.ctrlKey || e.metaKey || e.altKey) return;
+    var t = e.target, tag = t && t.tagName ? t.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || tag === 'math-field' || (t && t.isContentEditable)) return; // typing an answer, not opening the bag
+    if ((e.key === 'i' || e.key === 'I') && !document.querySelector('.throne-splash') && UI.screen !== 'ledger' && UI.screen !== 'title' && UI.screen !== 'hero') { e.preventDefault(); openSatchel(); }
+    else if (e.key === 'Escape' && UI.satchel) { e.preventDefault(); closeSatchel(); }
+  });
   try { window.addEventListener('ledger-online', function () { renderHud(); var ln = document.querySelector('.ledger-warn'); if (ln) ln.remove(); toast('Connected to your teacher\'s ledger.'); }); } catch (e) {}
 
   /* ---------- boot ---------- */

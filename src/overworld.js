@@ -617,6 +617,12 @@ var Overworld = (function () {
   function revealAll() { if (!R) return; for (var i = 0; i < R.seen.length; i++) if (!SOLID[R.map.tiles[i]] || R.map.tiles[i] === G.GATE) R.seen[i] = 1; persist(); }
   function announce(msg) { if (R) say(msg); }
   function counts() { if (!R) return null; var alive = 0, dead = 0; R.ents.forEach(function (e) { if (e.kind === 'creature') alive++; else if (e.kind === 'corpse') dead++; }); return { alive: alive, dead: dead }; }
-  var API = { alarm: alarm, smoke: smoke, revealAll: revealAll, announce: announce, counts: counts, mount: mount, unmount: unmount, useSprites: useSprites, freeze: freeze, nudgeAway: nudgeAway, generate: generate, T: T, MW: MW, MH: MH, G: G, SP: SP, run: function () { return R; }, time: function () { return R ? R.t : 0; }, gateOpen: function () { return R ? gateOpen() : false; } };
+  function warpHome() { // carried back to this land's bonfire: anything chasing loses the scent
+    if (!R) return false; var m = R.map, T2 = T;
+    R.player.x = (m.spawn.x + 1) * T2 + T2 / 2 + 6; R.player.y = m.spawn.y * T2 + T2 / 2 + 2; R.player.moving = false;
+    R.ents.forEach(function (e) { if (e.kind === 'creature') { e.alert = 0; e.blind = 3; if (e.state === 'chase') e.state = 'home'; } });
+    R.contactCool = 2; persist(); return true;
+  }
+  var API = { warpHome: warpHome, alarm: alarm, smoke: smoke, revealAll: revealAll, announce: announce, counts: counts, mount: mount, unmount: unmount, useSprites: useSprites, freeze: freeze, nudgeAway: nudgeAway, generate: generate, T: T, MW: MW, MH: MH, G: G, SP: SP, run: function () { return R; }, time: function () { return R ? R.t : 0; }, gateOpen: function () { return R ? gateOpen() : false; } };
   return API;
 })();

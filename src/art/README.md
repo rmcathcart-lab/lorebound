@@ -268,3 +268,11 @@ The old single-image map (`map.jpg`, Canva MAHWokZzOq0) is retired.
 
 Still to come from ChatGPT (brief in the Mac folder "Final land - The Purloined Throne"): `cr-boss11` (until then the overworld
 uses the Archlich as a stand-in), terrain `tr-l11` + props, and the animated `cr-brazier` (braziers on the road appear once it exists).
+
+### Items added later
+
+| file | item | source |
+|---|---|---|
+| `item-cinder.jpg` | Cinder of Return (permanent, every Satchel) | https://www.canva.com/M/MAHXGBwohao |
+| `item-homeward.jpg` | Homeward Ember (Merchant) | https://www.canva.com/M/MAHXGD5xsp0 |
+| `ui-satchel-closed.png`, `ui-satchel-open.png` | HUD Satchel button (ChatGPT "Satchel Icons" pack, 64 px) | ChatGPT |

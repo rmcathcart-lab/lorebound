@@ -720,3 +720,17 @@ html.has-hall { overflow-x: clip; }
 @keyframes ts-text { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ts-embers { from { transform: translateY(20%); } to { transform: translateY(-20%); } }
 @media (prefers-reduced-motion: reduce) { .throne-splash, .throne-splash::before, .ts-art, .ts-seat, .ts-cap *, .ts-rise { animation: none !important; } }
+
+/* ===== satchel button: closed bag, opens on hover / while open ===== */
+.hud .nav .satchel-btn { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 4px; }
+.satchel-btn .sbi { position: relative; width: 30px; height: 30px; flex: none; }
+.satchel-btn .sbi img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; transition: opacity .15s ease, transform .2s ease; }
+.satchel-btn .sbi .o { opacity: 0; }
+.satchel-btn:hover .sbi .c, .satchel-btn:focus-visible .sbi .c, .satchel-btn.on .sbi .c { opacity: 0; }
+.satchel-btn:hover .sbi .o, .satchel-btn:focus-visible .sbi .o, .satchel-btn.on .sbi .o { opacity: 1; transform: translateY(-1px); }
+.satchel-btn .dot { color: var(--ember); font-size: 11px; margin-left: -2px; }
+@media (max-width: 520px) { .hud .nav .satchel-btn { padding: 2px 6px 2px 2px; gap: 3px; } .satchel-btn .sbi { width: 26px; height: 26px; } }
+.class-card .perk { display: block; margin-top: 8px; font-family: var(--font-ui); font-size: 14px; color: var(--ember); line-height: 1.35; }
+.btn.danger { border-color: var(--bad); color: #ffb0a8; }
+@media (max-width: 380px) { .hud-in { gap: 6px; padding: 6px 8px; } .hud .nav { gap: 4px; } .hud .nav button { padding: 6px 7px; font-size: 13px; } .hud .nav .satchel-btn { padding: 2px 6px 2px 2px; } .lore-pill { font-size: 14px; gap: 4px; } .hud .nav .mute img { width: 24px; height: 24px; } }
+.class-perk { margin: 6px 0 0; font-family: var(--font-ui); font-size: 14px; color: var(--ember); }

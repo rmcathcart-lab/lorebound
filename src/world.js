@@ -1,10 +1,10 @@
 /* ===================== WORLD DATA ===================== */
 var LEVELS = {
-  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 68, color: 'var(--beg)' },
-  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 113, color: 'var(--prg)' },
-  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 180, color: 'var(--mas)' },
-  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 180, color: 'var(--boss)' },
-  FINAL: { name: 'Final boss', short: 'FINAL', lore: 1500, time: 180, color: 'var(--boss)' }
+  BEG: { name: 'Beginning', short: 'BEG', lore: 20, time: 45, color: 'var(--beg)' },
+  PRG: { name: 'Progressing', short: 'PRG', lore: 45, time: 75, color: 'var(--prg)' },
+  MAS: { name: 'Mastery', short: 'MAS', lore: 100, time: 120, color: 'var(--mas)' },
+  BOSS: { name: 'Boss', short: 'BOSS', lore: 400, time: 120, color: 'var(--boss)' },
+  FINAL: { name: 'Final boss', short: 'FINAL', lore: 1500, time: 120, color: 'var(--boss)' }
 };
 
 var LANDS = [
@@ -235,6 +235,10 @@ var ITEMS = [
     desc: 'Carried into a fight, it is drunk the instant a wrong answer would kill you: you survive, keep your Lore, and the creature stands. One use.', flavor: 'It tastes like a forge. It is drunk whether you want it or not.' },
   { id: 'wisp', name: 'Wisp in a Jar', cost: 120, where: 'world', weight: 12, art: 'item-wisp',
     desc: 'Open it in a land: the wisp flies the whole labyrinth and draws every path on your minimap.', flavor: 'It is not happy in there. It will be happier out.' },
+  { id: 'homeward', name: 'Homeward Ember', cost: 120, where: 'world', weight: 10, art: 'item-homeward',
+    desc: 'Breathe on it in any land and it carries you back to that land\'s bonfire, with every scrap of your Lore.', flavor: 'A coal from a bonfire that remembers where it was lit.' },
+  { id: 'cinder', name: 'Cinder of Return', cost: 0, where: 'world', weight: 0, permanent: true, art: 'item-cinder',
+    desc: 'Crush it in any land to wake at that land\'s bonfire. All the Lore you carry burns away for good. It never runs out.', flavor: 'Every hero is given one. Most are too proud to use it.' },
   { id: 'feather', name: 'Phoenix Feather', cost: 200, where: 'auto', weight: 8, art: 'item-feather',
     desc: 'If you die while Lore already lies on the ground, the feather burns instead of that Lore: it joins your new pile. One use.', flavor: 'Still warm.' }
 ];
@@ -247,11 +251,12 @@ var TRAPS = [
   { id: 'alarm', weight: 25, name: 'Alarm', desc: 'A shriek. Everything nearby knows where you are.' }
 ];
 
-/* Hero classes (cosmetic: every class plays the same). Portraits: hero-<class>-<stage>.jpg. Overworld sprites: hero:<class> once its painted sheet is packed; until then the ranger and rogue borrow the knight's. Stage 1 at the start; stage 2 once any tier-2 gear is owned; stage 3 once tier-3 gear is owned and a boss is slain. */
+/* Hero classes. Each has one small edge (perk; applied in game.js): Knight 10% to survive a wrong answer, Sorcerer 20% to be
+ * shown the hint for free, Ranger 50% more time on the clock, Rogue accepts the right value in the wrong form. Portraits: hero-<class>-<stage>.jpg. Overworld sprites: hero:<class> once its painted sheet is packed; until then the ranger and rogue borrow the knight's. Stage 1 at the start; stage 2 once any tier-2 gear is owned; stage 3 once tier-3 gear is owned and a boss is slain. */
 var CLASSES = [
-  { id: 'knight', name: 'Knight', blurb: 'Steel, patience and a chipped sword. Starts in battered armour; ends in black and gold with a blade of Lore-light.', stages: ['Hollow Knight', 'Ashen Knight', 'Champion of the Marches'] },
-  { id: 'sorcerer', name: 'Sorcerer', blurb: 'A hood, a crooked staff and a single spark. Starts in threadbare robes; ends as an archmage in a circle of burning numbers.', stages: ['Apprentice', 'Adept of the Barrows', 'Archmage of Lore'] },
-  { id: 'ranger', name: 'Ranger', blurb: 'A hood, a plain longbow and a long road. Starts as a ragged wayfarer; ends with a rune-carved bow and arrows of Lore-light.', stages: ['Wayfarer', 'Warden of the Weald', 'Lorebound Huntmaster'] },
-  { id: 'rogue', name: 'Rogue', blurb: 'A mask, a knife and quick hands. Starts as a street cutpurse; ends as a phantom whose twin blades burn with Lore-light.', stages: ['Cutpurse', 'Shadowblade', 'Nightglass Phantom'] }
+  { id: 'knight', name: 'Knight', blurb: 'Steel, patience and a chipped sword. Starts in battered armour; ends in black and gold with a blade of Lore-light.', stages: ['Hollow Knight', 'Ashen Knight', 'Champion of the Marches'], perk: 'Armour that holds: a 1 in 10 chance that a wrong answer glances off and does not kill you.' },
+  { id: 'sorcerer', name: 'Sorcerer', blurb: 'A hood, a crooked staff and a single spark. Starts in threadbare robes; ends as an archmage in a circle of burning numbers.', stages: ['Apprentice', 'Adept of the Barrows', 'Archmage of Lore'], perk: 'Arcane insight: a 1 in 5 chance that the hint for a question appears on its own, free.' },
+  { id: 'ranger', name: 'Ranger', blurb: 'A hood, a plain longbow and a long road. Starts as a ragged wayfarer; ends with a rune-carved bow and arrows of Lore-light.', stages: ['Wayfarer', 'Warden of the Weald', 'Lorebound Huntmaster'], perk: 'Patient aim: 50% more time on the clock for every question.' },
+  { id: 'rogue', name: 'Rogue', blurb: 'A mask, a knife and quick hands. Starts as a street cutpurse; ends as a phantom whose twin blades burn with Lore-light.', stages: ['Cutpurse', 'Shadowblade', 'Nightglass Phantom'], perk: 'A kill is a kill: the right value counts even when it is written in the wrong form.' }
 ];
 if (typeof module !== 'undefined') module.exports = { LEVELS: LEVELS, LANDS: LANDS, GEAR: GEAR, CLASSES: CLASSES, LEVEL: LEVEL, ITEMS: ITEMS, CHEST_ODDS: CHEST_ODDS, TRAPS: TRAPS };
