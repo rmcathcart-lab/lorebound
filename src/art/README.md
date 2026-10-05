@@ -254,3 +254,17 @@ ChatGPT's layered world map (3840 × 2560 master, one transparent piece per land
 | `../worldmap_defs.js` | `WM_DEFS`: each layer's box, its label point and a simplified SVG outline used for hovering and clicking |
 
 The old single-image map (`map.jpg`, Canva MAHWokZzOq0) is retired.
+
+### The Purloined Throne (final land)
+
+| file | what | source |
+|---|---|---|
+| `boss11.jpg` | The Hollow Lord (final boss) portrait | https://www.canva.com/M/MAHXGJjA1fQ |
+| `banner-l11.jpg` | The Purloined Throne: lava road to the needle fortress | https://www.canva.com/M/MAHXGL6mIGM |
+| `throne-knight.jpg` | victory splash: the Knight on the throne | https://www.canva.com/M/MAHXGAyEjCQ |
+| `throne-sorcerer.jpg` | victory splash: the Sorcerer on the throne | https://www.canva.com/M/MAHXGARx51I |
+| `throne-ranger.jpg` | victory splash: the Ranger on the throne | https://www.canva.com/M/MAHXGGQheYc |
+| `throne-rogue.jpg` | victory splash: the Rogue on the throne | https://www.canva.com/M/MAHXGN1lmQk |
+
+Still to come from ChatGPT (brief in the Mac folder "Final land - The Purloined Throne"): `cr-boss11` (until then the overworld
+uses the Archlich as a stand-in), terrain `tr-l11` + props, and the animated `cr-brazier` (braziers on the road appear once it exists).

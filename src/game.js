@@ -216,7 +216,7 @@
     if (!S) { hudEl.hidden = true; return; }
     hudEl.hidden = false;
     var w = el('div', 'hud-in');
-    w.appendChild(el('span', 'brand', 'LoreBounD'));
+    w.appendChild(el('span', 'brand', 'LorebounD'));
     if (S.hero) { var hp = el('span', 'hud-hero', heroPortrait('tiny')); hp.title = 'Chronicle'; hp.onclick = function () { if (!(UI.screen === 'battle' && UI.battle && !UI.battle.done)) go('chronicle'); }; w.appendChild(hp); }
     w.appendChild(el('span', 'who', esc(S.hero ? S.hero.name : S.name) + (S.hero ? '<span class="who-sub">' + esc(S.name) + '</span>' : '')));
     w.appendChild(el('span', 'lore-pill', '<span class="orb"></span>' + n(S.lore) + ' Lore'));
@@ -253,7 +253,7 @@
     var t = el('div', 'title');
     if (window.ART_IMG && ART_IMG.title) { var bg = el('div', 'title-bg'); bg.style.backgroundImage = 'url(' + ART_IMG.title + ')'; t.appendChild(bg); }
     t.appendChild(el('div', 'eyebrow', 'Math 10C · a practice world'));
-    t.appendChild(el('h1', null, 'LoreBounD'));
+    t.appendChild(el('h1', null, 'LorebounD'));
     t.appendChild(el('div', 'sub', 'Ten lands. Every creature is a problem. Every wrong answer is a death.'));
     app.appendChild(t);
     var f = el('div', 'title-form');
@@ -1237,7 +1237,7 @@
     app.appendChild(campHall('help', 'Rules', 'How Lorebound works.', function () { go('bonfire'); }));
     app.appendChild(el('div', 'panel', '<ul class="rules">' +
       '<li><b>Each land is a unit of Math 10C.</b> Each creature is one outcome at one level: Beginning, Progressing or Mastery. The same creature always asks the same kind of question, but never the same numbers.</li>' +
-      '<li><b>Ten bosses are ten seals.</b> Slay the boss of every land and an eleventh opens in the far west: the Unwritten Throne, where the Hollow Lord asks one Mastery question from every outcome. Answer them all and you become the <b>Lord of Lore</b>.</li>' +
+      '<li><b>Ten bosses are ten seals.</b> Slay the boss of every land and an eleventh opens in the far west: the Purloined Throne, where the Hollow Lord asks one Mastery question from every outcome. Answer them all and you become the <b>Lord of Lore</b>.</li>' +
       '<li><b>To fight is to answer.</b> Right answer: the creature dies and you earn Lore. Wrong answer: you die.</li>' +
       '<li><b>When you die, the Lore you were carrying drops where you fell.</b> Defeat that same creature to take it back. If you die anywhere before you do, that Lore is gone forever.</li>' +
       '<li><b>Lore you spend is safe.</b> Rest at a bonfire to <b>imbue Lore into Legacy</b> (level up: more Lore per kill, more time per question, faster feet) and to buy gear at the Forge: Ward keeps you alive, Insight helps you understand, Greed pays more, Swiftness outruns, Patience slows the clock. Tier 2 needs level ' + LEVEL.gate[2] + '; tier 3 needs level ' + LEVEL.gate[3] + ' and a boss kill.</li>' +

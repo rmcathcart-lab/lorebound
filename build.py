@@ -22,7 +22,7 @@ for f in sorted(os.listdir('src/art')):
     if key.startswith(('sheet-', 'cr-', 'tr-', 'ui-', 'wm-')):   # sprite sheets and UI icons: packed already, untouched (keeps transparency)
         raw=open('src/art/'+f,'rb').read(); ext='webp' if f.endswith('.webp') else 'png'; IMGS[key]=(raw, 'image/'+ext, ext); print('sheet',key,len(raw)//1024,'KB'); continue
     im=Image.open('src/art/'+f).convert('RGB')
-    maxw=1400 if (key=='title' or key.startswith('banner') or key=='map') else 1400 if key.startswith('camp-') else 560 if key.startswith(('gear-','item-')) else 560
+    maxw=1600 if key.startswith('throne-') else 1400 if (key=='title' or key.startswith('banner') or key=='map') else 1400 if key.startswith('camp-') else 560 if key.startswith(('gear-','item-')) else 560
     if im.width<maxw*0.6:   # tiny preview: upscale smoothly so it survives 2x screens
         im=im.resize((im.width*2, im.height*2), Image.LANCZOS).filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=2))
     if im.width>maxw: im=im.resize((maxw, round(im.height*maxw/im.width)), Image.LANCZOS)

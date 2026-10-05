@@ -601,7 +601,7 @@ var LandMaps = (function () {
     };
   };
 
-  /* L11 · The Unwritten Throne — THE ROAD THROUGH THE FIRE (the finale).
+  /* L11 · The Purloined Throne — THE ROAD THROUGH THE FIRE (the finale).
    * No creatures, no key, no treasure: a bonfire on a ledge, then one road climbing north across a sea of lava,
    * lined both sides with standing pillars like an avenue of statues. Two round landings break the climb, and the
    * throne room's gate is in sight from the very first step. Short, straight and grand: the walk is the ceremony. */
@@ -612,12 +612,12 @@ var LandMaps = (function () {
     var nz = k.noise(4); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { var e = Math.min(x, W - 1 - x); if (e < 2 + nz(x, y) * 3) k.set(x, y, WALL); }
     var fire = { x: cx - 2, y: 68 };
     k.disc(cx, 68, 5.5, GROUND, 0.3);                                    // the bonfire ledge
-    k.rect(cx - 3, 18, 6, 50, GROUND);                                   // the causeway: shoulders...
+    k.rect(cx - 3, 18, 8, 50, GROUND);                                   // the causeway: shoulders...
     k.rect(cx - 1, 18, 4, 50, PATH);                                     // ...and the road
     [[cx + 0.5, 50, 5.5], [cx + 0.5, 32, 6]].forEach(function (l) { k.disc(l[0], l[1], l[2], GROUND, 0.2); k.disc(l[0], l[1], l[2] - 2.5, PATH); }); // two landings
     var braziers = [];
-    for (y = 20; y < 64; y += 4) { if (Math.abs(y - 50) < 6 || Math.abs(y - 32) < 7) continue; braziers.push({ x: cx - 3, y: y }, { x: cx + 2, y: y }); } // the avenue of braziers
-    [[cx - 4, 50], [cx + 5, 50], [cx - 5, 32], [cx + 6, 32], [cx - 4, 18], [cx + 3, 18]].forEach(function (p) { braziers.push({ x: p[0], y: p[1] }); }); // round the landings, and either side of the gate
+    for (y = 20; y < 64; y += 4) { if (Math.abs(y - 50) < 6 || Math.abs(y - 32) < 7) continue; braziers.push({ x: cx - 3, y: y }, { x: cx + 4, y: y }); } // the avenue of braziers
+    [[cx - 5, 50], [cx + 6, 50], [cx - 6, 32], [cx + 7, 32], [cx - 3, 18], [cx + 4, 18]].forEach(function (p) { braziers.push({ x: p[0], y: p[1] }); }); // round the landings, and either side of the gate
     var boss = bossRoom(k, cx - 8, 3, 17, 11, 'S');
     braziers.forEach(function (p) { k.set(p.x, p.y, GROUND); });
     return { name: 'road through the fire', spawn: fire, bossRoom: boss, bare: true, fillPockets: true, braziers: braziers,

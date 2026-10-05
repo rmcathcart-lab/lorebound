@@ -134,7 +134,7 @@
   };
   SP.actorFor = function (e) { // the actor id for an overworld entity
     if (e.kind === 'hero') return SP.heroActorId(e.cls, e.stage);
-    if ((e.kind === 'creature' || e.kind === 'boss' || e.kind === 'corpse') && e.ref) return 'cr:' + (e.ref.sigil || e.ref.id);
+    if ((e.kind === 'creature' || e.kind === 'boss' || e.kind === 'corpse') && e.ref) { var own = 'cr:' + (e.ref.sigil || e.ref.id); return (e.ref.stand && !SP.actor(own)) ? 'cr:' + e.ref.stand : own; } // stand-in sprite until its own is packed
     if (e.kind === 'fire') return 'cr:bonfire';
     return null;
   };

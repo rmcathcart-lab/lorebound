@@ -97,7 +97,7 @@
         { eq: '\\tan\\theta = \\dfrac{6.4}{9.2} \\Rightarrow \\theta = \\tan^{-1}\\left(\\dfrac{6.4}{9.2}\\right) \\approx 34.8^\\circ' },
         { p: '<b>Eye level.</b> When the angle is measured from an eye or an instrument, the triangle starts at that height. A transit with its eyepiece \\(1.6\\) m up, \\(45\\) m from a pole, sights the top at \\(15^\\circ\\): rise \\(= 45\\tan 15^\\circ = 12.06\\ldots\\) m, so the pole is \\(12.06\\ldots + 1.6 \\approx 13.7\\) m tall. Add the eye height back at the end.' }
       ] },
-    { title: 'Orrin\'s Last Measurement', lore: 'Orrin the Sundered Astronomer measured the far tower without ever crossing to it: one angle down to its foot, one angle up to its crown, and the single distance both triangles shared. He rounded that distance once. The spire split the same night. From the top of the tower he could see the Unwritten Throne in the west. He measured the distance to it every night, and every night it was exactly the same.',
+    { title: 'Orrin\'s Last Measurement', lore: 'Orrin the Sundered Astronomer measured the far tower without ever crossing to it: one angle down to its foot, one angle up to its crown, and the single distance both triangles shared. He rounded that distance once. The spire split the same night. From the top of the tower he could see the Purloined Throne in the west. He measured the distance to it every night, and every night it was exactly the same.',
       math: [
         { h: 'Two right triangles sharing a side' },
         { p: 'Find the triangle that already has enough information, solve it, and <b>hand the shared side</b> to the other triangle. <b>Never round the shared side.</b>' },

@@ -287,8 +287,8 @@ var Overworld = (function () {
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
-    var braz = {}; (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
-    R = { braz: braz, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
+    var braz = {}, brazOK = !!(SP.actor && SP.actor('cr:brazier')); if (brazOK) (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
+    R = { braz: braz, brazOK: brazOK, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
       player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0, clock: 0, act: null }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
@@ -495,7 +495,7 @@ var Overworld = (function () {
     }
     if (SP.ready && SP.overlay) SP.overlay(ctx, th, x0, y0, x1, y1, camx, camy, R.map.tiles, R.seen, R.t);
     // entities sorted by y
-    var list = R.ents.slice(); (R.map.braziers || []).forEach(function (b, bi) { list.push({ kind: 'brazier', x: b.x * T + T / 2, y: b.y * T + T / 2 + 4, seed: bi }); });
+    var list = R.ents.slice(); if (R.brazOK) (R.map.braziers || []).forEach(function (b, bi) { list.push({ kind: 'brazier', x: b.x * T + T / 2, y: b.y * T + T / 2 + 4, seed: bi }); });
     list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
     list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving && !R.cut, anim: p.anim, clock: p.clock, act: p.act, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
     list.sort(function (a, b) { return a.y - b.y; });
@@ -508,7 +508,7 @@ var Overworld = (function () {
     var grad = ctx.createRadialGradient(p.x - camx, p.y - camy, T * 2, p.x - camx, p.y - camy, T * 7.5);
     grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = grad; ctx.fillRect(0, 0, cvw, cvh);
     // brazier light burns through the dark: warm pools along the road wherever it has been seen
-    if (R.map.braziers && R.map.braziers.length) {
+    if (R.brazOK && R.map.braziers && R.map.braziers.length) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       R.map.braziers.forEach(function (b, bi) { if (!R.seen[b.y * MW + b.x]) return; var bx = b.x * T + T / 2 - camx, by = b.y * T - 6 - camy; if (bx < -60 || by < -60 || bx > cvw + 60 || by > cvh + 60) return;
         var fl = 0.75 + Math.sin(R.t * 7.3 + bi * 1.7) * 0.12 + Math.sin(R.t * 13.1 + bi) * 0.08, gr = ctx.createRadialGradient(bx, by, 1, bx, by, T * 3.2);
@@ -583,18 +583,6 @@ var Overworld = (function () {
     if (!d) { ctx.fillStyle = '#3a3030'; ctx.fillRect(x - 6, y, 12, 4); return; }
     var f = d.frames[0]; ctx.save(); ctx.translate(x, y + 3); ctx.rotate(e.dir < 0 ? Math.PI / 2 : -Math.PI / 2); ctx.globalAlpha = 0.8; ctx.drawImage(d.img || SP.img, f.x, f.y, f.w, f.h, -f.w / 2, -f.h + 2, f.w, f.h); ctx.restore();
   }
-  /* a standing brazier: stone plinth, iron bowl, living flame (drawn, not a sprite sheet) */
-  function drawBrazier(ctx, e, x, y) {
-    var t = R.t + e.seed * 0.37, fl = Math.sin(t * 9) * 0.6 + Math.sin(t * 15.7) * 0.4;
-    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x, y + 1, 7, 2.5, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = '#2a2430'; ctx.fillRect(x - 4, y - 9, 8, 10); ctx.fillStyle = '#3a3242'; ctx.fillRect(x - 5, y - 10, 10, 2); ctx.fillRect(x - 5, y - 1, 10, 2); // plinth
-    ctx.fillStyle = '#1a1416'; ctx.beginPath(); ctx.moveTo(x - 7, y - 14); ctx.lineTo(x + 7, y - 14); ctx.lineTo(x + 4, y - 10); ctx.lineTo(x - 4, y - 10); ctx.closePath(); ctx.fill(); // bowl
-    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - 7, y - 15, 14, 1.5);
-    var h = 11 + fl * 2;
-    [['rgba(255,90,20,.9)', 6, h], ['rgba(255,170,60,.95)', 4, h * 0.72], ['rgba(255,240,190,.95)', 2, h * 0.42]].forEach(function (f, j) {
-      var w = f[1], hh = f[2], sway = Math.sin(t * 6 + j) * 1.2; ctx.fillStyle = f[0]; ctx.beginPath(); ctx.moveTo(x - w, y - 15); ctx.quadraticCurveTo(x - w * 0.8, y - 15 - hh * 0.6, x + sway, y - 15 - hh); ctx.quadraticCurveTo(x + w * 0.8, y - 15 - hh * 0.6, x + w, y - 15); ctx.closePath(); ctx.fill();
-    });
-  }
   function drawEnt(ctx, e, x, y) {
     var aid = SP.actorFor && SP.actorFor(e), ad = aid && SP.actor(aid);
     if (ad) {
@@ -604,7 +592,7 @@ var Overworld = (function () {
       var tint = e.kind === 'hero' && e.stage > 1 && aid.indexOf('cr:') !== 0 ? (e.stage === 3 ? 'rgba(255,200,80,.22)' : 'rgba(140,210,255,.2)') : null;
       if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
     }
-    if (e.kind === 'brazier') { drawBrazier(ctx, e, x, y); return; }
+    if (e.kind === 'brazier') { var bd = SP.actor('cr:brazier'); if (bd) SP.drawActor(ctx, bd, 'idle', R.t + e.seed * 0.37, x, y + 1, false, {}); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
     if (name) { if (e.kind === 'hero' || e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, e.kind === 'boss' ? 10 : 6, e.kind === 'boss' ? 4 : 2.5, 0, 0, 7); ctx.fill(); }
       else if (e.kind === 'key' || e.kind === 'page') { y += Math.sin(e.anim) * 1.5; }

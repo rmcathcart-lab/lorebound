@@ -150,12 +150,12 @@ var LANDS = [
   },
   /* The final land: no creatures, no key, no chests. A bonfire, a road up through the lava to the throne room, and the
    * Hollow Lord, who asks one Mastery question from every outcome of the course. Opens only when all ten bosses are slain. */
-  { id: 'L11', unit: 11, name: 'The Unwritten Throne', subject: 'Every outcome, at Mastery', open: true, explore: 2, banner: 'banner-l11', finale: true, region: 'final-boss',
-    blurb: 'Ten bosses were ten seals, and the last of them is broken. West of every land, past the black needle of the fortress, the road climbs through fire to the throne of the Lord of Lore. Nothing lives on the road. Nothing needs to.',
+  { id: 'L11', unit: 11, name: 'The Purloined Throne', subject: 'Every outcome, at Mastery', open: true, explore: 2, banner: 'banner-l11', finale: true, region: 'final-boss',
+    blurb: 'Ten bosses were ten seals, and the last of them is broken. West of every land, past the black needle of the fortress, the road climbs through fire to a stolen throne: the seat of the Lord of Lore, taken long ago by the one who sits there now. Nothing lives on the road. Nothing needs to.',
     outcomes: {},
     creatures: [],
-    boss: { id: 'boss11', name: 'The Hollow Lord', level: 'FINAL', sigil: 'boss11', finale: true, gens: [], title: 'Lord of Lore',
-      flavor: 'The last Lord of Lore gathered the Lore of every land and spent none of it, until it hollowed him out. He asks one question from every outcome you have ever faced, every one at Mastery. Answer them all and the throne is yours.' }
+    boss: { id: 'boss11', name: 'The Hollow Lord', level: 'FINAL', sigil: 'boss11', stand: 'boss', finale: true, gens: [], title: 'Lord of Lore',
+      flavor: 'He was never the Lord of Lore. He purloined the throne, then the Lore of every land, and spent none of it until it hollowed him out. He asks one question from every outcome you have ever faced, every one at Mastery. Answer them all and the throne is yours by right.' }
   }
 ];
 var FINAL_ID = 'L11';
