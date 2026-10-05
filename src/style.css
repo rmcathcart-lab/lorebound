@@ -638,7 +638,7 @@ body.in-map #app { padding: 0; max-width: none; }
   background: radial-gradient(circle, #f2fbff 0%, #8fd3ff 45%, rgba(143,211,255,0) 72%); box-shadow: 0 0 14px 6px rgba(143,211,255,.55);
   transform: translate(-50%, -50%) translate(calc(-80px * var(--u)), calc(28px * var(--u))); animation: atlas-orb 2.2s ease-in-out infinite; }
 @keyframes atlas-orb { 0%, 100% { opacity: .7; } 50% { opacity: 1; } }
-.atlas-hint { position: absolute; left: 12px; top: 10px; z-index: 50; pointer-events: none; font-family: var(--font-ui); font-size: 13px; color: var(--bone-dim); background: rgba(10,8,8,.7); padding: 6px 10px; border-radius: 6px; max-width: min(440px, calc(100% - 24px)); transition: opacity .6s ease 1.5s; }
+.atlas-hint { position: absolute; left: 12px; bottom: 12px; z-index: 50; pointer-events: none; font-family: var(--font-ui); font-size: 13px; color: var(--bone-dim); background: rgba(10,8,8,.7); padding: 6px 10px; border-radius: 6px; max-width: min(440px, calc(100% - 24px)); transition: opacity .6s ease 1.5s; }
 .atlas-screen.used .atlas-hint { opacity: 0; }
 @media (max-width: 520px), (max-height: 480px) { .atlas-hint { font-size: 12px; padding: 4px 8px; } }
 .atlas-hint .touch { display: none; }
@@ -819,7 +819,8 @@ html.has-hall { overflow-x: clip; }
 .sh-text h2 { font-size: 26px; line-height: 1.15; margin: 4px 0 4px; overflow-wrap: anywhere; }
 .sh-line { font-family: var(--font-ui); font-size: 13.5px; letter-spacing: .04em; color: var(--bone-dim); }
 .sh-lore { color: var(--lore); }
-.sh-x { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--edge); background: rgba(12,10,16,.5); color: var(--bone-dim); font-size: 14px; line-height: 1; display: grid; place-items: center; }
+.sh-x { position: absolute; top: 12px; right: 12px; width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 1px solid var(--edge); background: rgba(12,10,16,.5); color: var(--bone-dim); display: grid; place-items: center; }
+.sh-x svg { width: 14px; height: 14px; display: block; }
 .sh-x:hover { color: var(--bone); border-color: var(--bone-dim); }
 .sh-tabs { border-bottom: 1px solid var(--edge); padding-bottom: 12px; margin: 0 0 14px; }
 .sh-tabs .tab .ct { display: inline-block; min-width: 20px; margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: rgba(0,0,0,.35); font-size: 11.5px; letter-spacing: 0; }
@@ -847,3 +848,12 @@ html.has-hall { overflow-x: clip; }
 .keeper-says figcaption { margin-top: 6px; font-family: var(--font-ui); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #e9c98d; }
 .keeper-says figcaption::before { content: "— "; }
 .sh-lore { white-space: nowrap; }
+
+/* first strike / ambush, above the question clock */
+.strike-note { margin: 2px 0 8px; padding: 7px 12px; border-radius: 5px; font-size: 16px; line-height: 1.35; border: 1px solid; }
+.strike-note b { font-family: var(--font-ui); font-weight: 600; letter-spacing: .05em; margin-right: 4px; }
+.strike-note.hero { color: #cfe8b8; border-color: rgba(127,176,105,.45); background: rgba(127,176,105,.10); }
+.strike-note.creature { color: #f2c0b6; border-color: rgba(216,67,58,.45); background: rgba(216,67,58,.10); }
+/* the world map's way back to the bonfire, top left over the sea */
+.atlas-back { position: absolute; top: 14px; left: 16px; z-index: 60; font-size: 13px; padding: 9px 14px; background: rgba(20,14,12,.82); backdrop-filter: blur(4px); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+@media (max-width: 520px) { .atlas-back { top: 10px; left: 10px; font-size: 12px; padding: 7px 11px; } }

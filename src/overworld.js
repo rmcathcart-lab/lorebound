@@ -408,7 +408,7 @@ var Overworld = (function () {
         var sees = !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
         if (sees) { if (e.state !== 'chase' && window.Sfx) Sfx.play('alert'); e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
         if (e.state === 'chase') {
-          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); e.dir = pdx < 0 ? -1 : 1; p.dir = -e.dir; cutscene(e, 'creature', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); }); return; }
+          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); e.dir = pdx < 0 ? -1 : 1; p.dir = -e.dir; cutscene(e, 'creature', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n, 'creature'); }); return; }
           var cs = (e.level === 'MAS' ? 46 : e.level === 'PRG' ? 44 : 40) * dt, mx = e.x + pdx / (pd || 1) * cs, my = e.y + pdy / (pd || 1) * cs;
           if (!blocked(mx, e.y)) e.x = mx; if (!blocked(e.x, my)) e.y = my; e.dir = pdx < 0 ? -1 : 1; e.moving = true; return;
         }
@@ -439,7 +439,7 @@ var Overworld = (function () {
   function say(msg) { R.toast = msg; R.toastT = 3.5; }
   function updateHint() {
     var h = '';
-    if (R.near && R.near.e) { var e = R.near.e; h = (e.kind === 'boss' ? 'Challenge <b>' + e.ref.name + '</b>' : 'Fight <b>' + e.ref.name + '</b> (' + e.ref.level + ')') + ' — <kbd>E</kbd> or ⚔'; }
+    if (R.near && R.near.e) { var e = R.near.e; h = e.kind === 'boss' ? 'Challenge <b>' + e.ref.name + '</b> — <kbd>E</kbd> or ⚔' : 'Strike <b>' + e.ref.name + '</b> (' + e.ref.level + ') first: +20 s — <kbd>E</kbd> or ⚔'; }
     else if (R.near && R.near.gate) h = R.w.key ? 'The gate is sealed until every creature in this land has been slain.' : 'A sealed gate. It needs a key — search the land.';
     else if (R.near && R.near.fire) h = 'Rest at the <b>bonfire</b> — <kbd>E</kbd> or ⚔';
     if (h !== R.hintHtml) { R.hintHtml = h; R.hint.innerHTML = h; R.hint.style.opacity = h ? 1 : 0; }
@@ -454,7 +454,7 @@ var Overworld = (function () {
     if (R.cut) return;
     R.player.dir = e.x < R.player.x ? -1 : 1; if (e.kind === 'creature') { e.dir = -R.player.dir; e.state = 'idle'; e.tx = null; }
     if (e.kind === 'boss') cutscene(e, 'hero', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, true); });
-    else { R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); cutscene(e, 'hero', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n); }); }
+    else { R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); cutscene(e, 'hero', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n, 'hero'); }); }
   }
   /* a swing at nothing: purely for the feel of it. The hero plants their feet for the length of the attack. */
   function swing() {
