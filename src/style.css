@@ -735,3 +735,10 @@ html.has-hall { overflow-x: clip; }
 @media (max-width: 380px) { .hud-in { gap: 6px; padding: 6px 8px; } .hud .nav { gap: 4px; } .hud .nav button { padding: 6px 7px; font-size: 13px; } .hud .nav .satchel-btn { padding: 2px 2px 2px 6px; } .lore-pill { font-size: 14px; gap: 4px; } .hud .nav .mute img { width: 24px; height: 24px; } }
 .class-perk { margin: 6px 0 0; font-family: var(--font-ui); font-size: 14px; color: var(--ember); }
 .bstage-cap.foe { display: block; }
+/* changing the hero (from Imbue Lore into Legacy): what each class costs */
+.class-card .cc-cost { display: inline-block; margin: 4px 0 2px; padding: 1px 8px; border: 1px solid rgba(143,211,255,.45); border-radius: 999px; font-family: var(--font-ui); font-size: 12px; color: #8fd3ff; letter-spacing: .02em; }
+.class-card .cc-cost.mine { border-color: rgba(214,170,90,.55); color: var(--ember); }
+.class-card .cc-cost.short { opacity: .6; }
+.hero-cost-note { font-family: var(--font-ui); font-size: 14px; align-self: center; }
+.hero-panel .row { align-items: center; }
+.hero-panel .actions { margin-top: 12px; }

@@ -741,6 +741,13 @@ html.has-hall { overflow-x: clip; }
 @media (max-width: 380px) { .hud-in { gap: 6px; padding: 6px 8px; } .hud .nav { gap: 4px; } .hud .nav button { padding: 6px 7px; font-size: 13px; } .hud .nav .satchel-btn { padding: 2px 2px 2px 6px; } .lore-pill { font-size: 14px; gap: 4px; } .hud .nav .mute img { width: 24px; height: 24px; } }
 .class-perk { margin: 6px 0 0; font-family: var(--font-ui); font-size: 14px; color: var(--ember); }
 .bstage-cap.foe { display: block; }
+/* changing the hero (from Imbue Lore into Legacy): what each class costs */
+.class-card .cc-cost { display: inline-block; margin: 4px 0 2px; padding: 1px 8px; border: 1px solid rgba(143,211,255,.45); border-radius: 999px; font-family: var(--font-ui); font-size: 12px; color: #8fd3ff; letter-spacing: .02em; }
+.class-card .cc-cost.mine { border-color: rgba(214,170,90,.55); color: var(--ember); }
+.class-card .cc-cost.short { opacity: .6; }
+.hero-cost-note { font-family: var(--font-ui); font-size: 14px; align-self: center; }
+.hero-panel .row { align-items: center; }
+.hero-panel .actions { margin-top: 12px; }
 
 </style>
 <div id="artdefs"></div>
@@ -8185,7 +8192,8 @@ var LandMaps = (function () {
     for (i = 0; i < (bp.bare ? 0 : 5); i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
     var b = bp.bossRoom;
     (bp.braziers || []).forEach(function (p) { if (k.get(p.x, p.y) === DECO || k.get(p.x, p.y) === GROUND2) k.set(p.x, p.y, GROUND); });
-    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name, braziers: bp.braziers || [] };
+    if (bp.props) for (i = 0; i < W * H; i++) if (t[i] === DECO) t[i] = GROUND; // hand-placed scenery only
+    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name, braziers: bp.braziers || [], props: bp.props || null };
   }
 
   /* =====================================================================
@@ -8640,25 +8648,42 @@ var LandMaps = (function () {
    * lined both sides with standing pillars like an avenue of statues. Two round landings break the climb, and the
    * throne room's gate is in sight from the very first step. Short, straight and grand: the walk is the ceremony. */
   BP.L11 = function (k) {
-    var W = k.W, H = k.H, x, y, cx = 22;
+    // a processional, mirror-symmetric about x = cx: bonfire terrace, road, landing, road, landing, road, gate
+    var W = k.W, H = k.H, cx = (W - 1) / 2, x, y, braziers = [], props = [];
     k.rect(1, 1, W - 2, H - 2, WALL);
-    k.ell(cx, 42, 19, 33, WATER, 0.35);                                  // the lava sea
-    var nz = k.noise(4); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { var e = Math.min(x, W - 1 - x); if (e < 2 + nz(x, y) * 3) k.set(x, y, WALL); }
-    var fire = { x: cx - 2, y: 68 };
-    k.disc(cx, 68, 5.5, GROUND, 0.3);                                    // the bonfire ledge
-    k.rect(cx - 3, 18, 8, 50, GROUND);                                   // the causeway: shoulders...
-    k.rect(cx - 1, 18, 4, 50, PATH);                                     // ...and the road
-    [[cx + 0.5, 50, 5.5], [cx + 0.5, 32, 6]].forEach(function (l) { k.disc(l[0], l[1], l[2], GROUND, 0.2); k.disc(l[0], l[1], l[2] - 2.5, PATH); }); // two landings
-    var braziers = [];
-    for (y = 20; y < 64; y += 4) { if (Math.abs(y - 50) < 6 || Math.abs(y - 32) < 7) continue; braziers.push({ x: cx - 3, y: y }, { x: cx + 4, y: y }); } // the avenue of braziers
-    [[cx - 5, 50], [cx + 6, 50], [cx - 6, 32], [cx + 7, 32], [cx - 3, 18], [cx + 4, 18]].forEach(function (p) { braziers.push({ x: p[0], y: p[1] }); }); // round the landings, and either side of the gate
+    k.rect(3, 15, W - 6, 58, WATER);                                     // the lava sea, square to the road
+    function road(y0, y1) { k.rect(cx - 2, y0, 5, y1 - y0 + 1, PATH); for (y = y0; y <= y1; y++) { k.set(cx - 3, y, WALL); k.set(cx + 3, y, WALL); } }
+    function platform(yc, half, hgt) { // a walled square landing with the road running through it
+      var x0 = cx - half, x1 = cx + half, y0 = yc - hgt, y1 = yc + hgt;
+      k.rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1, GROUND); k.frame(x0 - 1, y0 - 1, x1 - x0 + 3, y1 - y0 + 3, WALL);
+      k.rect(cx - 2, y0 - 1, 5, y1 - y0 + 3, PATH);                       // openings top and bottom, the road through the middle
+      return { x0: x0 - 1, x1: x1 + 1, y0: y0 - 1, y1: y1 + 1 };
+    }
+    var fire = { x: cx, y: 68 };
+    var t0 = platform(68, 6, 3);                                          // the bonfire terrace (road ends on its north edge)
+    k.rect(cx - 2, t0.y1, 5, 1, WALL);                                    // closed to the south
+    k.rect(t0.x0 + 1, t0.y0 + 2, t0.x1 - t0.x0 - 1, t0.y1 - t0.y0 - 2, GROUND); // the road stops at the terrace's north edge; the fire sits mid-terrace
+    var l1 = platform(49, 5, 3), l2 = platform(30, 5, 3);
+    road(l1.y1 + 1, t0.y0 - 1); road(l2.y1 + 1, l1.y0 - 1); road(15, l2.y0 - 1);
     var boss = bossRoom(k, cx - 8, 3, 17, 11, 'S');
-    braziers.forEach(function (p) { k.set(p.x, p.y, GROUND); });
-    return { name: 'road through the fire', spawn: fire, bossRoom: boss, bare: true, fillPockets: true, braziers: braziers,
-      areas: [{ x: cx, y: 50, rx: 2, tier: 'BEG' }, { x: cx, y: 32, rx: 2, tier: 'PRG' }], key: null, nooks: [] };
+    k.rect(cx - 2, 15, 5, 3, PATH);
+    // braziers on the parapets, every four rows, mirrored; and on each landing's four corners
+    [[l1.y1 + 2, t0.y0 - 2], [l2.y1 + 2, l1.y0 - 2], [16, l2.y0 - 2]].forEach(function (seg) { for (y = seg[0]; y <= seg[1]; y += 4) braziers.push({ x: cx - 3, y: y }, { x: cx + 3, y: y }); });
+    [t0, l1, l2].forEach(function (P) { braziers.push({ x: P.x0, y: P.y0 }, { x: P.x1, y: P.y0 }); if (P !== t0) braziers.push({ x: P.x0, y: P.y1 }, { x: P.x1, y: P.y1 }); });
+    // hand-placed scenery (prop index into the land's set; mirrored pairs): 0 pillar, 1 kneeling scholar, 2 crowned head,
+    // 3 banner, 4 crowns and scrolls, 5 obelisk, 6 lectern, 7 bones
+    function pair(i, dx, y, flatOnGround) { props.push({ i: i, x: cx - dx, y: y, flip: false, flat: !!flatOnGround }, { i: i, x: cx + dx, y: y, flip: true, flat: !!flatOnGround }); }
+    pair(0, 7, 2); pair(0, 4, 2); pair(3, 2, 2);                          // throne room: pillars and banners on the north wall
+    pair(5, 8, 13); pair(4, 3, 6, true); pair(7, 6, 10, true);            // obelisks at the south corners, crowns and bones on the floor
+    pair(1, 6, l1.y0); pair(1, 6, l2.y0);                                 // kneeling scholars on the landings' north parapets
+    pair(6, 4, l1.y0 + 2, true); pair(6, 4, l2.y0 + 2, true);             // lecterns on the landings
+    pair(5, 6, t0.y0); pair(2, 4, t0.y0 + 2, true);                       // obelisks over the terrace, a fallen crowned head either side
+    braziers.forEach(function (p) { if (k.get(p.x, p.y) !== WALL) k.set(p.x, p.y, GROUND); });
+    return { name: 'the processional', spawn: fire, bossRoom: boss, bare: true, fillPockets: true, braziers: braziers, props: props,
+      areas: [{ x: cx, y: 49, rx: 2, tier: 'BEG' }, { x: cx, y: 30, rx: 2, tier: 'PRG' }], key: null, nooks: [] };
   };
 
-  var SIZES = { L11: [46, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
+  var SIZES = { L11: [45, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
 
   function build(L, env) {
     var bpf = BP[L.id]; if (!bpf) return null;
@@ -8959,8 +8984,10 @@ var Overworld = (function () {
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
+    var vista = !!(map.theme && map.theme.name === 'throne'); if (vista) for (var si = 0; si < seen.length; si++) seen[si] = 1; // the processional is in view from the first step
     var braz = {}, brazOK = !!(SP.actor && SP.actor('cr:brazier')); if (brazOK) (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
-    R = { braz: braz, brazOK: brazOK, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
+    (map.props || []).forEach(function (q) { if (!q.flat) braz[q.y * map.w + q.x] = 1; }); // tall scenery is solid
+    R = { vista: vista, braz: braz, brazOK: brazOK, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
       player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0, clock: 0, act: null }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
@@ -9168,6 +9195,7 @@ var Overworld = (function () {
     if (SP.ready && SP.overlay) SP.overlay(ctx, th, x0, y0, x1, y1, camx, camy, R.map.tiles, R.seen, R.t);
     // entities sorted by y
     var list = R.ents.slice(); if (R.brazOK) (R.map.braziers || []).forEach(function (b, bi) { list.push({ kind: 'brazier', x: b.x * T + T / 2, y: b.y * T + T / 2 + 4, seed: bi }); });
+    if (R.map.props) R.map.props.forEach(function (q) { if (!q.flat) list.push({ kind: 'prop', x: q.x * T + T / 2, y: q.y * T + T - 1, p: q }); });
     if (R.map.theme && R.map.theme.name === 'throne' && SP.actor && SP.actor('cr:gate11')) list.push({ kind: 'gate11', x: R.map.gate.x * T + T / 2, y: R.map.gate.y * T + T });
     list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
     list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving && !R.cut, anim: p.anim, clock: p.clock, act: p.act, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
@@ -9177,7 +9205,7 @@ var Overworld = (function () {
     if (R.S.dropped && R.S.dropped.land === R.L.id) { var de = R.ents.filter(function (e) { return e.ref && e.ref.id === R.S.dropped.creature && (R.S.dropped.inst == null || e.n === R.S.dropped.inst); })[0]; if (de) { var gx = de.x - camx, gy = de.y - camy - 14 + Math.sin(R.t * 4) * 1.5; ctx.fillStyle = '#8fd3ff'; ctx.beginPath(); ctx.arc(gx, gy, 2.5, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(143,211,255,.35)'; ctx.beginPath(); ctx.arc(gx, gy, 5, 0, 7); ctx.fill(); } }
     // fog: seen-but-far tiles darkened, unseen black (already black), soft light around hero
     ctx.fillStyle = 'rgba(0,0,0,.45)';
-    for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
+    if (!R.vista) for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
     var grad = ctx.createRadialGradient(p.x - camx, p.y - camy, T * 2, p.x - camx, p.y - camy, T * 7.5);
     grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = grad; ctx.fillRect(0, 0, cvw, cvh);
     // brazier light burns through the dark: warm pools along the road wherever it has been seen
@@ -9266,6 +9294,7 @@ var Overworld = (function () {
       if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
     }
     if (e.kind === 'gate11') { var gd = SP.actor('cr:gate11'); if (gd) SP.drawActor(ctx, gd, gateOpen() ? 'open' : 'sealed', 0, x, y, false, {}); return; }
+    if (e.kind === 'prop') { if (SP.landProp) SP.landProp(ctx, R.map.theme.name, e.p.i, x, y, e.p.flip); return; }
     if (e.kind === 'brazier') { var bd = SP.actor('cr:brazier'); if (bd) SP.drawActor(ctx, bd, 'idle', R.t + e.seed * 0.37, x, y + 1, false, {}); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
     if (name) { if (e.kind === 'hero' || e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, e.kind === 'boss' ? 10 : 6, e.kind === 'boss' ? 4 : 2.5, 0, 0, 7); ctx.fill(); }
@@ -9476,7 +9505,7 @@ var Overworld = (function () {
       var edges = {}; Object.keys(def.edgeByMask).forEach(function (k) { edges[def.edgeByMask[k]] = 1; });
       def.frames.forEach(function (f, i) { var c = document.createElement('canvas'); c.width = f[2]; c.height = f[3]; var cx = c.getContext('2d'); cx.drawImage(im, f[0], f[1], f[2], f[3], 0, 0, f[2], f[3]);
         if (tint) { cx.globalCompositeOperation = 'source-atop'; cx.fillStyle = tint; cx.fillRect(0, 0, f[2], f[3]); cx.globalCompositeOperation = 'source-over'; }
-        if (edges[i]) { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = 'rgb(92,88,100)'; cx.fillRect(0, 0, f[2], f[3]); } // impassable ground sits clearly darker than the paths you can walk
+        if (edges[i] && id !== 'L11') { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = 'rgb(92,88,100)'; cx.fillRect(0, 0, f[2], f[3]); } // impassable ground sits clearly darker than the paths you can walk
         t.tiles.push(c); });
       t.ready = true; };
     im.src = ART_IMG['tr-l' + n];
@@ -9502,6 +9531,7 @@ var Overworld = (function () {
     if (t === G.GATE || t === G.GATE_OPEN) { var open = Overworld.gateOpen(); var d = DT_DEFS[open ? 'doors_leaf_open' : 'doors_leaf_closed'][0]; ctx.drawImage(dt, d[0], d[1], d[2], d[3], x - 8, y - 16, 32, 32); }
     return true;
   }
+  SP.landProp = function (ctx, thName, i, x, y, flip) { var TS = terrainFor(thName); if (!TS || !TS.propsOK) return false; landProp(ctx, TS, i, x, y, flip); return true; };
   function landProp(ctx, ts, i, x, y, flip) { var p = ts.def.props[i], f = p.f; drawHD(ctx, { img: ts.props, scale: ts.def.propScale, frames: [{ x: f[0], y: f[1], w: f[2], h: f[3], ax: f[4], ay: f[5] }] }, 0, x, y, flip); }
 
   /* HD corpse: the last frame of the creature's death animation */
@@ -9544,12 +9574,17 @@ var Overworld = (function () {
       if (ty < MH - 1 && isWallT(tiles[i + MW])) { g = ctx.createLinearGradient(0, y + 16, 0, y + 12); g.addColorStop(0, 'rgba(0,0,0,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y + 12, 16, 4); }
     }
     if (!TS.propsOK) return;
+    var run = Overworld.run && Overworld.run(), fixed = run && run.map && run.map.props;
+    if (fixed) { // a hand-dressed land: only the bonfire glow and the flat pieces here; tall ones are y-sorted with the actors
+      for (var fi = 0; fi < fixed.length; fi++) { var fp = fixed[fi]; if (!fp.flat || !seen[fp.y * MW + fp.x]) continue; landProp(ctx, TS, fp.i, fp.x * 16 - camx + 8, fp.y * 16 - camy + 15, fp.flip); }
+    }
     // 2. scenery: tall pieces along the faces of walls, flat ones on scattered ground, lily pads on water
     for (ty = Math.max(0, y0 - 1); ty <= Math.min(MH - 1, y1 + 3); ty++) for (tx = Math.max(0, x0 - 2); tx <= Math.min(MW - 1, x1 + 2); tx++) {
       i = ty * MW + tx; tt = tiles[i]; if (!seen[i]) continue;
       x = tx * 16 - camx + 8; y = ty * 16 - camy + 15;
       if (tt === G.FIRE) { var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, rg = ctx.createRadialGradient(x, y - 10, 1, x, y - 10, 30);
         rg.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); rg.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = rg; ctx.fillRect(x - 30, y - 40, 60, 60); if (propOK && !SP.actor('cr:bonfire')) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue; }
+      if (fixed) continue;
       if (tt === G.DECO && flat.length) { if (h2(tx * 3 + 7, ty * 5 + 1) < (flat.length > 1 ? 0.6 : 0.22)) landProp(ctx, TS, flat[Math.floor(h2(tx, ty * 7) * flat.length)], x, y, h2(tx, ty * 3) < 0.5); continue; }
       if (tt === G.WATER && wet.length) { if (h2(tx * 13 + 1, ty * 3 + 4) < 0.07) landProp(ctx, TS, wet[0], x, y - 3, h2(tx, ty) < 0.5); continue; }
       if (tt !== G.WALL || ty + 1 >= MH || !WALK[tiles[i + MW]]) continue;
@@ -9637,6 +9672,7 @@ var Overworld = (function () {
     return t2 ? 2 : 1;
   }
   function className(id) { var c = CLASSES.filter(function (x) { return x.id === id; })[0]; return c ? c.name : 'Knight'; }
+  function classById(id) { return CLASSES.filter(function (c) { return c.id === id; })[0] || CLASSES[0]; }
   function heroClass() { var id = S && S.hero ? S.hero.cls : 'knight'; return CLASSES.filter(function (c) { return c.id === id; })[0] || CLASSES[0]; }
   function heroFrame() { var f = ''; GEAR.forEach(function (g) { if (g.cosmetic && g.frame && owns(g.id) && S.hero && S.hero.frame === g.id) f = g.frame; }); return f; }
   function heroPortrait(cls, extra) { // the player's hero at their current stage
@@ -9904,18 +9940,23 @@ var Overworld = (function () {
     if (online) { var tl = el('div', 'teacher-link', '<button type="button">Teacher\'s Ledger</button>'); tl.querySelector('button').onclick = function () { go('ledger'); }; app.appendChild(tl); }
   }
 
+  var CLASS_CHANGE_COST = 500; // Lore to take up a different class; renaming the hero is free
+  function backToLegacy() { UI.screen = 'bonfire'; UI.bonfireTab = 'level'; render(); window.scrollTo(0, 0); }
   function screenHero() {
     var editing = !!S.hero, cur = S.hero || { name: '', cls: 'knight' };
     var head = el('div', 'land-head');
-    head.appendChild(el('div', null, '<div class="eyebrow">' + (editing ? 'Chronicle · your hero' : 'Before you set out') + '</div><h1>' + (editing ? 'Change your hero' : 'Who walks into the Marches?') + '</h1><p class="muted" style="margin:6px 0 0">Choose a class and give your hero a name. Your own name (' + esc(S.name) + ') stays on the record for your teacher. The hero changes as you earn gear: three looks per class.</p>'));
+    head.appendChild(el('div', null, '<div class="eyebrow">' + (editing ? 'Imbue Lore into Legacy · your hero' : 'Before you set out') + '</div><h1>' + (editing ? 'Change your hero' : 'Who walks into the Marches?') + '</h1><p class="muted" style="margin:6px 0 0">' +
+      (editing ? 'Renaming your hero is free. Taking up a different class costs <b>' + n(CLASS_CHANGE_COST) + ' Lore</b>; your level, gear and Legend stay with you. Your own name (' + esc(S.name) + ') stays on the record for your teacher.'
+        : 'Choose a class and give your hero a name. Your own name (' + esc(S.name) + ') stays on the record for your teacher. The hero changes as you earn gear: three looks per class.') + '</p>'));
     app.appendChild(head);
     var chosen = cur.cls, grid = el('div', 'class-grid');
     var cards = {};
     CLASSES.forEach(function (c) {
       var b = el('button', 'class-card' + (c.id === chosen ? ' on' : '')); b.type = 'button';
       var img = window.ART_IMG && ART_IMG['hero-' + c.id + '-1'];
-      b.innerHTML = '<span class="sig portrait">' + (img ? '<img src="' + img + '" alt="">' : '') + '</span><span class="cc-body"><span class="nm">' + esc(c.name) + '</span><span class="fl">' + esc(c.blurb) + '</span>' + (c.perk ? '<span class="perk">' + esc(c.perk) + '</span>' : '') + '<span class="stages">' + c.stages.map(function (sName, i) { return '<span>' + (i + 1) + ' · ' + esc(sName) + '</span>'; }).join('') + '</span></span>';
-      b.onclick = function () { chosen = c.id; Object.keys(cards).forEach(function (k) { cards[k].classList.toggle('on', k === chosen); }); };
+      var tag = editing ? '<span class="cc-cost' + (c.id === cur.cls ? ' mine' : S.lore < CLASS_CHANGE_COST ? ' short' : '') + '">' + (c.id === cur.cls ? 'Your class' : n(CLASS_CHANGE_COST) + ' Lore') + '</span>' : '';
+      b.innerHTML = '<span class="sig portrait">' + (img ? '<img src="' + img + '" alt="">' : '') + '</span><span class="cc-body"><span class="nm">' + esc(c.name) + '</span>' + tag + '<span class="fl">' + esc(c.blurb) + '</span>' + (c.perk ? '<span class="perk">' + esc(c.perk) + '</span>' : '') + '<span class="stages">' + c.stages.map(function (sName, i) { return '<span>' + (i + 1) + ' · ' + esc(sName) + '</span>'; }).join('') + '</span></span>';
+      b.onclick = function () { chosen = c.id; Object.keys(cards).forEach(function (k) { cards[k].classList.toggle('on', k === chosen); }); label(); };
       cards[c.id] = b; grid.appendChild(b);
     });
     app.appendChild(grid);
@@ -9925,13 +9966,27 @@ var Overworld = (function () {
     form.appendChild(inp);
     var acts = el('div', 'actions'); acts.style.marginTop = '12px';
     var ok = el('button', 'btn big', editing ? 'Save hero' : 'Set forth'); ok.type = 'button';
+    var note = el('span', 'muted hero-cost-note', '');
+    function label() { // in edit mode the button says what the change costs
+      if (!editing) return; var swap = chosen !== cur.cls;
+      ok.textContent = swap ? 'Become a ' + classById(chosen).name + ' · ' + n(CLASS_CHANGE_COST) + ' Lore' : 'Save hero';
+      ok.disabled = swap && S.lore < CLASS_CHANGE_COST;
+      note.innerHTML = swap ? (S.lore < CLASS_CHANGE_COST ? 'You carry ' + n(S.lore) + ' Lore. Need ' + n(CLASS_CHANGE_COST - S.lore) + ' more to change class.' : 'You carry ' + n(S.lore) + ' Lore.') : 'Renaming is free.';
+    }
     ok.onclick = function () {
       var nm = inp.value.trim(); if (!nm) { inp.focus(); toast('Give your hero a name.'); return; }
-      S.hero = { name: nm, cls: chosen, frame: (S.hero && S.hero.frame) || '' }; toast(esc(nm) + ' the ' + esc(heroClass().name) + ' sets forth.'); go(editing ? 'chronicle' : 'map');
+      var swap = editing && chosen !== cur.cls;
+      if (swap && S.lore < CLASS_CHANGE_COST) { toast('Changing class costs ' + n(CLASS_CHANGE_COST) + ' Lore.'); return; }
+      if (swap) S.lore -= CLASS_CHANGE_COST;
+      S.hero = { name: nm, cls: chosen, frame: (S.hero && S.hero.frame) || '' };
+      if (!editing) { toast(esc(nm) + ' the ' + esc(heroClass().name) + ' sets forth.'); go('map'); return; }
+      toast(swap ? esc(nm) + ' walks on as a ' + esc(heroClass().name) + '.' : nm !== cur.name ? 'Your hero is now ' + esc(nm) + '.' : 'Nothing changed.');
+      if (swap) sfx('levelup');
+      backToLegacy();
     };
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') ok.click(); });
     acts.appendChild(ok);
-    if (editing) { var back = el('button', 'btn ghost', 'Cancel'); back.type = 'button'; back.onclick = function () { go('chronicle'); }; acts.appendChild(back); }
+    if (editing) { var back = el('button', 'btn ghost', 'Cancel'); back.type = 'button'; back.onclick = backToLegacy; acts.appendChild(back); acts.appendChild(note); label(); }
     form.appendChild(acts); app.appendChild(form);
     setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
   }
@@ -10764,6 +10819,10 @@ var Overworld = (function () {
       if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
     }
     pn.appendChild(row); app.appendChild(pn);
+    var hc = heroClass(), hp = el('div', 'panel hero-panel');
+    hp.innerHTML = '<div class="row">' + heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Your hero</div><h2 style="margin:4px 0 6px">' + esc(S.hero ? S.hero.name : S.name) + ' · ' + esc(hc.name) + '</h2>' + (hc.perk ? '<p class="class-perk">' + esc(hc.perk) + '</p>' : '') +
+      '<p class="muted" style="margin:6px 0 0">Renaming your hero is free. Taking up a different class costs ' + n(CLASS_CHANGE_COST) + ' Lore.</p></div></div>';
+    var hr = el('div', 'actions'), hb = el('button', 'btn', 'Change hero'); hb.type = 'button'; hb.onclick = function () { go('hero'); }; hr.appendChild(hb); hp.appendChild(hr); app.appendChild(hp);
     var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') +
       '<span class="crown' + (isLordOfLore() ? ' got' : '') + '"><b>♛</b> ' + esc(LEVEL.crown) + ' <i>' + (isLordOfLore() ? 'yours' : 'no level reaches it: slay the final boss') + '</i></span></div>' +
       '<p class="muted">Every level costs more than the last (' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore). Lore spent on levels, like Lore spent on gear, can never be lost.</p>';
@@ -10801,7 +10860,6 @@ var Overworld = (function () {
     app.appendChild(campHall('chronicle', 'Chronicle', 'Your record, by outcome.', function () { go('bonfire'); }));
     var head = el('div', 'land-head');
     head.appendChild(el('div', 'row', heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Chronicle · ' + esc(heroClass().name) + ' · ' + esc(heroTitle()) + '</div><h1>' + esc(S.hero ? S.hero.name : S.name) + (S.titles.length ? ', ' + esc(S.titles.join(', ')) : '') + '</h1>' + (heroClass().perk ? '<p class="class-perk">' + esc(heroClass().name) + ' · ' + esc(heroClass().perk) + '</p>' : '') + '<p class="muted" style="margin:6px 0 0">Played by ' + esc(S.name) + '. ' + (heroStage() < 3 ? 'Next look: ' + (heroStage() === 1 ? 'own any tier-2 item.' : 'own a tier-3 item and slay a boss.') : 'Final form reached.') + '</p></div>'));
-    var ed = el('button', 'btn ghost', 'Change hero'); ed.type = 'button'; ed.onclick = function () { go('hero'); }; head.appendChild(ed);
     app.appendChild(head);
     var st = el('div', 'panel');
     var stats = el('div', 'stats');
@@ -10846,7 +10904,7 @@ var Overworld = (function () {
       '<li><b>Win streaks pay.</b> Every kill in a row adds 5% (up to +50%). A death resets it.</li>' +
       '<li><b>Answers must be in the form asked for.</b> A right value in the wrong form staggers the creature once; the second time it kills you.</li>' +
       '<li><b>Fleeing</b> a fight costs half the Lore you carry. To get home from deep in a land, crush the <b>Cinder of Return</b> that every Satchel holds (it burns all the Lore you carry), or buy a <b>Homeward Ember</b> from the Merchant (it keeps your Lore).</li>' +
-      '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance a wrong answer does not kill. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form.</li>' +
+      '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance a wrong answer does not kill. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form. To rename your hero (free) or take up another class (' + n(CLASS_CHANGE_COST) + ' Lore), go to Imbue Lore into Legacy at the bonfire.</li>' +
       '<li><b>The clock.</b> Each question has a time limit (Beginning ' + LEVELS.BEG.time + ' s, Progressing ' + LEVELS.PRG.time + ' s, Mastery and bosses ' + LEVELS.MAS.time + ' s, longer with levels and Patience gear). Out of time counts as a wrong answer.</li>' +
       '<li><b>The lands are labyrinths.</b> Creatures roam them in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again. The boss door needs the Gate Key and every kind of creature slain once.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +

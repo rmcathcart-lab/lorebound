@@ -173,7 +173,7 @@
       var edges = {}; Object.keys(def.edgeByMask).forEach(function (k) { edges[def.edgeByMask[k]] = 1; });
       def.frames.forEach(function (f, i) { var c = document.createElement('canvas'); c.width = f[2]; c.height = f[3]; var cx = c.getContext('2d'); cx.drawImage(im, f[0], f[1], f[2], f[3], 0, 0, f[2], f[3]);
         if (tint) { cx.globalCompositeOperation = 'source-atop'; cx.fillStyle = tint; cx.fillRect(0, 0, f[2], f[3]); cx.globalCompositeOperation = 'source-over'; }
-        if (edges[i]) { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = 'rgb(92,88,100)'; cx.fillRect(0, 0, f[2], f[3]); } // impassable ground sits clearly darker than the paths you can walk
+        if (edges[i] && id !== 'L11') { cx.globalCompositeOperation = 'multiply'; cx.fillStyle = 'rgb(92,88,100)'; cx.fillRect(0, 0, f[2], f[3]); } // impassable ground sits clearly darker than the paths you can walk
         t.tiles.push(c); });
       t.ready = true; };
     im.src = ART_IMG['tr-l' + n];
@@ -199,6 +199,7 @@
     if (t === G.GATE || t === G.GATE_OPEN) { var open = Overworld.gateOpen(); var d = DT_DEFS[open ? 'doors_leaf_open' : 'doors_leaf_closed'][0]; ctx.drawImage(dt, d[0], d[1], d[2], d[3], x - 8, y - 16, 32, 32); }
     return true;
   }
+  SP.landProp = function (ctx, thName, i, x, y, flip) { var TS = terrainFor(thName); if (!TS || !TS.propsOK) return false; landProp(ctx, TS, i, x, y, flip); return true; };
   function landProp(ctx, ts, i, x, y, flip) { var p = ts.def.props[i], f = p.f; drawHD(ctx, { img: ts.props, scale: ts.def.propScale, frames: [{ x: f[0], y: f[1], w: f[2], h: f[3], ax: f[4], ay: f[5] }] }, 0, x, y, flip); }
 
   /* HD corpse: the last frame of the creature's death animation */
@@ -241,12 +242,17 @@
       if (ty < MH - 1 && isWallT(tiles[i + MW])) { g = ctx.createLinearGradient(0, y + 16, 0, y + 12); g.addColorStop(0, 'rgba(0,0,0,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y + 12, 16, 4); }
     }
     if (!TS.propsOK) return;
+    var run = Overworld.run && Overworld.run(), fixed = run && run.map && run.map.props;
+    if (fixed) { // a hand-dressed land: only the bonfire glow and the flat pieces here; tall ones are y-sorted with the actors
+      for (var fi = 0; fi < fixed.length; fi++) { var fp = fixed[fi]; if (!fp.flat || !seen[fp.y * MW + fp.x]) continue; landProp(ctx, TS, fp.i, fp.x * 16 - camx + 8, fp.y * 16 - camy + 15, fp.flip); }
+    }
     // 2. scenery: tall pieces along the faces of walls, flat ones on scattered ground, lily pads on water
     for (ty = Math.max(0, y0 - 1); ty <= Math.min(MH - 1, y1 + 3); ty++) for (tx = Math.max(0, x0 - 2); tx <= Math.min(MW - 1, x1 + 2); tx++) {
       i = ty * MW + tx; tt = tiles[i]; if (!seen[i]) continue;
       x = tx * 16 - camx + 8; y = ty * 16 - camy + 15;
       if (tt === G.FIRE) { var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, rg = ctx.createRadialGradient(x, y - 10, 1, x, y - 10, 30);
         rg.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); rg.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = rg; ctx.fillRect(x - 30, y - 40, 60, 60); if (propOK && !SP.actor('cr:bonfire')) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue; }
+      if (fixed) continue;
       if (tt === G.DECO && flat.length) { if (h2(tx * 3 + 7, ty * 5 + 1) < (flat.length > 1 ? 0.6 : 0.22)) landProp(ctx, TS, flat[Math.floor(h2(tx, ty * 7) * flat.length)], x, y, h2(tx, ty * 3) < 0.5); continue; }
       if (tt === G.WATER && wet.length) { if (h2(tx * 13 + 1, ty * 3 + 4) < 0.07) landProp(ctx, TS, wet[0], x, y - 3, h2(tx, ty) < 0.5); continue; }
       if (tt !== G.WALL || ty + 1 >= MH || !WALK[tiles[i + MW]]) continue;

@@ -56,6 +56,7 @@
     return t2 ? 2 : 1;
   }
   function className(id) { var c = CLASSES.filter(function (x) { return x.id === id; })[0]; return c ? c.name : 'Knight'; }
+  function classById(id) { return CLASSES.filter(function (c) { return c.id === id; })[0] || CLASSES[0]; }
   function heroClass() { var id = S && S.hero ? S.hero.cls : 'knight'; return CLASSES.filter(function (c) { return c.id === id; })[0] || CLASSES[0]; }
   function heroFrame() { var f = ''; GEAR.forEach(function (g) { if (g.cosmetic && g.frame && owns(g.id) && S.hero && S.hero.frame === g.id) f = g.frame; }); return f; }
   function heroPortrait(cls, extra) { // the player's hero at their current stage
@@ -323,18 +324,23 @@
     if (online) { var tl = el('div', 'teacher-link', '<button type="button">Teacher\'s Ledger</button>'); tl.querySelector('button').onclick = function () { go('ledger'); }; app.appendChild(tl); }
   }
 
+  var CLASS_CHANGE_COST = 500; // Lore to take up a different class; renaming the hero is free
+  function backToLegacy() { UI.screen = 'bonfire'; UI.bonfireTab = 'level'; render(); window.scrollTo(0, 0); }
   function screenHero() {
     var editing = !!S.hero, cur = S.hero || { name: '', cls: 'knight' };
     var head = el('div', 'land-head');
-    head.appendChild(el('div', null, '<div class="eyebrow">' + (editing ? 'Chronicle · your hero' : 'Before you set out') + '</div><h1>' + (editing ? 'Change your hero' : 'Who walks into the Marches?') + '</h1><p class="muted" style="margin:6px 0 0">Choose a class and give your hero a name. Your own name (' + esc(S.name) + ') stays on the record for your teacher. The hero changes as you earn gear: three looks per class.</p>'));
+    head.appendChild(el('div', null, '<div class="eyebrow">' + (editing ? 'Imbue Lore into Legacy · your hero' : 'Before you set out') + '</div><h1>' + (editing ? 'Change your hero' : 'Who walks into the Marches?') + '</h1><p class="muted" style="margin:6px 0 0">' +
+      (editing ? 'Renaming your hero is free. Taking up a different class costs <b>' + n(CLASS_CHANGE_COST) + ' Lore</b>; your level, gear and Legend stay with you. Your own name (' + esc(S.name) + ') stays on the record for your teacher.'
+        : 'Choose a class and give your hero a name. Your own name (' + esc(S.name) + ') stays on the record for your teacher. The hero changes as you earn gear: three looks per class.') + '</p>'));
     app.appendChild(head);
     var chosen = cur.cls, grid = el('div', 'class-grid');
     var cards = {};
     CLASSES.forEach(function (c) {
       var b = el('button', 'class-card' + (c.id === chosen ? ' on' : '')); b.type = 'button';
       var img = window.ART_IMG && ART_IMG['hero-' + c.id + '-1'];
-      b.innerHTML = '<span class="sig portrait">' + (img ? '<img src="' + img + '" alt="">' : '') + '</span><span class="cc-body"><span class="nm">' + esc(c.name) + '</span><span class="fl">' + esc(c.blurb) + '</span>' + (c.perk ? '<span class="perk">' + esc(c.perk) + '</span>' : '') + '<span class="stages">' + c.stages.map(function (sName, i) { return '<span>' + (i + 1) + ' · ' + esc(sName) + '</span>'; }).join('') + '</span></span>';
-      b.onclick = function () { chosen = c.id; Object.keys(cards).forEach(function (k) { cards[k].classList.toggle('on', k === chosen); }); };
+      var tag = editing ? '<span class="cc-cost' + (c.id === cur.cls ? ' mine' : S.lore < CLASS_CHANGE_COST ? ' short' : '') + '">' + (c.id === cur.cls ? 'Your class' : n(CLASS_CHANGE_COST) + ' Lore') + '</span>' : '';
+      b.innerHTML = '<span class="sig portrait">' + (img ? '<img src="' + img + '" alt="">' : '') + '</span><span class="cc-body"><span class="nm">' + esc(c.name) + '</span>' + tag + '<span class="fl">' + esc(c.blurb) + '</span>' + (c.perk ? '<span class="perk">' + esc(c.perk) + '</span>' : '') + '<span class="stages">' + c.stages.map(function (sName, i) { return '<span>' + (i + 1) + ' · ' + esc(sName) + '</span>'; }).join('') + '</span></span>';
+      b.onclick = function () { chosen = c.id; Object.keys(cards).forEach(function (k) { cards[k].classList.toggle('on', k === chosen); }); label(); };
       cards[c.id] = b; grid.appendChild(b);
     });
     app.appendChild(grid);
@@ -344,13 +350,27 @@
     form.appendChild(inp);
     var acts = el('div', 'actions'); acts.style.marginTop = '12px';
     var ok = el('button', 'btn big', editing ? 'Save hero' : 'Set forth'); ok.type = 'button';
+    var note = el('span', 'muted hero-cost-note', '');
+    function label() { // in edit mode the button says what the change costs
+      if (!editing) return; var swap = chosen !== cur.cls;
+      ok.textContent = swap ? 'Become a ' + classById(chosen).name + ' · ' + n(CLASS_CHANGE_COST) + ' Lore' : 'Save hero';
+      ok.disabled = swap && S.lore < CLASS_CHANGE_COST;
+      note.innerHTML = swap ? (S.lore < CLASS_CHANGE_COST ? 'You carry ' + n(S.lore) + ' Lore. Need ' + n(CLASS_CHANGE_COST - S.lore) + ' more to change class.' : 'You carry ' + n(S.lore) + ' Lore.') : 'Renaming is free.';
+    }
     ok.onclick = function () {
       var nm = inp.value.trim(); if (!nm) { inp.focus(); toast('Give your hero a name.'); return; }
-      S.hero = { name: nm, cls: chosen, frame: (S.hero && S.hero.frame) || '' }; toast(esc(nm) + ' the ' + esc(heroClass().name) + ' sets forth.'); go(editing ? 'chronicle' : 'map');
+      var swap = editing && chosen !== cur.cls;
+      if (swap && S.lore < CLASS_CHANGE_COST) { toast('Changing class costs ' + n(CLASS_CHANGE_COST) + ' Lore.'); return; }
+      if (swap) S.lore -= CLASS_CHANGE_COST;
+      S.hero = { name: nm, cls: chosen, frame: (S.hero && S.hero.frame) || '' };
+      if (!editing) { toast(esc(nm) + ' the ' + esc(heroClass().name) + ' sets forth.'); go('map'); return; }
+      toast(swap ? esc(nm) + ' walks on as a ' + esc(heroClass().name) + '.' : nm !== cur.name ? 'Your hero is now ' + esc(nm) + '.' : 'Nothing changed.');
+      if (swap) sfx('levelup');
+      backToLegacy();
     };
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') ok.click(); });
     acts.appendChild(ok);
-    if (editing) { var back = el('button', 'btn ghost', 'Cancel'); back.type = 'button'; back.onclick = function () { go('chronicle'); }; acts.appendChild(back); }
+    if (editing) { var back = el('button', 'btn ghost', 'Cancel'); back.type = 'button'; back.onclick = backToLegacy; acts.appendChild(back); acts.appendChild(note); label(); }
     form.appendChild(acts); app.appendChild(form);
     setTimeout(function () { try { inp.focus(); } catch (e) {} }, 50);
   }
@@ -1183,6 +1203,10 @@
       if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
     }
     pn.appendChild(row); app.appendChild(pn);
+    var hc = heroClass(), hp = el('div', 'panel hero-panel');
+    hp.innerHTML = '<div class="row">' + heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Your hero</div><h2 style="margin:4px 0 6px">' + esc(S.hero ? S.hero.name : S.name) + ' · ' + esc(hc.name) + '</h2>' + (hc.perk ? '<p class="class-perk">' + esc(hc.perk) + '</p>' : '') +
+      '<p class="muted" style="margin:6px 0 0">Renaming your hero is free. Taking up a different class costs ' + n(CLASS_CHANGE_COST) + ' Lore.</p></div></div>';
+    var hr = el('div', 'actions'), hb = el('button', 'btn', 'Change hero'); hb.type = 'button'; hb.onclick = function () { go('hero'); }; hr.appendChild(hb); hp.appendChild(hr); app.appendChild(hp);
     var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') +
       '<span class="crown' + (isLordOfLore() ? ' got' : '') + '"><b>♛</b> ' + esc(LEVEL.crown) + ' <i>' + (isLordOfLore() ? 'yours' : 'no level reaches it: slay the final boss') + '</i></span></div>' +
       '<p class="muted">Every level costs more than the last (' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore). Lore spent on levels, like Lore spent on gear, can never be lost.</p>';
@@ -1220,7 +1244,6 @@
     app.appendChild(campHall('chronicle', 'Chronicle', 'Your record, by outcome.', function () { go('bonfire'); }));
     var head = el('div', 'land-head');
     head.appendChild(el('div', 'row', heroPortrait('hero') + '<div style="flex:1;min-width:220px"><div class="eyebrow">Chronicle · ' + esc(heroClass().name) + ' · ' + esc(heroTitle()) + '</div><h1>' + esc(S.hero ? S.hero.name : S.name) + (S.titles.length ? ', ' + esc(S.titles.join(', ')) : '') + '</h1>' + (heroClass().perk ? '<p class="class-perk">' + esc(heroClass().name) + ' · ' + esc(heroClass().perk) + '</p>' : '') + '<p class="muted" style="margin:6px 0 0">Played by ' + esc(S.name) + '. ' + (heroStage() < 3 ? 'Next look: ' + (heroStage() === 1 ? 'own any tier-2 item.' : 'own a tier-3 item and slay a boss.') : 'Final form reached.') + '</p></div>'));
-    var ed = el('button', 'btn ghost', 'Change hero'); ed.type = 'button'; ed.onclick = function () { go('hero'); }; head.appendChild(ed);
     app.appendChild(head);
     var st = el('div', 'panel');
     var stats = el('div', 'stats');
@@ -1265,7 +1288,7 @@
       '<li><b>Win streaks pay.</b> Every kill in a row adds 5% (up to +50%). A death resets it.</li>' +
       '<li><b>Answers must be in the form asked for.</b> A right value in the wrong form staggers the creature once; the second time it kills you.</li>' +
       '<li><b>Fleeing</b> a fight costs half the Lore you carry. To get home from deep in a land, crush the <b>Cinder of Return</b> that every Satchel holds (it burns all the Lore you carry), or buy a <b>Homeward Ember</b> from the Merchant (it keeps your Lore).</li>' +
-      '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance a wrong answer does not kill. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form.</li>' +
+      '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance a wrong answer does not kill. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form. To rename your hero (free) or take up another class (' + n(CLASS_CHANGE_COST) + ' Lore), go to Imbue Lore into Legacy at the bonfire.</li>' +
       '<li><b>The clock.</b> Each question has a time limit (Beginning ' + LEVELS.BEG.time + ' s, Progressing ' + LEVELS.PRG.time + ' s, Mastery and bosses ' + LEVELS.MAS.time + ' s, longer with levels and Patience gear). Out of time counts as a wrong answer.</li>' +
       '<li><b>The lands are labyrinths.</b> Creatures roam them in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again. The boss door needs the Gate Key and every kind of creature slain once.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +

@@ -151,7 +151,8 @@ var LandMaps = (function () {
     for (i = 0; i < (bp.bare ? 0 : 5); i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
     var b = bp.bossRoom;
     (bp.braziers || []).forEach(function (p) { if (k.get(p.x, p.y) === DECO || k.get(p.x, p.y) === GROUND2) k.set(p.x, p.y, GROUND); });
-    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name, braziers: bp.braziers || [] };
+    if (bp.props) for (i = 0; i < W * H; i++) if (t[i] === DECO) t[i] = GROUND; // hand-placed scenery only
+    return { v2: true, layout: 'v5', w: W, h: H, tiles: t, spawn: { x: sp.x, y: sp.y }, lairs: lairs, gate: b.gate, boss: { x: b.boss.x, y: b.boss.y, kind: 'boss', ref: L.boss }, key: keyP, chests: chests, pages: pages, theme: th, rooms: [], dist: dist, lanes: [], name: bp.name, braziers: bp.braziers || [], props: bp.props || null };
   }
 
   /* =====================================================================
@@ -606,25 +607,42 @@ var LandMaps = (function () {
    * lined both sides with standing pillars like an avenue of statues. Two round landings break the climb, and the
    * throne room's gate is in sight from the very first step. Short, straight and grand: the walk is the ceremony. */
   BP.L11 = function (k) {
-    var W = k.W, H = k.H, x, y, cx = 22;
+    // a processional, mirror-symmetric about x = cx: bonfire terrace, road, landing, road, landing, road, gate
+    var W = k.W, H = k.H, cx = (W - 1) / 2, x, y, braziers = [], props = [];
     k.rect(1, 1, W - 2, H - 2, WALL);
-    k.ell(cx, 42, 19, 33, WATER, 0.35);                                  // the lava sea
-    var nz = k.noise(4); for (y = 1; y < H - 1; y++) for (x = 1; x < W - 1; x++) { var e = Math.min(x, W - 1 - x); if (e < 2 + nz(x, y) * 3) k.set(x, y, WALL); }
-    var fire = { x: cx - 2, y: 68 };
-    k.disc(cx, 68, 5.5, GROUND, 0.3);                                    // the bonfire ledge
-    k.rect(cx - 3, 18, 8, 50, GROUND);                                   // the causeway: shoulders...
-    k.rect(cx - 1, 18, 4, 50, PATH);                                     // ...and the road
-    [[cx + 0.5, 50, 5.5], [cx + 0.5, 32, 6]].forEach(function (l) { k.disc(l[0], l[1], l[2], GROUND, 0.2); k.disc(l[0], l[1], l[2] - 2.5, PATH); }); // two landings
-    var braziers = [];
-    for (y = 20; y < 64; y += 4) { if (Math.abs(y - 50) < 6 || Math.abs(y - 32) < 7) continue; braziers.push({ x: cx - 3, y: y }, { x: cx + 4, y: y }); } // the avenue of braziers
-    [[cx - 5, 50], [cx + 6, 50], [cx - 6, 32], [cx + 7, 32], [cx - 3, 18], [cx + 4, 18]].forEach(function (p) { braziers.push({ x: p[0], y: p[1] }); }); // round the landings, and either side of the gate
+    k.rect(3, 15, W - 6, 58, WATER);                                     // the lava sea, square to the road
+    function road(y0, y1) { k.rect(cx - 2, y0, 5, y1 - y0 + 1, PATH); for (y = y0; y <= y1; y++) { k.set(cx - 3, y, WALL); k.set(cx + 3, y, WALL); } }
+    function platform(yc, half, hgt) { // a walled square landing with the road running through it
+      var x0 = cx - half, x1 = cx + half, y0 = yc - hgt, y1 = yc + hgt;
+      k.rect(x0, y0, x1 - x0 + 1, y1 - y0 + 1, GROUND); k.frame(x0 - 1, y0 - 1, x1 - x0 + 3, y1 - y0 + 3, WALL);
+      k.rect(cx - 2, y0 - 1, 5, y1 - y0 + 3, PATH);                       // openings top and bottom, the road through the middle
+      return { x0: x0 - 1, x1: x1 + 1, y0: y0 - 1, y1: y1 + 1 };
+    }
+    var fire = { x: cx, y: 68 };
+    var t0 = platform(68, 6, 3);                                          // the bonfire terrace (road ends on its north edge)
+    k.rect(cx - 2, t0.y1, 5, 1, WALL);                                    // closed to the south
+    k.rect(t0.x0 + 1, t0.y0 + 2, t0.x1 - t0.x0 - 1, t0.y1 - t0.y0 - 2, GROUND); // the road stops at the terrace's north edge; the fire sits mid-terrace
+    var l1 = platform(49, 5, 3), l2 = platform(30, 5, 3);
+    road(l1.y1 + 1, t0.y0 - 1); road(l2.y1 + 1, l1.y0 - 1); road(15, l2.y0 - 1);
     var boss = bossRoom(k, cx - 8, 3, 17, 11, 'S');
-    braziers.forEach(function (p) { k.set(p.x, p.y, GROUND); });
-    return { name: 'road through the fire', spawn: fire, bossRoom: boss, bare: true, fillPockets: true, braziers: braziers,
-      areas: [{ x: cx, y: 50, rx: 2, tier: 'BEG' }, { x: cx, y: 32, rx: 2, tier: 'PRG' }], key: null, nooks: [] };
+    k.rect(cx - 2, 15, 5, 3, PATH);
+    // braziers on the parapets, every four rows, mirrored; and on each landing's four corners
+    [[l1.y1 + 2, t0.y0 - 2], [l2.y1 + 2, l1.y0 - 2], [16, l2.y0 - 2]].forEach(function (seg) { for (y = seg[0]; y <= seg[1]; y += 4) braziers.push({ x: cx - 3, y: y }, { x: cx + 3, y: y }); });
+    [t0, l1, l2].forEach(function (P) { braziers.push({ x: P.x0, y: P.y0 }, { x: P.x1, y: P.y0 }); if (P !== t0) braziers.push({ x: P.x0, y: P.y1 }, { x: P.x1, y: P.y1 }); });
+    // hand-placed scenery (prop index into the land's set; mirrored pairs): 0 pillar, 1 kneeling scholar, 2 crowned head,
+    // 3 banner, 4 crowns and scrolls, 5 obelisk, 6 lectern, 7 bones
+    function pair(i, dx, y, flatOnGround) { props.push({ i: i, x: cx - dx, y: y, flip: false, flat: !!flatOnGround }, { i: i, x: cx + dx, y: y, flip: true, flat: !!flatOnGround }); }
+    pair(0, 7, 2); pair(0, 4, 2); pair(3, 2, 2);                          // throne room: pillars and banners on the north wall
+    pair(5, 8, 13); pair(4, 3, 6, true); pair(7, 6, 10, true);            // obelisks at the south corners, crowns and bones on the floor
+    pair(1, 6, l1.y0); pair(1, 6, l2.y0);                                 // kneeling scholars on the landings' north parapets
+    pair(6, 4, l1.y0 + 2, true); pair(6, 4, l2.y0 + 2, true);             // lecterns on the landings
+    pair(5, 6, t0.y0); pair(2, 4, t0.y0 + 2, true);                       // obelisks over the terrace, a fallen crowned head either side
+    braziers.forEach(function (p) { if (k.get(p.x, p.y) !== WALL) k.set(p.x, p.y, GROUND); });
+    return { name: 'the processional', spawn: fire, bossRoom: boss, bare: true, fillPockets: true, braziers: braziers, props: props,
+      areas: [{ x: cx, y: 49, rx: 2, tier: 'BEG' }, { x: cx, y: 30, rx: 2, tier: 'PRG' }], key: null, nooks: [] };
   };
 
-  var SIZES = { L11: [46, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
+  var SIZES = { L11: [45, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
 
   function build(L, env) {
     var bpf = BP[L.id]; if (!bpf) return null;

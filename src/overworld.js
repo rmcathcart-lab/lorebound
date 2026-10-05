@@ -287,8 +287,10 @@ var Overworld = (function () {
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
+    var vista = !!(map.theme && map.theme.name === 'throne'); if (vista) for (var si = 0; si < seen.length; si++) seen[si] = 1; // the processional is in view from the first step
     var braz = {}, brazOK = !!(SP.actor && SP.actor('cr:brazier')); if (brazOK) (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
-    R = { braz: braz, brazOK: brazOK, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
+    (map.props || []).forEach(function (q) { if (!q.flat) braz[q.y * map.w + q.x] = 1; }); // tall scenery is solid
+    R = { vista: vista, braz: braz, brazOK: brazOK, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
       player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0, clock: 0, act: null }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
@@ -496,6 +498,7 @@ var Overworld = (function () {
     if (SP.ready && SP.overlay) SP.overlay(ctx, th, x0, y0, x1, y1, camx, camy, R.map.tiles, R.seen, R.t);
     // entities sorted by y
     var list = R.ents.slice(); if (R.brazOK) (R.map.braziers || []).forEach(function (b, bi) { list.push({ kind: 'brazier', x: b.x * T + T / 2, y: b.y * T + T / 2 + 4, seed: bi }); });
+    if (R.map.props) R.map.props.forEach(function (q) { if (!q.flat) list.push({ kind: 'prop', x: q.x * T + T / 2, y: q.y * T + T - 1, p: q }); });
     if (R.map.theme && R.map.theme.name === 'throne' && SP.actor && SP.actor('cr:gate11')) list.push({ kind: 'gate11', x: R.map.gate.x * T + T / 2, y: R.map.gate.y * T + T });
     list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
     list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving && !R.cut, anim: p.anim, clock: p.clock, act: p.act, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
@@ -505,7 +508,7 @@ var Overworld = (function () {
     if (R.S.dropped && R.S.dropped.land === R.L.id) { var de = R.ents.filter(function (e) { return e.ref && e.ref.id === R.S.dropped.creature && (R.S.dropped.inst == null || e.n === R.S.dropped.inst); })[0]; if (de) { var gx = de.x - camx, gy = de.y - camy - 14 + Math.sin(R.t * 4) * 1.5; ctx.fillStyle = '#8fd3ff'; ctx.beginPath(); ctx.arc(gx, gy, 2.5, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(143,211,255,.35)'; ctx.beginPath(); ctx.arc(gx, gy, 5, 0, 7); ctx.fill(); } }
     // fog: seen-but-far tiles darkened, unseen black (already black), soft light around hero
     ctx.fillStyle = 'rgba(0,0,0,.45)';
-    for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
+    if (!R.vista) for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
     var grad = ctx.createRadialGradient(p.x - camx, p.y - camy, T * 2, p.x - camx, p.y - camy, T * 7.5);
     grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = grad; ctx.fillRect(0, 0, cvw, cvh);
     // brazier light burns through the dark: warm pools along the road wherever it has been seen
@@ -594,6 +597,7 @@ var Overworld = (function () {
       if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
     }
     if (e.kind === 'gate11') { var gd = SP.actor('cr:gate11'); if (gd) SP.drawActor(ctx, gd, gateOpen() ? 'open' : 'sealed', 0, x, y, false, {}); return; }
+    if (e.kind === 'prop') { if (SP.landProp) SP.landProp(ctx, R.map.theme.name, e.p.i, x, y, e.p.flip); return; }
     if (e.kind === 'brazier') { var bd = SP.actor('cr:brazier'); if (bd) SP.drawActor(ctx, bd, 'idle', R.t + e.seed * 0.37, x, y + 1, false, {}); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
     if (name) { if (e.kind === 'hero' || e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, y + 6, e.kind === 'boss' ? 10 : 6, e.kind === 'boss' ? 4 : 2.5, 0, 0, 7); ctx.fill(); }
