@@ -741,15 +741,70 @@ html.has-hall { overflow-x: clip; }
 .class-card .cc-cost.short { opacity: .6; }
 .hero-cost-note { font-family: var(--font-ui); font-size: 14px; align-self: center; }
 .hero-panel .row { align-items: center; }
-.hero-panel .actions { margin-top: 12px; }
-/* Imbue Lore into Legacy: the hero on a small altar, the level badge at their feet */
-.lvl-altar { position: relative; flex: none; width: 210px; display: flex; flex-direction: column; align-items: center; }
-.lvl-hero { display: block; width: 210px; height: 250px; cursor: pointer; border-radius: 10px; background: radial-gradient(ellipse 60% 22% at 50% 92%, rgba(214,168,96,.16), rgba(0,0,0,0) 70%); }
-.lvl-altar .level-badge { width: 84px; height: 84px; margin-top: -26px; position: relative; }
-.lvl-altar .level-badge .v { font-size: 34px; }
-.lvl-altar.no-hero .lvl-hero { display: none; }
-.lvl-altar.no-hero .level-badge { margin-top: 0; width: 110px; height: 110px; }
-.level-badge.pop { animation: lvlpop .9s cubic-bezier(.2,.9,.25,1.2); }
-@keyframes lvlpop { 0% { transform: scale(1); box-shadow: 0 0 30px rgba(214,168,96,.15); } 30% { transform: scale(1.22); box-shadow: 0 0 60px rgba(255,210,130,.75); } 100% { transform: scale(1); box-shadow: 0 0 30px rgba(214,168,96,.15); } }
-@media (max-width: 560px) { .level-panel .row { flex-direction: column; align-items: center; } }
-@media (prefers-reduced-motion: reduce) { .level-badge.pop { animation: none; } }
+
+
+/* ---------- Imbue Lore into Legacy: the ritual ---------- */
+.ritual { position: relative; margin: 4px 0 28px; }
+.ritual-top { position: relative; height: clamp(250px, 31vw, 350px); }
+.ritual-cv { position: absolute; inset: -40px -16px 0; width: calc(100% + 32px); height: calc(100% + 40px); display: block; cursor: pointer; }
+.ritual-mid { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; width: min(300px, 42%); }
+.ritual .medal { width: clamp(132px, 19vw, 224px); height: clamp(132px, 19vw, 224px); display: block; margin-bottom: -6px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.55)); }
+.ritual-rank { font-family: var(--font-display); font-size: clamp(18px, 2.1vw, 25px); letter-spacing: .06em; color: #e9c98d; text-align: center; line-height: 1.15; text-shadow: 0 0 18px rgba(214,168,96,.35), 0 2px 6px #000; }
+.ritual-rank.new { animation: rank-new 1.6s ease-out; }
+@keyframes rank-new { 0% { color: #fff6dc; text-shadow: 0 0 34px rgba(255,214,140,.95), 0 2px 6px #000; transform: scale(1.12); } 100% { transform: scale(1); } }
+.ritual-rank-sub { margin-top: 4px; font-family: var(--font-ui); font-size: 12.5px; letter-spacing: .05em; color: var(--bone-dim); text-align: center; line-height: 1.35; }
+.ritual-rank-sub i { color: var(--bone); font-style: normal; }
+.ritual-rank-sub b { color: #e9c98d; font-weight: 600; }
+.ritual-foot { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 18px; }
+.ritual-btn { min-width: 250px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 13px 26px; letter-spacing: .12em; box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 8px 24px rgba(143,63,18,.35); }
+.ritual-btn .cost { font-size: 13px; letter-spacing: .06em; padding-left: 12px; border-left: 1px solid rgba(255,243,230,.35); color: #ffe2bf; }
+.ritual-btn:not(:disabled):hover { box-shadow: 0 0 0 1px rgba(0,0,0,.4), 0 8px 30px rgba(217,120,46,.55); }
+.ritual-note { margin: 0; font-size: 16px; color: var(--bone-dim); text-align: center; }
+.ritual-note b { color: var(--lore); font-weight: 400; }
+.legacy-body { display: flex; flex-direction: column; gap: 18px; }
+.legacy-body .panel + .panel { margin-top: 0; }
+.legacy-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 18px; }
+.legacy-body .panel { padding: 22px 24px; border-radius: 8px; background: linear-gradient(180deg, rgba(33,28,41,.92), rgba(23,20,29,.92)); }
+.legacy-body .eyebrow { display: block; margin-bottom: 14px; }
+.gift-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.gift { border: 1px solid var(--edge); border-radius: 6px; padding: 14px 14px 12px; background: rgba(12,10,16,.45); }
+.gift .k { font-family: var(--font-ui); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--bone-dim); line-height: 1.3; min-height: 2.6em; }
+.gift .v { font-family: var(--font-display); font-size: 32px; line-height: 1.1; color: var(--bone); margin: 6px 0 4px; font-variant-numeric: lining-nums tabular-nums; }
+.gift .nx { font-size: 14.5px; color: #e9c98d; line-height: 1.3; }
+.legacy-fine { margin: 14px 0 0; font-size: 15.5px; color: var(--bone-dim); line-height: 1.5; }
+.legacy-hero { display: flex; gap: 18px; align-items: flex-start; }
+.legacy-hero .legacy-portrait { width: 104px; height: 140px; flex: none; border-radius: 6px; }
+.legacy-hero .legacy-portrait img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; }
+.legacy-hero .lh-body { min-width: 0; }
+.legacy-hero .eyebrow { margin-bottom: 6px; }
+.legacy-hero h2 { font-size: 22px; line-height: 1.2; overflow-wrap: anywhere; }
+.legacy-hero .lh-class { font-family: var(--font-ui); font-size: 13px; letter-spacing: .06em; color: #e9c98d; margin: 4px 0 0; }
+.legacy-hero .class-perk { font-size: 14.5px; line-height: 1.4; margin-top: 10px; }
+.legacy-hero .legacy-fine { margin: 8px 0 12px; font-size: 14.5px; }
+.legacy-hero .btn { font-size: 13px; padding: 8px 14px; }
+.legacy-ladder .ladder { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.legacy-ladder .rung { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; padding: 10px 4px 12px; border-radius: 6px; border: 1px solid transparent; color: var(--bone-dim); position: relative; }
+.legacy-ladder .ladder span { border: 0; padding: 0; border-radius: 0; }
+.legacy-ladder .rung img { width: 76px; height: 76px; margin-top: -6px; margin-bottom: 4px; filter: grayscale(1) brightness(.55); }
+.legacy-ladder .rung .cr { width: 54px; height: 54px; margin: 9px 0 11px; display: grid; place-items: center; font-size: 30px; color: #6b6070; border-radius: 50%; border: 1px dashed var(--edge); }
+.legacy-ladder .rung .t { font-family: var(--font-ui); font-size: 13px; letter-spacing: .03em; line-height: 1.25; }
+.legacy-ladder .rung .l { font-size: 13px; opacity: .8; }
+.legacy-ladder .rung.got { color: var(--bone); }
+.legacy-ladder .rung.got img { filter: none; }
+.legacy-ladder .rung.got .cr { color: #e9c98d; border-style: solid; border-color: rgba(214,168,96,.6); box-shadow: 0 0 18px rgba(214,168,96,.35); }
+.legacy-ladder .rung.here { border-color: rgba(214,168,96,.45); background: radial-gradient(ellipse at 50% 30%, rgba(214,168,96,.14), transparent 70%); }
+.legacy-ladder .rung.here .t { color: #e9c98d; }
+@media (max-width: 860px) { .legacy-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .ritual-top { height: 236px; }
+  .ritual-mid { width: 46%; bottom: 0; }
+  .ritual-rank-sub { font-size: 11.5px; }
+  .ritual-btn { min-width: 0; width: 100%; max-width: 340px; }
+  .gift-row { grid-template-columns: 1fr; }
+  .gift { display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 12px; }
+  .gift .k { min-height: 0; } .gift .v { grid-row: span 2; font-size: 28px; margin: 0; align-self: center; } .gift .nx { font-size: 14px; }
+  .legacy-body .panel { padding: 18px 16px; }
+  .legacy-ladder .ladder { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .legacy-ladder .rung img { width: 60px; height: 60px; } .legacy-ladder .rung .cr { width: 42px; height: 42px; margin: 4px 0 8px; font-size: 22px; }
+  .legacy-hero .legacy-portrait { width: 84px; height: 112px; }
+}

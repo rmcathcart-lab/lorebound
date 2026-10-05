@@ -122,6 +122,7 @@
   function itemById(id) { return ITEMS.filter(function (i) { return i.id === id; })[0]; }
   function itemCount(id) { var it = itemById(id); if (it && it.permanent) return S ? 1 : 0; return (S && S.items && S.items[id]) || 0; } // permanent items never run out
   function isLordOfLore() { return !!(S && S.bossKills && S.bossKills[FINAL_ID]); }
+  function rankAt(lv) { var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (lv >= x[0]) t = x[1]; }); return t; }
   function levelTitle() { if (isLordOfLore()) return LEVEL.crown; var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
   function levelLoreMult() { return 1 + LEVEL.lorePct / 100 * ((S.level || 1) - 1); }
   function timeMult() { var m = 1 + LEVEL.timePct / 100 * ((S.level || 1) - 1); if (owns('stillness')) m += 0.75; else if (owns('lichglass')) m += 0.4; else if (owns('sundial')) m += 0.2; return m; }
@@ -1188,66 +1189,106 @@
       sec.appendChild(row); app.appendChild(sec);
     });
   }
-  /* the hero on the Legacy page: idles in place; a level-up plays its celebration (tools/pack_levelup.py), holding the peak */
-  var LVL_DUR = [0.14, 0.16, 0.2, 0.6, 0.28, 0.16], LVL_GLOW = { 1: '255,236,190', 2: '255,170,70', 3: '120,190,255' };
-  function heroAltar(lv) {
-    var wrap = el('div', 'lvl-altar'), cv = el('canvas', 'lvl-hero'), badge = el('div', 'level-badge', '<div class="k">Level</div><div class="v">' + lv + '</div>');
-    cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', (S.hero ? S.hero.name : 'Your hero') + ', level ' + lv); cv.title = 'Tap your hero';
-    wrap.appendChild(cv); wrap.appendChild(badge);
+  /* ---------- Imbue Lore into Legacy: the ritual ----------
+   * The guide (left) and the hero (right, turned to face her) stand either side of the level medallion; the Level up
+   * button sits under the medallion. Levelling up plays her cast and the hero's level-up together (8 frames at 6 fps,
+   * peak on frame 4: tools/pack_levelup.py) while the medallion turns over to the new number (src/medallions.js).
+   * The page updates in place, so the banner does not reload. */
+  var LVL_GLOW = { 1: '255,236,190', 2: '255,176,80', 3: '130,196,255' };
+  function ritualStage(onDone) {
     var SP = window.Overworld && Overworld.SP, stage = heroStage(), cls = (S.hero && S.hero.cls) || 'knight';
-    var d = SP && SP.actor && SP.actor('cr:hero-' + cls + '-' + stage + '-lvl');
-    if (!d) { wrap.classList.add('no-hero'); return wrap; }
-    var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var t0 = performance.now(), fx = null; // fx: { at, from, to, popped }
-    function play(from, to) { fx = { at: performance.now(), from: from, to: to, popped: false }; if (from != null) badge.querySelector('.v').textContent = from; }
-    function pop() { if (!fx || fx.popped) return; fx.popped = true; if (fx.to != null) badge.querySelector('.v').textContent = fx.to; badge.classList.remove('pop'); void badge.offsetWidth; badge.classList.add('pop'); }
-    cv.onclick = function () { if (!still) play(null, null); };
-    if (UI.lvlFx && performance.now() - UI.lvlFx.at < 1500) { if (still) { badge.classList.add('pop'); } else play(UI.lvlFx.from, UI.lvlFx.to); } UI.lvlFx = null;
-    var total = LVL_DUR.reduce(function (a, b) { return a + b; }, 0), glow = LVL_GLOW[stage] || LVL_GLOW[1];
+    var hero = SP && SP.actor && SP.actor('cr:hero-' + cls + '-' + stage + '-lvl'), guide = SP && SP.actor && SP.actor('cr:legacy-guide');
+    var still = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var wrap = el('section', 'ritual'), top = el('div', 'ritual-top'), cv = el('canvas', 'ritual-cv'), mid = el('div', 'ritual-mid');
+    cv.setAttribute('aria-hidden', 'true'); top.appendChild(cv);
+    var mc = el('canvas', 'medal'); mc.width = 512; mc.height = 512; mc.setAttribute('role', 'img');
+    var rank = el('div', 'ritual-rank'), rankSub = el('div', 'ritual-rank-sub');
+    mid.appendChild(mc); mid.appendChild(rank); mid.appendChild(rankSub); top.appendChild(mid); wrap.appendChild(top);
+    var foot = el('div', 'ritual-foot'); wrap.appendChild(foot);
+    var shown = S.level || 1, medal = null;
+    function label(lv, t) { rank.textContent = t; mc.setAttribute('aria-label', 'Level ' + lv + ', ' + t);
+      var nx = null; LEVEL.titles.forEach(function (x) { if (!nx && x[0] > lv) nx = x; });
+      rankSub.innerHTML = (isLordOfLore() ? '<b>♛ ' + esc(LEVEL.crown) + '</b> · ' : '') + (nx ? 'next title, <i>' + esc(nx[1]) + '</i>, at level ' + nx[0] : 'the highest title'); }
+    label(shown, rankAt(shown));
+    if (window.LoreboundMedallions) try {
+      medal = LoreboundMedallions.mount(mc, { level: Math.max(1, Math.min(30, shown)), reducedMotion: still, onUpdate: function (st) { if (st.title !== rank.textContent) { label(st.displayLevel, st.title); if (st.rankChanged && st.revealed) { rank.classList.remove('new'); void rank.offsetWidth; rank.classList.add('new'); } } else if (st.revealed) label(st.displayLevel, st.title); } });
+    } catch (e) { medal = null; }
+    var fx = null, t0 = performance.now();
+    function play(from, to) { // both figures start together; the medallion turns over from -> to
+      fx = { at: performance.now() };
+      if (medal && to) medal.playTo(Math.min(30, to)).then(function (r) { if (!r.cancelled && onDone) onDone(to); }); else if (onDone && to) setTimeout(function () { onDone(to); }, 50);
+    }
     (function frame() {
       if (!cv.isConnected && performance.now() - t0 > 2000) return; requestAnimationFrame(frame);
       var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
       if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
       var ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-      var fx0 = W * 0.48, fy = H - 16, mul = (H * 0.66) / 230, anim = 'idle', at = (performance.now() - t0) / 1000, heat = 0;
-      if (fx) {
-        var e = (performance.now() - fx.at) / 1000;
-        if (e >= total) { pop(); fx = null; }
-        else { var acc = 0, fi = 0; while (fi < LVL_DUR.length - 1 && e >= acc + LVL_DUR[fi]) { acc += LVL_DUR[fi]; fi++; }
-          anim = 'levelup'; at = (fi + 0.5) / d.anims.levelup.fps; heat = fi === 3 ? 1 : fi === 2 || fi === 4 ? 0.55 : fi === 1 ? 0.2 : 0;
-          if (fi >= 3) pop(); }
-      }
-      var gr = Math.min(W * 0.5, H * 0.5), g = ctx.createRadialGradient(fx0, fy - H * 0.36, 4, fx0, fy - H * 0.36, gr); // the light the hero gathers
-      g.addColorStop(0, 'rgba(' + glow + ',' + (0.06 + 0.3 * heat) + ')'); g.addColorStop(1, 'rgba(' + glow + ',0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(fx0 + 4, fy, W * 0.2, 5, 0, 0, Math.PI * 2); ctx.fill();
-      SP.drawActor(ctx, d, anim, at, fx0, fy, false, { mul: mul });
+      var mul = Math.max(0.5, Math.min(0.9, W / 1160)), gy = H - Math.round(14 + 20 * mul), off = Math.min(W * 0.33, 290), gx = W / 2 - off, hx = W / 2 + off;
+      var now = performance.now(), e = fx ? (now - fx.at) / 1000 : -1, dur = 8 / 6, heat = 0, fi = -1;
+      if (fx && e >= dur) fx = null;
+      if (fx) { fi = Math.min(7, Math.floor(e * 6)); heat = Math.max(0, 1 - Math.abs(e - 0.75) / 0.6); }
+      // the ground: a faint lit floor, a pool of light under each figure, and the space between brightening at the peak
+      ctx.save(); ctx.translate(W / 2, gy); ctx.scale(1, 0.16); // an oval of warm light on the ground, wide and shallow
+      var fl = ctx.createRadialGradient(0, 0, 10, 0, 0, W * 0.5); fl.addColorStop(0, 'rgba(214,168,96,' + (0.16 + 0.2 * heat) + ')'); fl.addColorStop(1, 'rgba(214,168,96,0)');
+      ctx.fillStyle = fl; ctx.beginPath(); ctx.arc(0, 0, W * 0.5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      var glow = LVL_GLOW[stage] || LVL_GLOW[1];
+      [[gx, '235,190,110'], [hx, glow]].forEach(function (q, k) { var gl = ctx.createRadialGradient(q[0], gy - 90 * mul, 6, q[0], gy - 90 * mul, 190 * mul);
+        gl.addColorStop(0, 'rgba(' + q[1] + ',' + (0.07 + (k ? 0.3 : 0.18) * heat) + ')'); gl.addColorStop(1, 'rgba(' + q[1] + ',0)'); ctx.fillStyle = gl; ctx.fillRect(q[0] - 200 * mul, gy - 300 * mul, 400 * mul, 320 * mul); });
+      [gx, hx].forEach(function (x) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(x + 4 * mul, gy, 64 * mul, 9 * mul, 0, 0, Math.PI * 2); ctx.fill(); });
+      if (guide) { if (fi >= 0) SP.drawActor(ctx, guide, 'cast', (fi + 0.5) / 6, gx, gy, false, { mul: mul });
+        else { ctx.save(); var br = 1 + Math.sin(now / 900) * 0.006; ctx.translate(gx, gy); ctx.scale(1, br); SP.drawActor(ctx, guide, 'idle', 0, 0, 0, false, { mul: mul }); ctx.restore(); } }
+      if (hero) SP.drawActor(ctx, hero, fi >= 0 ? 'levelup' : 'idle', fi >= 0 ? (fi + 0.5) / 6 : (now - t0) / 1000, hx, gy, true, { mul: mul });
     })();
-    return wrap;
+    return { el: wrap, foot: foot, play: function (from, to) { if (still) { if (medal && to) medal.setLevel(Math.min(30, to)).then(function () { label(to, rankAt(to)); if (onDone) onDone(to); }); else if (onDone) onDone(to); return; } play(from, to); }, replay: function () { if (!still && !fx) { fx = { at: performance.now() }; if (medal) medal.playTo(medal.level); } } };
   }
   function bonfireLevel() {
-    var lv = S.level || 1, cost = LEVEL.cost(lv), maxed = lv >= LEVEL.max;
-    var pn = el('div', 'panel level-panel');
-    var perks = '<ul class="perks"><li><b>+' + (LEVEL.lorePct * (lv - 1)) + '%</b> Lore from every kill (next: +' + (LEVEL.lorePct * lv) + '%)</li><li><b>+' + (LEVEL.timePct * (lv - 1)) + '%</b> time on every question (next: +' + (LEVEL.timePct * lv) + '%)</li><li><b>' + Math.round(heroSpeed()) + '</b> walking speed (creatures chase at 40–46)</li><li>Gear: tier 2 at level ' + LEVEL.gate[2] + ', tier 3 at level ' + LEVEL.gate[3] + '</li></ul>';
-    var next = ''; LEVEL.titles.forEach(function (t) { if (!next && t[0] > lv) next = 'At level ' + t[0] + ' you become <b>' + t[1] + '</b>.'; });
-    pn.innerHTML = '<div class="row"><div class="altar-slot"></div><div style="flex:1;min-width:220px"><div class="eyebrow">' + esc(levelTitle()) + '</div><h2 style="margin:4px 0 8px">' + esc(S.hero ? S.hero.name : S.name) + '</h2>' + perks + '<p class="muted">' + next + ' Legend so far: ' + n(S.legend) + '.</p></div></div>';
-    pn.querySelector('.altar-slot').replaceWith(heroAltar(lv));
-    var row = el('div', 'actions');
-    if (maxed) row.appendChild(el('span', 'muted', 'You have reached the highest level.'));
-    else {
-      var b = el('button', 'btn big', 'Level up · ' + n(cost) + ' Lore'); b.type = 'button'; b.disabled = S.lore < cost;
-      b.onclick = function () { S.lore -= cost; S.level = lv + 1; UI.lvlFx = { at: performance.now(), from: lv, to: lv + 1 }; sfx('levelup'); toast('Level ' + S.level + '. ' + (levelTitle() !== 'Wanderer' || S.level === 5 ? 'You are ' + levelTitle() + '.' : 'You feel stronger.')); render(); };
-      row.appendChild(b);
-      if (S.lore < cost) row.appendChild(el('span', 'muted', 'Need ' + n(cost - S.lore) + ' more Lore.'));
+    var stage = ritualStage(function (to) { // the medallion has settled on the new level
+      if (UI.screen !== 'bonfire' || UI.bonfireTab !== 'level') return;
+      toast('Level ' + to + '. ' + (rankAt(to) !== rankAt(to - 1) ? 'You are now ' + rankAt(to) + '.' : 'You feel stronger.'));
+    });
+    app.appendChild(stage.el);
+    stage.el.querySelector('.ritual-cv').onclick = stage.replay;
+    var body = el('div', 'legacy-body'); app.appendChild(body);
+    function fill() { // everything that changes with a level: the button, the gifts, the ladder
+      var lv = S.level || 1, cost = LEVEL.cost(lv), maxed = lv >= LEVEL.max;
+      stage.foot.innerHTML = '';
+      if (maxed) stage.foot.appendChild(el('p', 'ritual-note', 'You have reached the highest level.'));
+      else {
+        var b = el('button', 'btn big ritual-btn', 'Level up <span class="cost">' + n(cost) + ' Lore</span>'); b.type = 'button'; b.disabled = S.lore < cost;
+        b.onclick = function () {
+          if (S.lore < cost) return;
+          S.lore -= cost; S.level = lv + 1; sfx('levelup'); saveLocal(); renderHud();
+          var la = document.querySelector('.camp-hall .lore-amt'); if (la) la.textContent = n(S.lore) + ' Lore';
+          stage.play(lv, lv + 1); fill();
+        };
+        stage.foot.appendChild(b);
+        stage.foot.appendChild(el('p', 'ritual-note', S.lore < cost ? 'You carry ' + n(S.lore) + ' Lore. <b>' + n(cost - S.lore) + '</b> more to reach level ' + (lv + 1) + '.' : 'You carry ' + n(S.lore) + ' Lore. Level ' + (lv + 1) + ' is within reach.'));
+      }
+      body.innerHTML = '';
+      var grid = el('div', 'legacy-grid');
+      var gifts = el('div', 'panel legacy-gifts');
+      function tile(k, v, nx) { return '<div class="gift"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="nx">' + nx + '</div></div>'; }
+      gifts.innerHTML = '<div class="eyebrow">What your levels give</div><div class="gift-row">' +
+        tile('Lore from every kill', '+' + (LEVEL.lorePct * (lv - 1)) + '%', maxed ? 'the most there is' : 'next level +' + (LEVEL.lorePct * lv) + '%') +
+        tile('Time on every question', '+' + (LEVEL.timePct * (lv - 1)) + '%', maxed ? 'the most there is' : 'next level +' + (LEVEL.timePct * lv) + '%') +
+        tile('Walking speed', Math.round(heroSpeed()), 'creatures chase at 40–46') + '</div>' +
+        '<p class="legacy-fine">The Forge opens tier 2 gear at level ' + LEVEL.gate[2] + ' and tier 3 at level ' + LEVEL.gate[3] + '. Lore spent on levels can never be lost. Legend so far: ' + n(S.legend) + '.</p>';
+      grid.appendChild(gifts);
+      var hc = heroClass(), hp = el('div', 'panel legacy-hero');
+      hp.innerHTML = heroPortrait('legacy-portrait') + '<div class="lh-body"><div class="eyebrow">Your hero</div><h2>' + esc(S.hero ? S.hero.name : S.name) + '</h2><div class="lh-class">' + esc(hc.name) + ' · ' + esc(heroTitle()) + '</div>' + (hc.perk ? '<p class="class-perk">' + esc(hc.perk) + '</p>' : '') +
+        '<p class="legacy-fine">Renaming is free. A new class costs ' + n(CLASS_CHANGE_COST) + ' Lore.</p></div>';
+      var hb = el('button', 'btn ghost', 'Change hero'); hb.type = 'button'; hb.onclick = function () { go('hero'); }; hp.querySelector('.lh-body').appendChild(hb);
+      grid.appendChild(hp); body.appendChild(grid);
+      var lad = el('div', 'panel legacy-ladder');
+      var cur = 0; LEVEL.titles.forEach(function (t, i) { if (lv >= t[0]) cur = i; });
+      lad.innerHTML = '<div class="eyebrow">The ladder of titles</div><div class="ladder">' + LEVEL.titles.map(function (t, i) {
+        var im = window.ART_IMG && ART_IMG['ui-medal-' + String(t[0]).padStart(2, '0')];
+        return '<div class="rung' + (lv >= t[0] ? ' got' : '') + (i === cur ? ' here' : '') + '">' + (im ? '<img src="' + im + '" alt="">' : '<b>' + t[0] + '</b>') + '<span class="t">' + esc(t[1]) + '</span><span class="l">level ' + t[0] + '</span></div>';
+      }).join('') + '<div class="rung crown' + (isLordOfLore() ? ' got here' : '') + '"><span class="cr">♛</span><span class="t">' + esc(LEVEL.crown) + '</span><span class="l">' + (isLordOfLore() ? 'yours' : 'slay the final boss') + '</span></div></div>' +
+        '<p class="legacy-fine">Every level costs more than the last: ' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore by level 10.</p>';
+      body.appendChild(lad);
     }
-    pn.appendChild(row); app.appendChild(pn);
-    var hc = heroClass(), hp = el('div', 'panel hero-panel');
-    hp.innerHTML = '<div class="row"><div style="flex:1;min-width:220px"><div class="eyebrow">Your hero</div><h2 style="margin:4px 0 6px">' + esc(S.hero ? S.hero.name : S.name) + ' · ' + esc(hc.name) + '</h2>' + (hc.perk ? '<p class="class-perk">' + esc(hc.perk) + '</p>' : '') +
-      '<p class="muted" style="margin:6px 0 0">Renaming your hero is free. Taking up a different class costs ' + n(CLASS_CHANGE_COST) + ' Lore.</p></div></div>';
-    var hr = el('div', 'actions'), hb = el('button', 'btn', 'Change hero'); hb.type = 'button'; hb.onclick = function () { go('hero'); }; hr.appendChild(hb); hp.appendChild(hr); app.appendChild(hp);
-    var ladder = el('div', 'panel'); ladder.innerHTML = '<span class="eyebrow">The ladder</span>' + '<div class="ladder">' + LEVEL.titles.map(function (t) { return '<span class="' + (lv >= t[0] ? 'got' : '') + '"><b>' + t[0] + '</b> ' + esc(t[1]) + '</span>'; }).join('') +
-      '<span class="crown' + (isLordOfLore() ? ' got' : '') + '"><b>♛</b> ' + esc(LEVEL.crown) + ' <i>' + (isLordOfLore() ? 'yours' : 'no level reaches it: slay the final boss') + '</i></span></div>' +
-      '<p class="muted">Every level costs more than the last (' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore). Lore spent on levels, like Lore spent on gear, can never be lost.</p>';
-    app.appendChild(ladder);
+    fill();
   }
   function bonfireShop() {
     app.appendChild(el('p', 'muted', 'Provisions go in your Satchel. Chests in the lands hold the same things, for free, if you can find them.'));
