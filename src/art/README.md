@@ -276,3 +276,10 @@ uses the Archlich as a stand-in), terrain `tr-l11` + props, and the animated `cr
 | `item-cinder.jpg` | Cinder of Return (permanent, every Satchel) | https://www.canva.com/M/MAHXGBwohao |
 | `item-homeward.jpg` | Homeward Ember (Merchant) | https://www.canva.com/M/MAHXGD5xsp0 |
 | `ui-satchel-closed.png`, `ui-satchel-open.png` | HUD Satchel button (ChatGPT "Satchel Icons" pack, 64 px) | ChatGPT |
+
+### The Purloined Throne pack (ChatGPT)
+
+Ryan's "Lorebound — The Purloined Throne" pack: `cr-boss11.webp` (The Hollow Lord, `pack_creatures.py <only boss11> 96 150 80 --merge`,
+about 79 game px tall), `cr-brazier.webp` (`tools/pack_anim_prop.py <pack> brazier 24 5`, 1.5 tiles, 8 fps; drawn at every brazier
+point of BP.L11 with staggered phases), `cr-gate11.webp` (`pack_anim_prop.py <pack> gate11 32 5`, sealed / open, drawn as a y-sorted
+sprite on the throne-room gate), `tr-l11.webp` + `tr-l11-props.webp` (`pack_terrain.py <pack> --lands 11`; theme 'throne').

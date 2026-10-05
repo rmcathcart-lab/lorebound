@@ -163,8 +163,8 @@
   };
 
   /* ---------- painted terrain per land (tools/pack_terrain.py) ---------- */
-  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10', throne: 'L2' }, terr = {};
-  var TTINT = { throne: 'rgba(70,30,110,.30)' }; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
+  var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10', throne: 'L11' }, terr = {};
+  var TTINT = {}; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
   function terrainFor(th) {
     var id = TSET[th]; if (!id || !window.TERRAIN_DEFS || !TERRAIN_DEFS[id]) return null;
     var t = terr[th]; if (t) return t.ready ? t : null;
@@ -195,6 +195,7 @@
     if (t === G.WATER) { var lf = def.liquid; put(lf[Math.floor(Overworld.time() * (def.liquidFps || 4)) % lf.length]); ctx.imageSmoothingEnabled = false; return true; }
     put(t === G.PATH ? def.path : def.ground[Math.floor(r * def.ground.length)]);
     ctx.imageSmoothingEnabled = false;
+    if ((t === G.GATE || t === G.GATE_OPEN) && def === (window.TERRAIN_DEFS || {}).L11 && SP.actor('cr:gate11')) return true; // the throne-room gate is drawn as a sprite, in front of the walls
     if (t === G.GATE || t === G.GATE_OPEN) { var open = Overworld.gateOpen(); var d = DT_DEFS[open ? 'doors_leaf_open' : 'doors_leaf_closed'][0]; ctx.drawImage(dt, d[0], d[1], d[2], d[3], x - 8, y - 16, 32, 32); }
     return true;
   }

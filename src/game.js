@@ -232,7 +232,7 @@
       });
     }
     var ic = window.ART_IMG && ART_IMG['ui-satchel-closed'], io = window.ART_IMG && ART_IMG['ui-satchel-open'];
-    var sb = el('button', 'satchel-btn' + (UI.satchel ? ' on' : ''), (ic ? '<span class="sbi"><img class="c" src="' + ic + '" alt=""><img class="o" src="' + io + '" alt=""></span>' : '') + '<span class="sbl">Satchel</span>' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? '<span class="dot">●</span>' : ''));
+    var sb = el('button', 'satchel-btn' + (UI.satchel ? ' on' : ''), '<span class="sbl">Satchel</span>' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? '<span class="dot">●</span>' : '') + (ic ? '<span class="sbi"><img class="c" src="' + ic + '" alt=""><img class="o" src="' + io + '" alt=""></span>' : ''));
     sb.type = 'button'; sb.title = 'Satchel (press I)'; sb.setAttribute('aria-label', 'Satchel (press I)'); sb.setAttribute('aria-expanded', UI.satchel ? 'true' : 'false'); sb.onclick = function () { openSatchel(); }; nav.appendChild(sb);
     var mb = el('button', 'mute'); mb.type = 'button';
     function muteFace() { var m = window.Sfx && Sfx.isMuted(), src = window.ART_IMG && ART_IMG[m ? 'ui-sound-off' : 'ui-sound-on']; mb.innerHTML = src ? '<img src="' + src + '" alt="">' : (m ? '🔇' : '🔊'); mb.classList.toggle('off', !!m); mb.title = m ? 'Unmute sound effects' : 'Mute sound effects'; mb.setAttribute('aria-label', mb.title); }
@@ -663,7 +663,7 @@
     var head = el('div', 'panel');
     var foeEl = el('div', 'foe'); foeEl.style.setProperty('--lvl', lvlColor);
     var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
-    var tagTxt = (foe.finale ? 'Final boss · question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' · Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore');
+    var tagTxt = (foe.finale ? 'Question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore'); if (foe.finale && !B.practice) tagTxt = tagTxt.replace(/ · [\d,]+ Lore$/, '');
     foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + tagTxt + '</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
     if (window.Overworld && Overworld.SP.actor && Overworld.SP.actor('cr:' + (foe.sigil || foe.id))) {
