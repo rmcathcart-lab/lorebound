@@ -598,6 +598,7 @@ var Overworld = (function () {
       var an = e.act ? e.act.anim : moving ? 'walk' : 'idle', at = e.act ? R.t - e.act.t0 : (e.clock || 0);
       var tint = e.kind === 'hero' && e.stage > 1 && aid.indexOf('cr:') !== 0 ? (e.stage === 3 ? 'rgba(255,200,80,.22)' : 'rgba(140,210,255,.2)') : null;
       if (SP.drawActor(ctx, ad, an, at, x, y + 5, e.dir < 0, { tint: tint })) return;
+      if (aid.indexOf('cr:') === 0) return; // its painted sheet is still loading: draw nothing rather than the old placeholder sprite
     }
     if (e.kind === 'gate11') { var gd = SP.actor('cr:gate11'); if (gd) SP.drawActor(ctx, gd, gateOpen() ? 'open' : 'sealed', 0, x, y, false, {}); return; }
     if (e.kind === 'prop') { if (SP.landProp) SP.landProp(ctx, R.map.theme.name, e.p.i, x, y, e.p.flip); return; }

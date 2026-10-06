@@ -245,6 +245,7 @@
     var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
     app.classList.toggle('wide', UI.screen === 'bonfire' || UI.screen === 'chronicle' || UI.screen === 'help' || UI.screen === 'ledger');
     if (S && S.inFight && !(UI.battle && !UI.battle.done && UI.screen === 'battle')) S.inFight = null;
+    checkAchievements();
     fn(); typeset(app); saveLocal();
   }
   /* After a reload or a sign-in: a hero who was out in a land goes back to exactly where they stood (not to the map, from
@@ -418,6 +419,68 @@
     var atl = app.querySelector('.atlas-screen'); if (atl) atl.appendChild(home);
     fresh.forEach(function (id) { S.seenOpen[id] = 1; });
     syncUnlocks(false);
+  }
+
+  /* ---------- achievements ----------
+   * Each has a badge (art 'ach-<id>', ChatGPT pack; until then the medallion reverse of its tier stands in), a check
+   * on the save, and for counted ones a progress [have, need]. Earned ones are stamped into S.ach with the time. */
+  function totalPages() { var t = 0; LANDS.forEach(function (L) { t += (LOREBOOK[L.id] || []).length; }); return t; }
+  function foundPages() { var t = 0; LANDS.forEach(function (L) { t += (((S.world || {})[L.id] || {}).pages || []).length; }); return t; }
+  function foundChests() { var t = 0; LANDS.forEach(function (L) { t += (((S.world || {})[L.id] || {}).chests || []).length; }); return t; }
+  function killTotal() { var t = 0; Object.keys(S.kills || {}).forEach(function (k) { t += S.kills[k]; }); return t; }
+  function bossTotal() { return LANDS.filter(function (L) { return !L.finale && S.bossKills[L.id]; }).length; }
+  function stat(k) { return (S.stats && S.stats[k]) || 0; }
+  function allCreatures() { var a = []; LANDS.forEach(function (L) { if (!L.finale) a = a.concat(L.creatures.map(function (c) { return c.id; })); }); return a; }
+  function gearAll() { return GEAR.filter(function (g) { return !g.cosmetic; }); }
+  function landSwept() { return LANDS.some(function (L) { return !L.finale && S.bossKills[L.id] && L.creatures.every(function (c) { return S.kills[c.id]; }); }); }
+  var ACHIEVEMENTS = [
+    { id: 'tutorial', tier: 'wanderer', name: 'Learned the Ropes', desc: 'Finish the tutorial in the Proving Grounds.', check: function () { return !!S.tutorialDone; } },
+    { id: 'first-blood', tier: 'wanderer', name: 'First Blood', desc: 'Slay your first creature.', progress: function () { return [killTotal(), 1]; } },
+    { id: 'strike-first', tier: 'delver', name: 'Swift Blade', desc: 'Win 10 fights that you started with a first strike.', progress: function () { return [stat('firstStrikeWins'), 10]; } },
+    { id: 'ambush', tier: 'delver', name: 'Caught, Not Beaten', desc: 'Win a fight after a creature ambushes you.', progress: function () { return [stat('ambushWins'), 1]; } },
+    { id: 'streak-10', tier: 'delver', name: 'Unbroken', desc: 'Slay 10 creatures in a row without dying.', progress: function () { return [S.bestStreak || 0, 10]; } },
+    { id: 'streak-25', tier: 'warden', name: 'Untouchable', desc: 'Slay 25 creatures in a row without dying.', progress: function () { return [S.bestStreak || 0, 25]; } },
+    { id: 'persist', tier: 'wanderer', name: 'Back on Your Feet', desc: 'Die 10 times and keep going. Every Mythic has fallen more often than that.', progress: function () { return [S.deaths || 0, 10]; } },
+    { id: 'reclaim', tier: 'pathfinder', name: 'Back From the Grave', desc: 'Win back the Lore you dropped when you died.', progress: function () { return [stat('reclaims'), 1]; } },
+    { id: 'first-seal', tier: 'pathfinder', name: 'Seal Breaker', desc: 'Slay the boss of a land.', progress: function () { return [bossTotal(), 1]; } },
+    { id: 'five-seals', tier: 'warden', name: 'Five Seals Broken', desc: 'Slay the bosses of five lands.', progress: function () { return [bossTotal(), 5]; } },
+    { id: 'clean-boss', tier: 'lorekeeper', name: 'No Help Needed', desc: 'Slay a boss without a hint, a Scholar\'s Lens or the Tome.', progress: function () { return [stat('cleanBosses'), 1]; } },
+    { id: 'quick-mastery', tier: 'lorekeeper', name: 'Quick Study', desc: 'Slay a Mastery creature with more than half of the clock left.', progress: function () { return [stat('quickMastery'), 1]; } },
+    { id: 'clean-sweep', tier: 'warden', name: 'Clean Sweep', desc: 'Slay every kind of creature in a land, and its boss.', check: landSwept },
+    { id: 'bestiary', tier: 'lorekeeper', name: 'Know Thy Enemy', desc: 'Meet every creature in the ten lands.', progress: function () { var a = allCreatures(); return [a.filter(function (id) { return S.met && S.met[id]; }).length, a.length]; } },
+    { id: 'pages-25', tier: 'pathfinder', name: 'Bookworm', desc: 'Find 25 pages of the Lorebook.', progress: function () { return [foundPages(), 25]; } },
+    { id: 'pages-all', tier: 'mythic', name: 'The Whole Story', desc: 'Find every page of the Lorebook.', progress: function () { return [foundPages(), totalPages()]; } },
+    { id: 'chests-30', tier: 'delver', name: 'Treasure Hunter', desc: 'Open 30 chests.', progress: function () { return [foundChests(), 30]; } },
+    { id: 'tier-3', tier: 'warden', name: 'Well Armed', desc: 'Own a piece of tier 3 gear from the Forge.', check: function () { return GEAR.some(function (g) { return !g.cosmetic && g.tier === 3 && owns(g.id); }); } },
+    { id: 'all-gear', tier: 'mythic', name: 'Fully Forged', desc: 'Own every piece of gear the Forge sells.', progress: function () { var a = gearAll(); return [a.filter(function (g) { return owns(g.id); }).length, a.length]; } },
+    { id: 'level-10', tier: 'pathfinder', name: 'Pathfinder', desc: 'Reach level 10.', progress: function () { return [S.level || 1, 10]; } },
+    { id: 'level-25', tier: 'mythic', name: 'Mythic', desc: 'Reach level 25.', progress: function () { return [S.level || 1, 25]; } },
+    { id: 'hoard', tier: 'delver', name: 'Dragon\'s Hoard', desc: 'Carry 1,000 Lore at once. (Spend it soon.)', check: function () { return (S.lore || 0) >= 1000; } },
+    { id: 'lord', tier: 'mythic', name: 'Lord of Lore', desc: 'Defeat the Hollow Lord on the Purloined Throne.', check: function () { return isLordOfLore(); } }
+  ];
+  function achDone(a) { if (a.check) return !!a.check(); var p = a.progress(); return p[0] >= p[1]; }
+  function checkAchievements() {
+    if (!S || !S.hero) return; S.ach = S.ach || {}; var fresh = [];
+    ACHIEVEMENTS.forEach(function (a) { if (!S.ach[a.id]) { try { if (achDone(a)) { S.ach[a.id] = Date.now(); fresh.push(a); } } catch (e) {} } });
+    if (!fresh.length) return;
+    setTimeout(function () { sfx('levelup'); toast(fresh.length === 1 ? 'Achievement earned: <b>' + esc(fresh[0].name) + '</b>' : fresh.length + ' achievements earned. See them at the bonfire.'); }, 700);
+  }
+  function achBadge(a, got) {
+    var art = window.ART_IMG && (ART_IMG['ach-' + a.id] || ART_IMG['ui-medal-back-' + a.tier]);
+    return '<span class="ach-badge' + (got ? ' got' : '') + (ART_IMG && ART_IMG['ach-' + a.id] ? '' : ' stand-in') + '">' + (art ? '<img src="' + art + '" alt="">' : '') + '</span>';
+  }
+  function bonfireAchievements() {
+    S.ach = S.ach || {}; var got = ACHIEVEMENTS.filter(function (a) { return S.ach[a.id]; }).length;
+    var head = el('div', 'panel ach-head', '<div class="ach-count"><b>' + got + '</b> of ' + ACHIEVEMENTS.length + ' earned</div><div class="ach-bar"><span style="width:' + Math.round(100 * got / ACHIEVEMENTS.length) + '%"></span></div>');
+    app.appendChild(head);
+    var grid = el('div', 'ach-grid');
+    ACHIEVEMENTS.slice().sort(function (a, b) { return (S.ach[b.id] ? 1 : 0) - (S.ach[a.id] ? 1 : 0); }).forEach(function (a) {
+      var have = !!S.ach[a.id], p = a.progress ? a.progress() : null, pct = p ? Math.min(100, Math.round(100 * p[0] / (p[1] || 1))) : 0;
+      var when = have ? new Date(S.ach[a.id]).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+      grid.appendChild(el('div', 'ach-card' + (have ? ' got' : ''), achBadge(a, have) + '<div class="ach-body"><div class="ach-name">' + esc(a.name) + '</div><div class="ach-desc">' + esc(a.desc) + '</div>' +
+        (have ? '<div class="ach-when">Earned ' + esc(when) + '</div>' : p && p[1] > 1 ? '<div class="ach-prog"><span style="width:' + pct + '%"></span></div><div class="ach-when">' + n(Math.min(p[0], p[1])) + ' / ' + n(p[1]) + '</div>' : '<div class="ach-when">Not yet</div>') + '</div>'));
+    });
+    app.appendChild(grid);
   }
 
   /* ---------- the tutorial: The Proving Grounds (TUTORIAL in world.js, BP.T0 in lands.js) ----------
@@ -866,6 +929,7 @@
     sfx('strike');
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
     logAttempt(q, raw, r.ok ? 'correct' : r.reason);
+    B.leftFrac = B.deadline ? Math.max(0, B.deadline - Date.now()) / (questionTime(B) * 1000 || 1) : 0;
     B.deadline = 0;
     if (!r.ok && r.reason === 'form' && classId() === 'rogue') { r = { ok: true }; toast('Wrong form, right value. A kill is a kill.'); } // Rogue (the ledger still records it as "form")
     if (r.ok) { exchange(true, !B.isBoss || B.i === B.qs.length - 1, win); return; }
@@ -893,10 +957,15 @@
     if (B.practice) { practiceEnd(true); return; }
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
+    var st = S.stats = S.stats || {}; // counters for the achievements
+    if (B.strike === 'hero') st.firstStrikeWins = (st.firstStrikeWins || 0) + 1;
+    if (B.strike === 'creature') st.ambushWins = (st.ambushWins || 0) + 1;
+    if (B.isBoss && !B.used.hint && !B.used.tome && !B.freeHint) st.cleanBosses = (st.cleanBosses || 0) + 1;
+    if (!B.isBoss && foe.level === 'MAS' && B.leftFrac > 0.5) st.quickMastery = (st.quickMastery || 0) + 1;
     S.kills[foe.id] = (S.kills[foe.id] || 0) + 1;
     var openBefore = B.isBoss ? LANDS.filter(isOpen).map(function (L) { return L.id; }) : null;
     if (B.isBoss) { S.bossKills[B.land.id] = (S.bossKills[B.land.id] || 0) + 1; if (S.titles.indexOf(foe.title) < 0) S.titles.push(foe.title); }
-    if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.dropped = null; }
+    if (S.dropped && S.dropped.creature === foe.id && (S.dropped.inst == null || B.inst == null || S.dropped.inst === B.inst)) { reclaimed = S.dropped.amount; S.lore += reclaimed; S.stats.reclaims = (S.stats.reclaims || 0) + 1; S.dropped = null; }
     B.done = true; B.phase = 'result'; B.outcome = 'won'; sfx('correct');
     var html = '<h2>' + (B.isBoss ? esc(foe.name) + ' falls' : esc(foe.name) + ' is slain') + '</h2><div class="gain">+' + n(rw.amount) + ' Lore</div><div class="breakdown">' + rw.parts.map(function (p) { return p.k + ' ' + p.m; }).join(' · ') + '</div>' +
       (reclaimed ? '<p><b style="color:var(--lore)">You reclaim ' + n(reclaimed) + ' Lore</b> from where you fell.</p>' : '') +
@@ -1129,7 +1198,7 @@
     beast: '<path d="M5 20c0-6 3-10 7-10s7 4 7 10"/><path d="M8 11 6 4l4 4M16 11l2-7-4 4"/><path d="M10 15h.01M14 15h.01"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"/><path d="M12 17h.01"/>'
   };
-  var CAMP_ART = { ledger: 'camp-ledger', gear: 'camp-forge', level: 'camp-legacy', shop: 'camp-merchant', book: 'camp-lorebook', beast: 'camp-bestiary', chronicle: 'camp-chronicle', help: 'camp-rules' };
+  var CAMP_ART = { ach: 'camp-achievements', ledger: 'camp-ledger', gear: 'camp-forge', level: 'camp-legacy', shop: 'camp-merchant', book: 'camp-lorebook', beast: 'camp-bestiary', chronicle: 'camp-chronicle', help: 'camp-rules' };
   function campArt(id, cls) { var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k]; return src ? '<span class="camp-art' + (cls ? ' ' + cls : '') + '"><img src="' + src + '" alt=""></span>' : campIcon(id); }
   /* the bonfire at the top of the camp: the painted shrine sprite, crackling */
   var campFireRaf = 0;
@@ -1179,22 +1248,22 @@
     if (id === 'shop') { var cnt = 0; ITEMS.forEach(function (it) { cnt += itemCount(it.id); }); var cheap = ITEMS.filter(function (it) { return S.lore >= it.cost; }).length; return cnt + (cnt === 1 ? ' item' : ' items') + ' in your Satchel' + (cheap ? ' · ' + cheap + ' kinds within reach' : ''); }
     if (id === 'book') { var found = 0, total = 0; LANDS.forEach(function (L) { if (!isOpen(L) || !LOREBOOK[L.id]) return; total += LOREBOOK[L.id].length; found += (((S.world && S.world[L.id]) || {}).pages || []).length; }); return found + ' of ' + total + ' pages found'; }
     if (id === 'beast') { var met = 0, tot = 0; LANDS.forEach(function (L) { if (!isOpen(L)) return; L.creatures.concat([L.boss]).forEach(function (c) { tot++; if (S.met && S.met[c.id]) met++; }); }); return met + ' of ' + tot + ' creatures met'; }
+    if (id === 'ach') { var got = ACHIEVEMENTS.filter(function (a) { return S.ach && S.ach[a.id]; }).length; return got + ' of ' + ACHIEVEMENTS.length + ' earned'; }
     if (id === 'chronicle') return 'Legend ' + n(S.legend) + ' · ' + n(S.deaths) + (S.deaths === 1 ? ' death' : ' deaths') + ' · save code';
     return 'How Lore, death and the lands work';
   }
   function screenBonfire() {
     syncUnlocks(false); S.where = null; // resting: a reload from here may go to the map
     var tab = UI.bonfireTab || 'camp', Lc = landById(UI.land || S.lastLand || 'L1');
-    if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast') {} else tab = 'camp';
+    if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast' || tab === 'ach') {} else tab = 'camp';
     var bkey = Lc && (Lc.banner || (Lc.id === 'L1' ? 'title' : null));
     if (bkey && window.ART_IMG && ART_IMG[bkey]) { var bd = el('div', 'camp-backdrop'); bd.style.backgroundImage = 'url(' + ART_IMG[bkey] + ')'; app.appendChild(bd); }
-    var TILES = [['gear', 'The Forge', 'Richard the blacksmith\'s permanent upgrades, in six branches.'], ['level', 'Imbue Lore into Legacy', 'Laura turns the Lore you spend into strength.'], ['shop', 'The Merchant', 'Callum\'s one-use wares for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
+    var TILES = [['gear', 'The Forge', 'Richard the blacksmith\'s permanent upgrades, in six branches.'], ['level', 'Imbue Lore into Legacy', 'Laura turns the Lore you spend into strength.'], ['shop', 'The Merchant', 'Callum\'s one-use wares for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['ach', 'Achievements', 'Deeds the Chronicle remembers.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
     if (tab !== 'camp') { // entering one of the camp's places: a full-width painting, then its contents
       var cur = TILES.filter(function (t) { return t[0] === tab; })[0];
-      app.appendChild(campHall(tab, cur[1], cur[2], function () { UI.bonfireTab = 'camp'; render(); window.scrollTo(0, 0); }));
-      if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else bonfireBook();
-      var kp = window.KEEPERS && KEEPERS[tab]; // the keeper's parting word, at the foot of their page
-      if (kp) { var li = kp.lines[Math.floor(Math.random() * kp.lines.length)]; app.appendChild(el('figure', 'keeper-says', '<blockquote>' + esc(li) + '</blockquote><figcaption>' + esc(kp.name) + ', ' + esc(kp.role) + '</figcaption>')); }
+      var kp = window.KEEPERS && KEEPERS[tab]; // the keeper's word, laid over their banner beside them
+      app.appendChild(campHall(tab, cur[1], cur[2], function () { UI.bonfireTab = 'camp'; render(); window.scrollTo(0, 0); }, kp ? { quote: { text: kp.lines[Math.floor(Math.random() * kp.lines.length)], who: kp.name + ', ' + kp.role } } : null));
+      if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else if (tab === 'ach') bonfireAchievements(); else bonfireBook();
       return;
     }
     var head = el('div', 'camp-head');
@@ -1213,7 +1282,7 @@
     });
     app.appendChild(grid);
   }
-  var HALL_FOCUS = { ledger: 'center 28%', gear: 'center 16%', level: 'center 10%', shop: 'center 48%', book: 'center 45%', beast: 'center 40%', chronicle: 'center 40%', help: 'center 45%' };
+  var HALL_FOCUS = { ach: 'center 40%', ledger: 'center 28%', gear: 'center 16%', level: 'center 10%', shop: 'center 48%', book: 'center 45%', beast: 'center 40%', chronicle: 'center 40%', help: 'center 45%' };
   function campHall(id, title, desc, back, o) { // the banner at the top of a camp place; the only way out is back to the bonfire
     document.documentElement.classList.add('has-hall'); o = o || {};
     var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = S ? landById(UI.land || S.lastLand || 'L1') : null;
@@ -1222,6 +1291,7 @@
     var spend = id === 'gear' || id === 'level' || id === 'shop';
     h.appendChild(el('div', 'hall-cap', '<div class="eyebrow">' + (o.eyebrow || 'The bonfire · ' + esc(Lc ? Lc.name : '')) + '</div><h1>' + title + '</h1><p>' + desc + (spend ? ' You carry <b class="lore-amt">' + n(S.lore) + ' Lore</b>.' : '') + '</p>'));
     var Lw = (id === 'chronicle' || id === 'help') && S && S.where && landById(S.where);
+    if (o.quote) { h.classList.add('has-quote'); h.appendChild(el('figure', 'hall-quote', '<blockquote>' + esc(o.quote.text) + '</blockquote><figcaption>' + esc(o.quote.who) + '</figcaption>')); }
     var bk = el('button', 'btn hall-back', o.backLabel || (Lw ? '◀ Back to ' + esc(theLand(Lw)) : '◀ Back to the bonfire')); bk.type = 'button'; bk.onclick = back; h.appendChild(bk);
     return h;
   }

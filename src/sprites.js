@@ -62,6 +62,7 @@
   /* called by the overworld for every visible tile; return true when drawn */
   SP.tiles = function (ctx, th, t, tx, ty, x, y, tiles) {
     var TS = terrainFor(th.name); if (TS) return drawTerrainTile(ctx, TS, t, tx, ty, x, y, tiles);
+    if (TSET[th.name] && window.TERRAIN_DEFS && TERRAIN_DEFS[TSET[th.name]]) { ctx.fillStyle = '#0c0a10'; ctx.fillRect(x, y, 16, 16); return true; } // the land's painted set is still loading: dark, not the old placeholder tiles
     var G = Overworld.G, MW = Overworld.MW, tab = TERRAIN[th.name] || TERRAIN.wild, sheet = tinted[th.name] || tinted.wild, raw = ken, r = h2(tx, ty);
     var ground = tab.ground[Math.floor(r * tab.ground.length)];
     if (t === G.WALL || t === G.EDGE) { ctx.fillStyle = tab.wallBase || '#0b0e0c'; ctx.fillRect(x, y, 16, 16); }   // solid ground under thickets/rock: unmistakably not walkable
