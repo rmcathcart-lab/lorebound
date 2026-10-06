@@ -285,7 +285,8 @@ var Overworld = (function () {
     var ret = opts.returnFrom || null, fireAt = { x: (map.spawn.x + 1) * T + T / 2 + 6, y: map.spawn.y * T + T / 2 + 2 };
     if (ret && map.v2) {
       if (ret.outcome === 'won' && ret.inst != null && ret.inst >= 0 && !ret.isBoss) { var dk = ret.ref.id + '#' + ret.inst; if (w.dead.indexOf(dk) < 0) w.dead.push(dk); w.deadAt = w.deadAt || {}; if (w.fightAt && w.fightAt.key === dk) w.deadAt[dk] = { x: w.fightAt.x, y: w.fightAt.y }; }
-      if (ret.outcome === 'died') { w.dead = []; w.deadAt = {}; w.pos = fireAt; }
+      if (ret.outcome === 'won' && ret.isBoss) w.bossDead = true; // the boss lies where it fell until the hero next rests
+      if (ret.outcome === 'died') { w.dead = []; w.deadAt = {}; w.bossDead = false; w.pos = fireAt; }
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
@@ -293,7 +294,7 @@ var Overworld = (function () {
     // It lasts until the hero next rests at a bonfire (the camp screen clears it: game.js).
     var kindled = false;
     if (w.campfire && !walkable(map, w.campfire.x, w.campfire.y)) delete w.campfire;
-    if (ret && ret.isBoss && ret.outcome === 'won' && !L.tutorial && !w.campfire) { var cf = campSpot(map, start); if (cf) { w.campfire = cf; kindled = true; } }
+    if (ret && ret.isBoss && ret.outcome === 'won' && !w.campfire) { var cf = campSpot(map, start); if (cf) { w.campfire = cf; kindled = true; } }
     var vista = !!(map.theme && map.theme.name === 'throne'); if (vista) for (var si = 0; si < seen.length; si++) seen[si] = 1; // the processional is in view from the first step
     var braz = {}, brazOK = !!(SP.actor && SP.actor('cr:brazier')); if (brazOK) (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
     (map.props || []).forEach(function (q) { if (!q.flat) braz[q.y * map.w + q.x] = 1; }); // tall scenery is solid
@@ -303,6 +304,7 @@ var Overworld = (function () {
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
     if (ret && map.v2 && ret.outcome === 'won' && ret.inst != null) { var jk = ret.ref.id + '#' + ret.inst; R.ents.forEach(function (e) { if (e.kind === 'corpse' && e.key === jk) { e.dieT0 = 0.15; var fa = w.fightAt; e.dir = fa && start.x < e.x ? -1 : 1; } }); }
+    if (ret && map.v2 && ret.outcome === 'won' && ret.isBoss) R.ents.forEach(function (e) { if (e.kind === 'corpse' && e.boss) e.dieT0 = 0.15; }); // the boss's death plays as you come back
     if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
     if (ret && map.v2 && ret.outcome === 'died' && !opts.title) say('You wake at the bonfire. The dead have risen again.');
     if (kindled) { say('A fire kindles where the boss fell. Rest at it to return to the bonfire.'); persist(); }
@@ -341,7 +343,8 @@ var Overworld = (function () {
       if (map.v2 && w.dead.indexOf(key) >= 0) { base.kind = 'corpse'; var at = w.deadAt && w.deadAt[key]; if (at) { base.x = at.x; base.y = at.y; } ents.push(base); return; }
       base.kind = 'creature'; base.wander = 0; base.state = 'idle'; base.lost = 0; base.stun = 0; ents.push(base);
     });
-    ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
+    if (map.v2 && w.bossDead) ents.push({ kind: 'corpse', boss: true, key: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
+    else ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
     if (!w.key && map.key) ents.push({ kind: 'key', x: map.key.x * T + T / 2, y: map.key.y * T + T / 2, anim: 0 });
     map.chests.forEach(function (c) { if (w.chests.indexOf(c.n) < 0) ents.push({ kind: 'chest', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
     map.pages.forEach(function (c) { if (w.pages.indexOf(c.n) < 0) ents.push({ kind: 'page', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });

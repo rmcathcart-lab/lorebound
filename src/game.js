@@ -496,7 +496,7 @@
     { t: 'Find the key', d: 'Every land hides the key to its boss gate. Search the room south of the rat. A Training Wisp is awake down there and will chase you. If it reaches you before you strike, it ambushes you: 20 seconds come off the clock.', done: function (c) { return c.key; } },
     { t: 'Clear the land', d: 'A boss gate only opens once every kind of creature in the land has been slain at least once. Slay the Training Wisp.', done: function (c) { return c.slain['t-wisp']; } },
     { t: 'Challenge the boss', d: 'The gate east of the rat\'s room is open. Go in and challenge the Proving Golem. A boss asks several questions in a row, and you must answer them all.', done: function (c) { return c.slain['t-boss']; } },
-    { t: 'Rest at the bonfire', d: 'Walk back to the bonfire where you started and press <kbd>E</kbd> to rest. In the lands, the bonfire is where you spend your Lore.', done: function () { return false; } }
+    { t: 'Rest at the fire', d: 'When a boss falls, a fire kindles in its room, so you never have to walk the whole land back. Walk up to it and press <kbd>E</kbd> (or ⚔) to rest. In the lands, resting takes you to the bonfire, where you spend your Lore. The fire burns out once you have rested.', done: function () { return false; } }
   ];
   function startTutorial(from) {
     UI.tut = { from: from, S: { world: {} }, slain: {}, chest: false, page: false, satchel: false, fresh: true, step: -1, start: null };
@@ -584,7 +584,7 @@
       returnFrom: UI.returnFrom,
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst, strike) { startBattle(L, c, isBoss, inst, false, strike); },
-      onBonfire: function (o) { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } }, // after a boss-room fire, the next visit starts at the land's own bonfire
+      onBonfire: function (o) { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && ((wd.dead && wd.dead.length) || wd.bossDead)) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } }, // after a boss-room fire, the next visit starts at the land's own bonfire
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
@@ -612,7 +612,7 @@
       bossOpen: function () { return bossOpen(L); },
       returnFrom: UI.returnFrom,
       onBattle: function (c, isBoss, inst, strike) { startBattle(L, c, isBoss, inst, false, strike); },
-      onBonfire: function (o) { var wd = S.world && S.world[L.id]; if (L.explore === 2) { if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } },
+      onBonfire: function (o) { var wd = S.world && S.world[L.id]; if (L.explore === 2) { if (wd && ((wd.dead && wd.dead.length) || wd.bossDead)) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } },
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
@@ -1000,7 +1000,7 @@
     S.dropped = drop > 0 ? { amount: drop, creature: foe.id, land: B.land.id, inst: B.inst } : null;
     S.lore = keep;
     B.done = true; B.phase = 'result'; B.outcome = 'died';
-    if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.deadAt = {}; wd.pos = null; } }
+    if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; wd.pos = null; } }
     var html = '<h2>You died</h2>' + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(theLand(B.land)) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
       notes.map(function (t) { return '<p>' + t + '</p>'; }).join('') + youTyped(B) + solutionBlock(q);
     var res = el('div', 'result lose', html);
@@ -1288,7 +1288,7 @@
   function campHall(id, title, desc, back, o) { // the banner at the top of a camp place; the only way out is back to the bonfire
     document.documentElement.classList.add('has-hall'); o = o || {};
     var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = S ? landById(UI.land || S.lastLand || 'L1') : null;
-    var h = el('div', 'camp-hall' + (src ? '' : ' plain'));
+    var h = el('div', 'camp-hall hall-' + id + (src ? '' : ' plain'));
     if (src) { var im = el('img'); im.src = src; im.alt = ''; im.style.objectPosition = HALL_FOCUS[id] || 'center 40%'; h.appendChild(im); }
     var spend = id === 'gear' || id === 'level' || id === 'shop';
     h.appendChild(el('div', 'hall-cap', '<div class="eyebrow">' + (o.eyebrow || 'The bonfire · ' + esc(Lc ? Lc.name : '')) + '</div><h1>' + title + '</h1><p>' + desc + (spend ? ' You carry <b class="lore-amt">' + n(S.lore) + ' Lore</b>.' : '') + '</p>'));

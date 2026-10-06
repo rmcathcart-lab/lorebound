@@ -750,8 +750,9 @@ html.has-hall { overflow-x: clip; }
 
 /* ---------- Imbue Lore into Legacy: the ritual ---------- */
 .ritual { position: relative; margin: 4px 0 28px; }
-.ritual-top { position: relative; height: clamp(250px, 31vw, 350px); }
-.ritual-cv { position: absolute; inset: -40px -16px 0; width: calc(100% + 32px); height: calc(100% + 40px); display: block; cursor: pointer; }
+.ritual-top { position: relative; height: clamp(230px, 26vw, 296px); }
+.camp-hall.hall-level { height: clamp(260px, 50vh, 500px); } /* tall enough to show Laura below the chin */
+.ritual-cv { position: absolute; inset: -40px -16px 0; width: calc(100% + 32px); height: calc(100% + 40px); display: block; }
 .ritual-mid { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; width: min(300px, 42%); }
 .ritual .medal { width: clamp(132px, 19vw, 224px); height: clamp(132px, 19vw, 224px); display: block; margin-bottom: -6px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.55)); }
 .ritual-rank { font-family: var(--font-display); font-size: clamp(18px, 2.1vw, 25px); letter-spacing: .06em; color: #e9c98d; text-align: center; line-height: 1.15; text-shadow: 0 0 18px rgba(214,168,96,.35), 0 2px 6px #000; }
@@ -811,7 +812,7 @@ img.lord-mini { width: 26px; height: 26px; vertical-align: -8px; margin: -4px 0;
 @media (prefers-reduced-motion: reduce) { .legacy-ladder .rung img.lord.spin { animation: none; } }
 @media (max-width: 860px) { .legacy-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
-  .ritual-top { height: 236px; }
+  .ritual-top { height: 206px; }
   .ritual-mid { width: 46%; bottom: 0; }
   .ritual-rank-sub { font-size: 11.5px; }
   .ritual-btn { min-width: 0; width: 100%; max-width: 340px; }
@@ -9376,7 +9377,8 @@ var Overworld = (function () {
     var ret = opts.returnFrom || null, fireAt = { x: (map.spawn.x + 1) * T + T / 2 + 6, y: map.spawn.y * T + T / 2 + 2 };
     if (ret && map.v2) {
       if (ret.outcome === 'won' && ret.inst != null && ret.inst >= 0 && !ret.isBoss) { var dk = ret.ref.id + '#' + ret.inst; if (w.dead.indexOf(dk) < 0) w.dead.push(dk); w.deadAt = w.deadAt || {}; if (w.fightAt && w.fightAt.key === dk) w.deadAt[dk] = { x: w.fightAt.x, y: w.fightAt.y }; }
-      if (ret.outcome === 'died') { w.dead = []; w.deadAt = {}; w.pos = fireAt; }
+      if (ret.outcome === 'won' && ret.isBoss) w.bossDead = true; // the boss lies where it fell until the hero next rests
+      if (ret.outcome === 'died') { w.dead = []; w.deadAt = {}; w.bossDead = false; w.pos = fireAt; }
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
@@ -9384,7 +9386,7 @@ var Overworld = (function () {
     // It lasts until the hero next rests at a bonfire (the camp screen clears it: game.js).
     var kindled = false;
     if (w.campfire && !walkable(map, w.campfire.x, w.campfire.y)) delete w.campfire;
-    if (ret && ret.isBoss && ret.outcome === 'won' && !L.tutorial && !w.campfire) { var cf = campSpot(map, start); if (cf) { w.campfire = cf; kindled = true; } }
+    if (ret && ret.isBoss && ret.outcome === 'won' && !w.campfire) { var cf = campSpot(map, start); if (cf) { w.campfire = cf; kindled = true; } }
     var vista = !!(map.theme && map.theme.name === 'throne'); if (vista) for (var si = 0; si < seen.length; si++) seen[si] = 1; // the processional is in view from the first step
     var braz = {}, brazOK = !!(SP.actor && SP.actor('cr:brazier')); if (brazOK) (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
     (map.props || []).forEach(function (q) { if (!q.flat) braz[q.y * map.w + q.x] = 1; }); // tall scenery is solid
@@ -9394,6 +9396,7 @@ var Overworld = (function () {
     R.ctx.imageSmoothingEnabled = false;
     R.ents = buildEntities(map, S, L, w); R.contactCool = 1.5;
     if (ret && map.v2 && ret.outcome === 'won' && ret.inst != null) { var jk = ret.ref.id + '#' + ret.inst; R.ents.forEach(function (e) { if (e.kind === 'corpse' && e.key === jk) { e.dieT0 = 0.15; var fa = w.fightAt; e.dir = fa && start.x < e.x ? -1 : 1; } }); }
+    if (ret && map.v2 && ret.outcome === 'won' && ret.isBoss) R.ents.forEach(function (e) { if (e.kind === 'corpse' && e.boss) e.dieT0 = 0.15; }); // the boss's death plays as you come back
     if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
     if (ret && map.v2 && ret.outcome === 'died' && !opts.title) say('You wake at the bonfire. The dead have risen again.');
     if (kindled) { say('A fire kindles where the boss fell. Rest at it to return to the bonfire.'); persist(); }
@@ -9432,7 +9435,8 @@ var Overworld = (function () {
       if (map.v2 && w.dead.indexOf(key) >= 0) { base.kind = 'corpse'; var at = w.deadAt && w.deadAt[key]; if (at) { base.x = at.x; base.y = at.y; } ents.push(base); return; }
       base.kind = 'creature'; base.wander = 0; base.state = 'idle'; base.lost = 0; base.stun = 0; ents.push(base);
     });
-    ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
+    if (map.v2 && w.bossDead) ents.push({ kind: 'corpse', boss: true, key: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
+    else ents.push({ kind: 'boss', ref: map.boss.ref, x: map.boss.x * T + T / 2, y: map.boss.y * T + T / 2, dir: -1, anim: 0 });
     if (!w.key && map.key) ents.push({ kind: 'key', x: map.key.x * T + T / 2, y: map.key.y * T + T / 2, anim: 0 });
     map.chests.forEach(function (c) { if (w.chests.indexOf(c.n) < 0) ents.push({ kind: 'chest', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
     map.pages.forEach(function (c) { if (w.pages.indexOf(c.n) < 0) ents.push({ kind: 'page', n: c.n, x: c.x * T + T / 2, y: c.y * T + T / 2, anim: 0 }); });
@@ -10551,7 +10555,7 @@ var Overworld = (function () {
     { t: 'Find the key', d: 'Every land hides the key to its boss gate. Search the room south of the rat. A Training Wisp is awake down there and will chase you. If it reaches you before you strike, it ambushes you: 20 seconds come off the clock.', done: function (c) { return c.key; } },
     { t: 'Clear the land', d: 'A boss gate only opens once every kind of creature in the land has been slain at least once. Slay the Training Wisp.', done: function (c) { return c.slain['t-wisp']; } },
     { t: 'Challenge the boss', d: 'The gate east of the rat\'s room is open. Go in and challenge the Proving Golem. A boss asks several questions in a row, and you must answer them all.', done: function (c) { return c.slain['t-boss']; } },
-    { t: 'Rest at the bonfire', d: 'Walk back to the bonfire where you started and press <kbd>E</kbd> to rest. In the lands, the bonfire is where you spend your Lore.', done: function () { return false; } }
+    { t: 'Rest at the fire', d: 'When a boss falls, a fire kindles in its room, so you never have to walk the whole land back. Walk up to it and press <kbd>E</kbd> (or ⚔) to rest. In the lands, resting takes you to the bonfire, where you spend your Lore. The fire burns out once you have rested.', done: function () { return false; } }
   ];
   function startTutorial(from) {
     UI.tut = { from: from, S: { world: {} }, slain: {}, chest: false, page: false, satchel: false, fresh: true, step: -1, start: null };
@@ -10639,7 +10643,7 @@ var Overworld = (function () {
       returnFrom: UI.returnFrom,
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst, strike) { startBattle(L, c, isBoss, inst, false, strike); },
-      onBonfire: function (o) { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } }, // after a boss-room fire, the next visit starts at the land's own bonfire
+      onBonfire: function (o) { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && ((wd.dead && wd.dead.length) || wd.bossDead)) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } }, // after a boss-room fire, the next visit starts at the land's own bonfire
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
@@ -10667,7 +10671,7 @@ var Overworld = (function () {
       bossOpen: function () { return bossOpen(L); },
       returnFrom: UI.returnFrom,
       onBattle: function (c, isBoss, inst, strike) { startBattle(L, c, isBoss, inst, false, strike); },
-      onBonfire: function (o) { var wd = S.world && S.world[L.id]; if (L.explore === 2) { if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } },
+      onBonfire: function (o) { var wd = S.world && S.world[L.id]; if (L.explore === 2) { if (wd && ((wd.dead && wd.dead.length) || wd.bossDead)) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } },
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
@@ -11055,7 +11059,7 @@ var Overworld = (function () {
     S.dropped = drop > 0 ? { amount: drop, creature: foe.id, land: B.land.id, inst: B.inst } : null;
     S.lore = keep;
     B.done = true; B.phase = 'result'; B.outcome = 'died';
-    if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.deadAt = {}; wd.pos = null; } }
+    if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; wd.pos = null; } }
     var html = '<h2>You died</h2>' + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(theLand(B.land)) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
       notes.map(function (t) { return '<p>' + t + '</p>'; }).join('') + youTyped(B) + solutionBlock(q);
     var res = el('div', 'result lose', html);
@@ -11343,7 +11347,7 @@ var Overworld = (function () {
   function campHall(id, title, desc, back, o) { // the banner at the top of a camp place; the only way out is back to the bonfire
     document.documentElement.classList.add('has-hall'); o = o || {};
     var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = S ? landById(UI.land || S.lastLand || 'L1') : null;
-    var h = el('div', 'camp-hall' + (src ? '' : ' plain'));
+    var h = el('div', 'camp-hall hall-' + id + (src ? '' : ' plain'));
     if (src) { var im = el('img'); im.src = src; im.alt = ''; im.style.objectPosition = HALL_FOCUS[id] || 'center 40%'; h.appendChild(im); }
     var spend = id === 'gear' || id === 'level' || id === 'shop';
     h.appendChild(el('div', 'hall-cap', '<div class="eyebrow">' + (o.eyebrow || 'The bonfire · ' + esc(Lc ? Lc.name : '')) + '</div><h1>' + title + '</h1><p>' + desc + (spend ? ' You carry <b class="lore-amt">' + n(S.lore) + ' Lore</b>.' : '') + '</p>'));
