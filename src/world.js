@@ -158,6 +158,18 @@ var LANDS = [
       flavor: 'He was never the Lord of Lore. He purloined the throne, then the Lore of every land, and spent none of it until it hollowed him out. He asks one question from every outcome you have ever faced, every one at Mastery. Answer them all and the throne is yours by right.' }
   }
 ];
+/* The tutorial: a small land off the world map where nothing is kept. New heroes start here; the Rules page reopens it. */
+var TUTORIAL = { id: 'T0', unit: 0, name: 'The Proving Grounds', subject: 'How to play', open: true, explore: 2, tutorial: true, banner: 'title',
+  blurb: 'A walled yard behind the first bonfire where new heroes learn the ways of the lands. Nothing here is kept, and nothing here can truly kill you.',
+  outcomes: { TUT: 'How to play' },
+  creatures: [
+    { id: 't-rat', name: 'Training Rat', outcome: 'Training', level: 'BEG', sigil: 'rat', gen: 'TUT_A', asleep: true, flavor: 'Fast asleep on a pile of practice sums. Walk right up to it.' },
+    { id: 't-wisp', name: 'Training Wisp', outcome: 'Training', level: 'BEG', sigil: 'wisp', gen: 'TUT_B', flavor: 'Wide awake, and it will come for you the moment it sees you.' }
+  ],
+  boss: { id: 't-boss', name: 'The Proving Golem', level: 'BOSS', sigil: 'golem', gens: ['TUT_C', 'TUT_D'], title: '',
+    flavor: 'A training golem of stacked practice stones. Two questions in a row, the way every boss asks several.' }
+};
+
 var FINAL_ID = 'L11';
 /* The Hollow Lord's question pool: for every outcome of the course, the Mastery generators that test it. One is picked
  * at random per outcome each time the fight starts, so the questions change like any other creature's. */

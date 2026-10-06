@@ -19,6 +19,7 @@ var Overworld = (function () {
 
   /* ---------- themes (what the tiles look like until sprite sheets are in; sprite names when they are) ---------- */
   var THEMES = {
+    T0: null, // the tutorial (The Proving Grounds) borrows the Barrow Marches, set below
     L1: { name: 'marsh', ground: ['#2b3a2b', '#263426'], path: '#4a4030', wall: 'tree-dead', water: '#1b2b3a', deco: ['grave', 'bones', 'reed'], wallDensity: 0.30, waterDensity: 0.07 },
     L2: { name: 'volcano', ground: ['#3a2a24', '#33241f'], path: '#5a4a3a', wall: 'rock', water: '#c84a1e', deco: ['ember', 'bones', 'rock-small'], wallDensity: 0.32, waterDensity: 0.08, lava: true },
     L3: { name: 'forest', ground: ['#243a22', '#1f331e'], path: '#4a3c2a', wall: 'tree', water: '#1f3340', deco: ['mushroom', 'stump', 'fern'], wallDensity: 0.38, waterDensity: 0.04 },
@@ -32,6 +33,7 @@ var Overworld = (function () {
     L10: { name: 'frost', ground: ['#3a4048', '#343a42'], path: '#5a6068', wall: 'rock', water: '#2a4458', deco: ['rock-small', 'bones'], wallDensity: 0.32, waterDensity: 0.1 },
     def: { name: 'wild', ground: ['#2e342c', '#293026'], path: '#4a4030', wall: 'tree', water: '#1b2b3a', deco: ['rock-small', 'bones'], wallDensity: 0.3, waterDensity: 0.05 }
   };
+  THEMES.T0 = THEMES.L1;
   function themeFor(L) { return THEMES[L.id] || THEMES.def; }
 
   /* ---------- map generation ---------- */
@@ -405,7 +407,7 @@ var Overworld = (function () {
         if (e.stun > 0) { e.stun -= dt; return; }
         if (e.blind > 0) e.blind -= dt; if (e.alert > 0) e.alert -= dt;
         var pdx = p.x - e.x, pdy = p.y - e.y, pd = Math.hypot(pdx, pdy), nearFire = Math.hypot(p.x - (R.map.spawn.x * T + T / 2), p.y - (R.map.spawn.y * T + T / 2)) < 6 * T;
-        var sees = !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
+        var sees = !e.ref.asleep && !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
         if (sees) { if (e.state !== 'chase' && window.Sfx) Sfx.play('alert'); e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
         if (e.state === 'chase') {
           if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); e.dir = pdx < 0 ? -1 : 1; p.dir = -e.dir; cutscene(e, 'creature', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n, 'creature'); }); return; }
@@ -414,6 +416,7 @@ var Overworld = (function () {
         }
         if (e.state === 'home') { var hx = e.hx * T + T / 2, hy = e.hy * T + T / 2, hdx = hx - e.x, hdy = hy - e.y, hd = Math.hypot(hdx, hdy); if (hd < 2) { e.state = 'idle'; } else { var hs = 30 * dt; var nx3 = e.x + hdx / hd * hs, ny3 = e.y + hdy / hd * hs; if (!blocked(nx3, e.y)) e.x = nx3; if (!blocked(e.x, ny3)) e.y = ny3; e.dir = hdx < 0 ? -1 : 1; e.moving = true; return; } }
         e.moving = false;
+        if (e.ref.asleep) return; // the tutorial's sleeper stays put until struck
       }
       e.wander -= dt;
       if (e.wander <= 0) { e.wander = 1.5 + Math.random() * 3; var ang = Math.random() * Math.PI * 2, dist = Math.random() * 1.6 * T; e.tx = e.hx * T + T / 2 + Math.cos(ang) * dist; e.ty = e.hy * T + T / 2 + Math.sin(ang) * dist; }

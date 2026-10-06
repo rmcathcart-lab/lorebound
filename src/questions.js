@@ -419,4 +419,31 @@ var QGen = (function () {
   }
   return { make: make, makeLike: makeLike, GENS: GENS, _util: { factor: factor, simpSqrt: simpSqrt } };
 })();
+/* ---------- the tutorial (The Proving Grounds): easy questions that teach the answer box and keypad ---------- */
+(function () {
+  function ri(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+  function T(x) { return '\\(' + x + '\\)'; }
+  var WORDS = { 2: 'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six', 7: 'seven', 8: 'eight', 10: 'ten', 11: 'eleven' };
+  QGen.GENS.TUT_A = [function () { // a plain number answer
+    var a = ri(3, 9), b = ri(3, 9);
+    return { prompt: 'A warm-up. What is ' + T(a + '\\times ' + b) + '?<br>Type the number in the box and press <b>Strike</b> (or Enter).', type: 'num', answers: [String(a * b)], tol: 0,
+      hint: 'Count up by ' + a + ', ' + b + ' times.', solution: T(a + '\\times ' + b + ' = ' + a * b) + '.' };
+  }];
+  QGen.GENS.TUT_B = [function () { // a fraction from the keypad
+    var f = [[3, 4, 'three quarters'], [2, 3, 'two thirds'], [5, 8, 'five eighths'], [1, 6, 'one sixth'], [3, 5, 'three fifths']][ri(0, 4)];
+    return { prompt: 'Write <b>' + f[2] + '</b> as a fraction.', type: 'expr', answers: ['\\frac{' + f[0] + '}{' + f[1] + '}'], check: 'exact',
+      note: 'Press the <b>a/b</b> key: it makes a fraction with a box on top and a box below. Type the top number, press → (or tap the bottom box), then type the bottom number.',
+      hint: 'The top number counts the parts you have; the bottom number counts the parts in the whole.', solution: f[2] + ' is ' + T('\\frac{' + f[0] + '}{' + f[1] + '}') + '.' };
+  }];
+  QGen.GENS.TUT_C = [function () { // a root from the keypad
+    var n = [2, 3, 5, 6, 7, 10, 11][ri(0, 6)];
+    return { prompt: 'Write <b>the square root of ' + n + '</b>.', type: 'expr', answers: ['\\sqrt{' + n + '}'], check: 'exact',
+      note: 'Press the <b>√</b> key, then type ' + n + ' inside it.', hint: 'The √ key makes a root with a box inside. The number goes in the box.', solution: T('\\sqrt{' + n + '}') + '.' };
+  }];
+  QGen.GENS.TUT_D = [function () { // a power from the keypad
+    var b = ri(2, 5), e = ri(3, 6);
+    return { prompt: 'Write <b>' + WORDS[b] + ' to the power of ' + WORDS[e] + '</b> as a power (do not work it out).', type: 'expr', answers: [b + '^{' + e + '}'], check: 'exact',
+      note: 'Type ' + b + ', press the <b>xⁿ</b> key, then type ' + e + ' in the raised box.', hint: 'The base is the big number; the exponent sits up and to the right.', solution: T(b + '^{' + e + '}') + ', which is ' + Math.pow(b, e) + ' if you work it out.' };
+  }];
+})();
 if (typeof module !== 'undefined') module.exports = QGen;

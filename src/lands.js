@@ -132,7 +132,7 @@ var LandMaps = (function () {
       return null;
     }
     var byLevel = { BEG: [], PRG: [], MAS: [] }; L.creatures.forEach(function (c) { byLevel[c.level].push(c); });
-    var counts = { BEG: 3, PRG: 3, MAS: 2 };
+    var counts = bp.counts || { BEG: 3, PRG: 3, MAS: 2 };
     ['BEG', 'PRG', 'MAS'].forEach(function (tier) {
       var pool = bp.areas.filter(function (a) { return a.tier === tier; }); if (!pool.length) pool = bp.areas;
       var slot = 0;
@@ -147,8 +147,8 @@ var LandMaps = (function () {
     var keyP = null, chests = [], pages = [], nooks = bp.nooks.slice(), pi = 0;
     if (!bp.bare) { keyP = spot(bp.key) || freeIn(bp.areas[bp.areas.length - 1], 1); keyP.kind = 'key'; used.push(keyP); } // a bare land (the final one) has no key, chests or pages
     function nextSpot() { while (nooks.length) { var p = spot(nooks.shift()); if (p) return p; } var a = bp.areas[(pi++ * 5 + 3) % bp.areas.length]; return freeIn(a, 1); }
-    for (i = 0; i < (bp.bare ? 0 : 9); i++) { var cp = nextSpot(); if (!cp) continue; cp.kind = 'chest'; cp.n = i; used.push(cp); chests.push(cp); }
-    for (i = 0; i < (bp.bare ? 0 : 5); i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
+    for (i = 0; i < (bp.bare ? 0 : bp.nChests || 9); i++) { var cp = nextSpot(); if (!cp) continue; cp.kind = 'chest'; cp.n = i; used.push(cp); chests.push(cp); }
+    for (i = 0; i < (bp.bare ? 0 : bp.nPages || 5); i++) { var pp = nextSpot(); if (!pp) continue; pp.kind = 'page'; pp.n = i; used.push(pp); pages.push(pp); }
     var b = bp.bossRoom;
     (bp.braziers || []).forEach(function (p) { if (k.get(p.x, p.y) === DECO || k.get(p.x, p.y) === GROUND2) k.set(p.x, p.y, GROUND); });
     if (bp.props) for (i = 0; i < W * H; i++) if (t[i] === DECO) t[i] = GROUND; // hand-placed scenery only
@@ -642,7 +642,26 @@ var LandMaps = (function () {
       areas: [{ x: cx, y: 49, rx: 2, tier: 'BEG' }, { x: cx, y: 30, rx: 2, tier: 'PRG' }], key: null, nooks: [] };
   };
 
-  var SIZES = { L11: [45, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
+  /* The Proving Grounds: the tutorial, off the world map. Five small rooms in a loop: the bonfire, a chest and a page,
+   * a sleeping rat (strike first), a waking wisp with the gate key, and the training boss behind its gate. */
+  BP.T0 = function (k) {
+    k.rect(1, 1, k.W - 2, k.H - 2, WALL);
+    k.ell(9, 28, 6, 4, GROUND, 0.3);                     // A: the bonfire
+    k.seg(9, 24, 9, 19, 3, PATH);                        // up to B
+    k.ell(9, 14, 6, 4, GROUND, 0.3);                     // B: chest and page
+    k.seg(15, 14, 21, 14, 3, PATH);                      // across to C
+    k.ell(26, 14, 5, 4, GROUND, 0.3);                    // C: the sleeping rat
+    k.seg(26, 18, 26, 23, 3, PATH);                      // down to D
+    k.ell(26, 28, 6, 4, GROUND, 0.3);                    // D: the wisp and the key
+    k.seg(31, 14, 33, 14, 3, PATH);                      // C to the gate's approach
+    var boss = bossRoom(k, 37, 9, 9, 9, 'W');            // the training boss, gate on the west wall facing C
+    return { name: 'the proving grounds', spawn: { x: 8, y: 29 }, bossRoom: boss, fillPockets: true,
+      areas: [{ x: 27, y: 13, rx: 1, tier: 'BEG' }, { x: 28, y: 28, rx: 2, tier: 'BEG' }],
+      counts: { BEG: 1, PRG: 1, MAS: 1 }, nChests: 1, nPages: 1,
+      key: { x: 22, y: 30 }, nooks: [{ x: 5, y: 13 }, { x: 13, y: 13 }] };
+  };
+
+  var SIZES = { T0: [48, 36], L11: [45, 76], L1: [80, 56], L2: [64, 84], L3: [84, 60], L4: [79, 57], L5: [88, 56], L6: [104, 44], L7: [76, 72], L8: [96, 62], L9: [78, 78], L10: [100, 66] };
 
   function build(L, env) {
     var bpf = BP[L.id]; if (!bpf) return null;

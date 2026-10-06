@@ -42,7 +42,7 @@
   function sfx(name) { try { if (window.Sfx) Sfx.play(name); } catch (e) {} }
   function toast(msg) { if (UI.toast) UI.toast.remove(); var t = el('div', 'toast', msg); document.body.appendChild(t); UI.toast = t; setTimeout(function () { if (UI.toast === t) { t.remove(); UI.toast = null; } }, 2600); }
   function theLand(L) { var nm = L && L.name || ''; return /^The /.test(nm) ? nm : 'the ' + nm; }
-  function landById(id) { return LANDS.filter(function (l) { return l.id === id; })[0]; }
+  function landById(id) { if (id === 'T0' && typeof TUTORIAL !== 'undefined') return TUTORIAL; return LANDS.filter(function (l) { return l.id === id; })[0]; }
   function creatureById(land, id) { if (land.boss && land.boss.id === id) return land.boss; return land.creatures.filter(function (c) { return c.id === id; })[0]; }
   function gearById(id) { return GEAR.filter(function (g) { return g.id === id; })[0]; }
   function owns(id) { return !!(S && S.gear[id]); }
@@ -168,7 +168,7 @@
     if (sig !== REP.sig) { REP.sig = sig; REP.lastTick = Date.now(); Ledger.push(snapshot(true)); }
   }
   function logAttempt(q, raw, result) {
-    var B = UI.battle; if (!B || !S || !S.klass) return;
+    var B = UI.battle; if (!B || !S || !S.klass || B.tutorial) return;
     Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: B.land.id, outcome: q.outcome || B.foe.outcome || (B.land.creatures[0] || {}).outcome || '', group: B.foe.group || '', level: q.level || B.foe.level, gen: q.key || '', boss: !!B.isBoss,
       question: q.prompt, typed: raw, result: result, lore: S.lore, streak: S.streak, practice: !!B.practice });
   }
@@ -228,7 +228,7 @@
     w.appendChild(el('span', 'spacer'));
     var nav = el('div', 'nav'); // no Map or Bonfire buttons: the bonfire is reached by walking to it, and the map from the bonfire
     var ic = window.ART_IMG && ART_IMG['ui-satchel-closed'], io = window.ART_IMG && ART_IMG['ui-satchel-open'];
-    var sb = el('button', 'satchel-btn' + (UI.satchel ? ' on' : ''), '<span class="sbl">Satchel</span>' + (S.items && Object.keys(S.items).some(function (k) { return S.items[k] > 0; }) ? '<span class="dot">●</span>' : '') + (ic ? '<span class="sbi"><img class="c" src="' + ic + '" alt=""><img class="o" src="' + io + '" alt=""></span>' : ''));
+    var sb = el('button', 'satchel-btn' + (UI.satchel ? ' on' : ''), '<span class="sbl">Satchel</span>' + (ic ? '<span class="sbi"><img class="c" src="' + ic + '" alt=""><img class="o" src="' + io + '" alt=""></span>' : ''));
     sb.type = 'button'; sb.title = 'Satchel (press I)'; sb.setAttribute('aria-label', 'Satchel (press I)'); sb.setAttribute('aria-expanded', UI.satchel ? 'true' : 'false'); sb.onclick = function () { openSatchel(); }; nav.appendChild(sb);
     var mb = el('button', 'mute'); mb.type = 'button';
     function muteFace() { var m = window.Sfx && Sfx.isMuted(), src = window.ART_IMG && ART_IMG[m ? 'ui-sound-off' : 'ui-sound-on']; mb.innerHTML = src ? '<img src="' + src + '" alt="">' : (m ? '🔇' : '🔊'); mb.classList.toggle('off', !!m); mb.title = m ? 'Unmute sound effects' : 'Mute sound effects'; mb.setAttribute('aria-label', mb.title); }
@@ -252,6 +252,7 @@
    * they carry is lost, just as with the Flee button. */
   function resumeGame() {
     if (!S) { go('title'); return; }
+    if (S.tutorialPending && !S.where && !S.inFight) { startTutorial('new'); return; }
     if (S.inFight) {
       var f = S.inFight, L = landById(f.land), foe = L && (f.boss ? L.boss : creatureById(L, f.foe)), cost = Math.floor((S.lore || 0) * 0.5);
       S.lore -= cost; S.inFight = null; S.streak = 0;
@@ -374,7 +375,7 @@
       if (swap && S.lore < CLASS_CHANGE_COST) { toast('Changing class costs ' + n(CLASS_CHANGE_COST) + ' Lore.'); return; }
       if (swap) S.lore -= CLASS_CHANGE_COST;
       S.hero = { name: nm, cls: chosen, frame: (S.hero && S.hero.frame) || '' };
-      if (!editing) { toast(esc(nm) + ' the ' + esc(heroClass().name) + ' sets forth.'); go('map'); return; }
+      if (!editing) { S.tutorialPending = true; startTutorial('new'); return; } // new heroes learn the ropes first
       toast(swap ? esc(nm) + ' walks on as a ' + esc(heroClass().name) + '.' : nm !== cur.name ? 'Your hero is now ' + esc(nm) + '.' : 'Nothing changed.');
       if (swap) sfx('levelup');
       backToLegacy();
@@ -419,6 +420,93 @@
     syncUnlocks(false);
   }
 
+  /* ---------- the tutorial: The Proving Grounds (TUTORIAL in world.js, BP.T0 in lands.js) ----------
+   * A sandboxed land with its own throwaway world state: fights are practice fights, chests and pages teach instead of
+   * paying out, and a coach in the corner walks the student through one step at a time. */
+  var TUT_STEPS = [
+    { t: 'Walk', d: 'Use <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> or the arrow keys to walk. On a phone or tablet, drag the stick in the bottom corner. Head north up the path.', done: function (c) { return c.moved; } },
+    { t: 'Open a chest', d: 'Chests hold Lore and items. Walk over the chest in the room ahead to open it.', done: function (c) { return c.chest; } },
+    { t: 'Pick up a page', d: 'Pages of the Lorebook tell the story of the lands and teach the math. Walk over the glowing page to read it.', done: function (c) { return c.page; } },
+    { t: 'Strike first', d: 'A Training Rat is asleep in the room to the east. Walk right up to it and press <kbd>E</kbd> (or ⚔) to attack. Striking first adds 20 seconds to the clock.', done: function (c) { return c.slain['t-rat']; } },
+    { t: 'Open your Satchel', d: 'Press <kbd>I</kbd> (or the Satchel button at the top) to open your Satchel. It holds your items and the pages you have found. Press <kbd>Esc</kbd> to close it.', done: function (c) { return c.satchel; } },
+    { t: 'Find the key', d: 'Every land hides the key to its boss gate. Search the room south of the rat. A Training Wisp is awake down there and will chase you. If it reaches you before you strike, it ambushes you: 20 seconds come off the clock.', done: function (c) { return c.key; } },
+    { t: 'Clear the land', d: 'A boss gate only opens once every kind of creature in the land has been slain at least once. Slay the Training Wisp.', done: function (c) { return c.slain['t-wisp']; } },
+    { t: 'Challenge the boss', d: 'The gate east of the rat\'s room is open. Go in and challenge the Proving Golem. A boss asks several questions in a row, and you must answer them all.', done: function (c) { return c.slain['t-boss']; } },
+    { t: 'Rest at the bonfire', d: 'Walk back to the bonfire where you started and press <kbd>E</kbd> to rest. In the lands, the bonfire is where you spend your Lore.', done: function () { return false; } }
+  ];
+  function startTutorial(from) {
+    UI.tut = { from: from, S: { world: {} }, slain: {}, chest: false, page: false, satchel: false, fresh: true, step: -1, start: null };
+    UI.battle = null; UI.returnFrom = null; UI.land = 'T0'; go('land');
+  }
+  function tutState() { var c = UI.tut, w = (c.S.world || {}).T0 || {}, run = Overworld.run();
+    if (run && c.start) c.moved = c.moved || Math.hypot(run.player.x - c.start.x, run.player.y - c.start.y) > 4 * Overworld.T;
+    c.key = !!w.key; return c; }
+  function tutorialFightEnd(won) {
+    var B = UI.battle, q = B.qs[B.i], foe = B.foe;
+    B.done = true; B.phase = 'result'; B.outcome = won ? 'won' : 'fled'; sfx(won ? 'correct' : 'death');
+    if (won) UI.tut.slain[foe.id] = 1;
+    var html = won ? '<h2>' + esc(foe.name) + (B.isBoss ? ' falls' : ' is slain') + '</h2><p>In the lands, a win pays Lore: ' + n(LEVELS.BEG.lore) + ' for a Beginning creature, more for Progressing and Mastery, and far more for a boss. Lore you carry can be lost, so spend it at a bonfire.</p>'
+      : '<h2>You would have died</h2><p>In the lands, a wrong answer (or the clock running out) is death. You wake at the bonfire, every creature you slew rises again, and all the Lore you were carrying drops where you fell. Win that fight to take it back, but die again first and it is gone for good.</p><p class="muted">Here in the Proving Grounds nothing is lost. Try it again.</p>';
+    var res = el('div', 'result ' + (won ? 'win' : 'lose'), html + youTyped(B) + solutionBlock(q));
+    var acts = el('div', 'actions'); acts.style.marginTop = '14px';
+    var back = el('button', 'btn big', 'Back to the Proving Grounds'); back.type = 'button';
+    back.onclick = function () { UI.battle = null; UI.returnFrom = { ref: foe, inst: B.inst, isBoss: B.isBoss, outcome: won ? 'won' : 'fled' }; UI.land = 'T0'; go('land'); };
+    acts.appendChild(back); res.appendChild(acts); B.result = res; render();
+  }
+  function exitTutorial(finished) {
+    var from = UI.tut ? UI.tut.from : 'new'; UI.tut = null; closeModal();
+    S.tutorialPending = false; if (finished) S.tutorialDone = true;
+    UI.land = S.lastLand || null; saveLocal();
+    if (from === 'rules') go('help'); else go('map');
+  }
+  function finishTutorial() {
+    var from = UI.tut.from; sfx('bonfire');
+    showModal('<div class="tut-done"><div class="eyebrow">The Proving Grounds</div><h2>You are ready</h2>' +
+      '<p>At every bonfire in the lands, three keepers will take your Lore:</p><ul class="rules">' +
+      '<li><b>Richard, at the Forge</b>, sells permanent gear: more time, more Lore per kill, shields against death, and hints.</li>' +
+      '<li><b>Laura</b> imbues Lore into Legacy: every level adds Lore per kill, time on the clock and speed.</li>' +
+      '<li><b>Callum, the Merchant</b>, sells one-use items for your Satchel.</li></ul>' +
+      '<p>Lore you <b>spend</b> is safe forever. Lore you <b>carry</b> is lost when you die. So fight, come back, and spend.</p>' +
+      '<p class="muted">You can walk through this again any time from the Rules page at the bonfire.</p></div>',
+      from === 'rules' ? 'Back to the Rules' : 'Enter the world', function () { exitTutorial(true); });
+  }
+  function tutCoach(wrap) {
+    var box = el('div', 'tut-coach'); wrap.appendChild(box);
+    function draw(i) {
+      var st = TUT_STEPS[i];
+      box.innerHTML = '<div class="tc-top"><span class="eyebrow">Tutorial · step ' + (i + 1) + ' of ' + TUT_STEPS.length + '</span><button type="button" class="tc-skip">Skip the tutorial</button></div>' +
+        '<div class="tc-bar"><span style="width:' + Math.round(100 * i / (TUT_STEPS.length - 1)) + '%"></span></div><h3>' + st.t + '</h3><p>' + st.d + '</p>';
+      box.querySelector('.tc-skip').onclick = function () { exitTutorial(false); };
+      box.classList.remove('fresh'); void box.offsetWidth; box.classList.add('fresh');
+    }
+    var tick = setInterval(function () {
+      if (!UI.tut || !box.isConnected) { clearInterval(tick); return; }
+      var c = tutState(), i = 0; while (i < TUT_STEPS.length - 1 && TUT_STEPS[i].done(c)) i++;
+      if (i !== c.step) { if (c.step >= 0 && i > c.step) sfx('pickup'); c.step = i; draw(i); }
+    }, 250);
+    var c0 = tutState(), i0 = 0; while (i0 < TUT_STEPS.length - 1 && TUT_STEPS[i0].done(c0)) i0++; c0.step = i0; draw(i0);
+  }
+  function screenTutorial(L) {
+    document.body.classList.add('in-world');
+    var wrap = el('div', 'world-screen'); app.appendChild(wrap);
+    var c = UI.tut, fresh = c.fresh; c.fresh = false;
+    Overworld.mount(wrap, { land: L, state: c.S, heroClass: heroClass().id, heroStage: heroStage(), fullscreen: true,
+      title: fresh ? { name: L.name, sub: 'Tutorial · nothing here is kept', img: (window.ART_IMG && ART_IMG.title) || null, line: null } : null,
+      bossOpen: function () { return L.creatures.every(function (cr) { return c.slain[cr.id]; }); },
+      returnFrom: UI.returnFrom, heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
+      onBattle: function (cr, isBoss, inst, strike) { startBattle(L, cr, isBoss, inst, true, strike); },
+      onBonfire: function () { if (c.slain['t-boss']) finishTutorial(); else toast('Not yet: finish the steps in the corner first, or skip the tutorial.'); },
+      onChest: function () { c.chest = true; sfx('chest'); return 'A chest! In the lands it would hold Lore or an item for your Satchel. Nothing from the Proving Grounds is kept.'; },
+      onPage: function () { c.page = true; sfx('page');
+        showModal('<div class="page-card"><div class="eyebrow">A page of the Lorebook · The Proving Grounds</div><h2>Carried and Spent</h2><p class="lore">Every hero who walks the lands carries Lore, the stuff that answers are made of. Lore that is carried can be lost: fall, and it spills where you fell, waiting for you to win it back. Lore that is spent at a bonfire becomes part of you, and nothing in the lands can take it.</p>' +
+          '<div class="math"><div class="eyebrow">What it teaches</div><p>Every creature asks one question. Answer it right to slay it and earn Lore. Answer it wrong and you die. Each land is one unit of Math 10C, and each page you find there explains a piece of that unit\'s math, with worked examples.</p></div></div>', 'Keep the page');
+        if (UI.modal) UI.modal.firstChild.classList.add('page'); },
+      onSave: function () {} });
+    if (UI.returnFrom) { if (UI.returnFrom.outcome !== 'died') Overworld.nudgeAway(UI.returnFrom.ref, UI.returnFrom.inst); UI.returnFrom = null; }
+    var run = Overworld.run(); if (run && !c.start) c.start = { x: run.player.x, y: run.player.y };
+    try { Sfx.ambient(run ? run.map.theme.name : null); } catch (e) {}
+    tutCoach(run && run.wrap ? run.wrap : wrap); // inside the world's frame, so it sits below the HUD
+  }
   function bossOpen(L) { return L.creatures.every(function (c) { return S.kills[c.id]; }); }
   function screenWorld(L) { // full-viewport overworld: the land is the screen
     document.body.classList.add('in-world'); S.where = L.id; // out in the land until they rest at a bonfire (a reload brings them back here)
@@ -441,6 +529,7 @@
   }
   function screenLand() {
     var L = landById(UI.land || S.lastLand || 'L1'); if (!isOpen(L)) { go('map'); return; }
+    if (L.tutorial) { if (!UI.tut) { go('map'); return; } screenTutorial(L); return; }
     S.visited = S.visited || {}; S.visited[L.id] = 1; S.seenOpen = S.seenOpen || {}; S.seenOpen[L.id] = 1;
     if (L.explore === 2) { screenWorld(L); return; }
     var head = el('div', 'land-head' + (L.banner && window.ART_IMG && ART_IMG[L.banner] ? ' banner' : ''));
@@ -578,6 +667,7 @@
   }
   function openSatchel() {
     if (UI.satchel) { closeSatchel(); return; }
+    if (UI.tut) UI.tut.satchel = true;
     var ov = el('div', 'modal-ov'), box = el('div', 'modal satchel'); UI.satchel = ov;
     var tab = UI.satchelTab || 'items';
     function draw() {
@@ -626,7 +716,7 @@
     var qs = c.pool ? c.pool.map(function (p) { var q = QGen.make(p.gens[Math.floor(Math.random() * p.gens.length)]); q.outcome = p.outcome; q.level = 'MAS'; return q; })
       : (isBoss ? c.gens : [c.gen]).map(function (g) { return QGen.make(g); });
     var home = UI.land;
-    UI.battle = { strike: practice || isBoss ? null : (strike || null), land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null, practice: !!practice, home: home };
+    UI.battle = { strike: (practice && !L.tutorial) || isBoss ? null : (strike || null), tutorial: !!L.tutorial, land: L, foe: c, isBoss: isBoss, inst: inst == null ? null : inst, qs: qs, i: 0, used: { hint: false, tome: false }, sightUsed: false, formWarned: false, done: false, phase: 'ask', result: null, outcome: null, practice: !!practice, home: home };
     rollInsight(UI.battle);
     if (!practice) { S.met = S.met || {}; S.met[c.id] = 1; S.inFight = { land: L.id, foe: c.id, inst: inst == null ? null : inst, boss: !!isBoss }; }
     armTimer();
@@ -704,7 +794,7 @@
     var head = el('div', 'panel');
     var foeEl = el('div', 'foe'); foeEl.style.setProperty('--lvl', lvlColor);
     var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
-    var tagTxt = (foe.finale ? 'Question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore'); if (foe.finale && !B.practice) tagTxt = tagTxt.replace(/ · [\d,]+ Lore$/, '');
+    var tagTxt = (foe.finale ? 'Question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.tutorial ? 'nothing at stake' : B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore'); if (foe.finale && !B.practice) tagTxt = tagTxt.replace(/ · [\d,]+ Lore$/, '');
     foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + tagTxt + '</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
     if (window.Overworld && Overworld.SP.actor && Overworld.SP.actor('cr:' + (foe.sigil || foe.id))) {
@@ -756,7 +846,7 @@
         if (itemCount('hourglass') > 0 && B.deadline && !B.practice) { var gb = el('button', 'btn ghost', 'Hourglass: +60 s (' + itemCount('hourglass') + ')'); gb.type = 'button'; gb.onclick = function () { useItem('hourglass'); }; acts.appendChild(gb); }
         if (owns('tome') && !B.tomeQ) { var tb = el('button', 'btn ghost', 'Tome: worked example (Lore ×0.5)'); tb.type = 'button'; tb.onclick = function () { B.tomeQ = QGen.make(q.key); B.used.tome = true; render(); }; acts.appendChild(tb); }
         acts.appendChild(el('span', 'spacer'));
-        var fl = el('button', 'btn ghost', B.practice ? 'Leave practice' : 'Flee (lose half your Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
+        var fl = el('button', 'btn ghost', B.tutorial ? 'Back away' : B.practice ? 'Leave practice' : 'Flee (lose half your Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
         qp.appendChild(acts);
         setTimeout(function () { try { mf.focus(); } catch (e) {} }, 50);
       }
@@ -856,6 +946,7 @@
   /* Bestiary practice: a fight with nothing at stake. No Lore won or lost, no gear or items spent, the lands untouched. */
   function practiceEnd(won) {
     var B = UI.battle, q = B.qs[B.i], foe = B.foe;
+    if (B.tutorial) { tutorialFightEnd(won); return; }
     B.done = true; B.phase = 'result'; B.outcome = won ? 'won' : 'died'; sfx(won ? 'correct' : 'death');
     var html = won ? '<h2>' + esc(foe.name) + (B.isBoss ? ' falls' : ' is slain') + '</h2><p class="muted">A practice fight: no Lore won, and the lands are unchanged. The real thing is out there.</p>'
       : '<h2>You fell</h2><p class="muted">Only practice. Nothing is lost: your Lore, gear and items are as you left them.</p>';
@@ -866,7 +957,7 @@
     acts.appendChild(again); acts.appendChild(back); res.appendChild(acts);
     B.result = res; render();
   }
-  function leavePractice() { var B = UI.battle; UI.battle = null; if (B) UI.land = B.home; UI.screen = 'bonfire'; UI.bonfireTab = 'beast'; render(); window.scrollTo(0, 0); }
+  function leavePractice() { var B = UI.battle; if (B && B.tutorial) { UI.battle = null; UI.returnFrom = { ref: B.foe, inst: B.inst, isBoss: B.isBoss, outcome: 'fled' }; UI.land = 'T0'; go('land'); return; } UI.battle = null; if (B) UI.land = B.home; UI.screen = 'bonfire'; UI.bonfireTab = 'beast'; render(); window.scrollTo(0, 0); }
   /* the end of the road: the hero on the throne (painted per class when the art exists, else the stage-3 portrait, crowned) */
   function throneSplash() {
     var old = document.querySelector('.throne-splash'); if (old) old.remove();
@@ -1101,9 +1192,9 @@
     if (tab !== 'camp') { // entering one of the camp's places: a full-width painting, then its contents
       var cur = TILES.filter(function (t) { return t[0] === tab; })[0];
       app.appendChild(campHall(tab, cur[1], cur[2], function () { UI.bonfireTab = 'camp'; render(); window.scrollTo(0, 0); }));
-      var kp = window.KEEPERS && KEEPERS[tab];
-      if (kp) { var li = kp.lines[Math.floor(Math.random() * kp.lines.length)]; app.appendChild(el('figure', 'keeper-says', '<blockquote>' + esc(li) + '</blockquote><figcaption>' + esc(kp.name) + ', ' + esc(kp.role) + '</figcaption>')); }
       if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else bonfireBook();
+      var kp = window.KEEPERS && KEEPERS[tab]; // the keeper's parting word, at the foot of their page
+      if (kp) { var li = kp.lines[Math.floor(Math.random() * kp.lines.length)]; app.appendChild(el('figure', 'keeper-says', '<blockquote>' + esc(li) + '</blockquote><figcaption>' + esc(kp.name) + ', ' + esc(kp.role) + '</figcaption>')); }
       return;
     }
     var head = el('div', 'camp-head');
@@ -1370,9 +1461,11 @@
     box.appendChild(row); sv.appendChild(box); app.appendChild(sv);
   }
 
-  function backFromRecord() { if (S.where && landById(S.where)) { UI.land = S.where; go('land'); } else go('bonfire'); } // the Chronicle opens from the HUD anywhere: it never becomes a shortcut to the bonfire
+  function backFromRecord() { if (UI.tut) { UI.land = 'T0'; go('land'); return; } if (S.where && landById(S.where)) { UI.land = S.where; go('land'); } else go('bonfire'); } // the Chronicle opens from the HUD anywhere: it never becomes a shortcut to the bonfire
   function screenHelp() {
     app.appendChild(campHall('help', 'Rules', 'How Lorebound works.', backFromRecord));
+    var tp = el('div', 'panel tut-replay', '<div><div class="eyebrow">The Proving Grounds</div><b>Forgotten how it all works?</b> <span class="muted">Walk through the tutorial again. Nothing in it is kept, and nothing in it can hurt your hero.</span></div>');
+    var tb = el('button', 'btn', 'Play the tutorial'); tb.type = 'button'; tb.onclick = function () { startTutorial('rules'); }; tp.appendChild(tb); app.appendChild(tp);
     app.appendChild(el('div', 'panel', '<ul class="rules">' +
       '<li><b>Each land is a unit of Math 10C.</b> Each creature is one outcome at one level: Beginning, Progressing or Mastery. The same creature always asks the same kind of question, but never the same numbers.</li>' +
       '<li><b>Ten bosses are ten seals.</b> Slay the boss of every land and an eleventh opens in the far west: the Purloined Throne, where the Hollow Lord asks one Mastery question from every outcome. Answer them all and you become the <b>Lord of Lore</b>.</li>' +
