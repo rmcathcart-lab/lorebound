@@ -111,6 +111,7 @@
     if (e.kind === 'chest') { if (!SP.defs.chest) SP.defs.chest = { img: dt, frames: [{ x: DT_DEFS.chest_full_open_anim[0][0], y: DT_DEFS.chest_full_open_anim[0][1], w: 16, h: 16 }], fps: 1, anchorBottom: false }; return 'chest'; }
     if (e.kind === 'page' && window.ART_IMG && ART_IMG['ui-lorebook-page']) { if (!SP.defs['ui:page']) SP.defs['ui:page'] = { hd: true, img: SP.ui('ui-lorebook-page', true), scale: 17 / 128, frames: [{ x: 0, y: 0, w: 128, h: 128, ax: 64, ay: 116 }], fps: 1 }; return 'ui:page'; }
     if (e.kind === 'page') { if (!SP.defs.page) SP.defs.page = kdef(ken, [K(44, 15)], 1); return 'page'; }
+    if (e.kind === 'key' && window.ART_IMG && ART_IMG['ui-key']) { if (!SP.defs['ui:key']) SP.defs['ui:key'] = { hd: true, img: SP.ui('ui-key', true), scale: 15 / 96, frames: [{ x: 0, y: 0, w: 96, h: 93, ax: 48, ay: 88 }], fps: 1 }; return 'ui:key'; }
     if (e.kind === 'key') { if (!SP.defs.key) SP.defs.key = { img: keyImg(), frames: [{ x: 0, y: 0, w: 8, h: 14 }], fps: 1 }; return 'key'; }
     return null;
   };

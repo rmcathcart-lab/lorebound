@@ -123,7 +123,7 @@
   function itemCount(id) { var it = itemById(id); if (it && it.permanent) return S ? 1 : 0; return (S && S.items && S.items[id]) || 0; } // permanent items never run out
   function isLordOfLore() { return !!(S && S.bossKills && S.bossKills[FINAL_ID]); }
   function rankAt(lv) { var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (lv >= x[0]) t = x[1]; }); return t; }
-  function lordBadge(cls) { var a = window.ART_IMG && ART_IMG['ui-ach-lord']; return a ? '<img class="' + cls + '" src="' + a + '" alt="">' : '♛'; } // the Lord of Lore's medallion (falls back to a crown)
+  function lordBadge(cls) { var a = window.ART_IMG && (ART_IMG['ui-lord-front'] || ART_IMG['ui-ach-lord']); return a ? '<img class="' + cls + '" src="' + a + '" alt="">' : '♛'; } // the Lord of Lore's medallion (falls back to a crown)
   function levelTitle() { if (isLordOfLore()) return LEVEL.crown; var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
   function levelLoreMult() { return 1 + LEVEL.lorePct / 100 * ((S.level || 1) - 1); }
   function timeMult() { var m = 1 + LEVEL.timePct / 100 * ((S.level || 1) - 1); if (owns('stillness')) m += 0.75; else if (owns('lichglass')) m += 0.4; else if (owns('sundial')) m += 0.2; return m; }
@@ -1463,7 +1463,7 @@
       lad.innerHTML = '<div class="eyebrow">The ladder of titles</div><div class="ladder">' + LEVEL.titles.map(function (t, i) {
         var im = window.ART_IMG && ART_IMG['ui-medal-' + String(t[0]).padStart(2, '0')];
         return '<div class="rung' + (lv >= t[0] ? ' got' : '') + (i === cur ? ' here' : '') + '" data-lv="' + t[0] + '">' + (im ? '<img src="' + im + '" alt="">' : '<b>' + t[0] + '</b>') + '<span class="t">' + esc(t[1]) + '</span><span class="l">level ' + t[0] + '</span></div>';
-      }).join('') + '<div class="rung crown' + (isLordOfLore() ? ' got here' : '') + '">' + (window.ART_IMG && ART_IMG['ui-ach-lord'] ? lordBadge('lord') : '<span class="cr">♛</span>') + '<span class="t">' + esc(LEVEL.crown) + '</span><span class="l">' + (isLordOfLore() ? 'yours' : 'slay the final boss') + '</span></div></div>' +
+      }).join('') + '<div class="rung crown' + (isLordOfLore() ? ' got here' : '') + '">' + (window.ART_IMG && (ART_IMG['ui-lord-front'] || ART_IMG['ui-ach-lord']) ? lordBadge('lord') : '<span class="cr">♛</span>') + '<span class="t">' + esc(LEVEL.crown) + '</span><span class="l">' + (isLordOfLore() ? 'yours' : 'slay the final boss') + '</span></div></div>' +
         '<p class="legacy-fine">Every level costs more than the last: ' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore by level 10.</p>';
       body.appendChild(lad);
       Array.prototype.forEach.call(lad.querySelectorAll('.rung'), function (r) { // a click turns the medallion over, as it does when you level up
@@ -1481,7 +1481,15 @@
         m.ready.then(function () { if (im && im.parentNode === r) r.replaceChild(cv, im); else r.insertBefore(cv, r.firstChild); r._medal = m; m.playTo(lvl).catch(function () {}); });
         return;
       }
-      if (im) { im.classList.remove('spin'); void im.offsetWidth; im.classList.add('spin'); } // the Lord of Lore's badge: a CSS turn
+      if (r.classList.contains('crown') && window.LoreboundVictory && window.ART_IMG && ART_IMG['ui-lord-front']) { // the Lord of Lore: its own unnumbered medallion and victory spin
+        if (r._medal) { if (!r._medal.busy) r._medal.play().catch(function () {}); return; }
+        if (r._mounting) return; r._mounting = true;
+        var vc = el('canvas', 'rm'); vc.width = 256; vc.height = 256; vc.setAttribute('aria-hidden', 'true');
+        try { var vm = LoreboundVictory.mount(vc, {}); } catch (e) { r._mounting = false; return; }
+        vm.ready.then(function () { if (im && im.parentNode === r) r.replaceChild(vc, im); else r.insertBefore(vc, r.firstChild); r._medal = vm; vm.play().catch(function () {}); });
+        return;
+      }
+      if (im) { im.classList.remove('spin'); void im.offsetWidth; im.classList.add('spin'); } // no runtime: a CSS turn
     }
     fill();
   }
