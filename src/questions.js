@@ -361,13 +361,13 @@ var QGen = (function () {
     function () { // exact hypotenuse as simplest mixed radical
       var a = ri(2, 9), b = ri(2, 9), s = a * a + b * b, sq = simpSqrt(s);
       if (sq[1] === 1 || sq[0] === 1 || a === b) return AN2_MAS[0]();
-      return { prompt: 'Find the <b>exact</b> length of the hypotenuse ' + T('x') + ' in <b>simplest mixed radical form</b>. (Type the number only.)<br>' + triSVG(a, b, 'x'), type: 'expr', answers: [rad(sq[0], sq[1])], check: 'exact',
+      return { prompt: 'Find the <b>exact</b> length of the hypotenuse ' + T('x') + ' in <b>simplest mixed radical form</b>.<br>' + triSVG(a, b, 'x'), type: 'expr', answers: [rad(sq[0], sq[1])], check: 'exact',
         hint: 'Pythagoras first: x² = a² + b². Then simplify the square root.',
         solution: steps([T('x^{2} = ' + a + '^{2} + ' + b + '^{2} = ' + a * a + ' + ' + b * b + ' = ' + s) + '.', T('x = \\sqrt{' + s + '} = \\sqrt{' + sq[0] * sq[0] + '\\times' + sq[1] + '} = ' + rad(sq[0], sq[1])) + '.']) };
     },
     function () { // cube edge from volume
       var a = pick([2, 3, 4, 5, 6]), b = pick([2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 15]), v = a * a * a * b;
-      return { prompt: 'A stone reliquary is a perfect cube with a volume of ' + T(fmt(v) + '\\ \\text{cm}^{3}') + '.<br>Write its <b>exact</b> edge length as a mixed radical in simplest form. (Type the number only.)', type: 'expr', answers: [rad(a, b, 3)], check: 'exact',
+      return { prompt: 'A stone reliquary is a perfect cube with a volume of ' + T(fmt(v) + '\\ \\text{cm}^{3}') + '.<br>Write its <b>exact</b> edge length as a mixed radical in simplest form, in cm. (No need to type the units.)', type: 'expr', answers: [rad(a, b, 3)], check: 'exact',
         hint: 'Edge = cube root of the volume. Prime-factor the volume and pull out groups of three.',
         solution: steps(['Edge ' + T('= \\sqrt[3]{' + fmt(v) + '}') + '.', T(fmt(v) + ' = ' + facLatex(factor(v))) + ', so ' + T('\\sqrt[3]{' + fmt(v) + '} = \\sqrt[3]{' + a * a * a + '\\times' + b + '} = ' + rad(a, b, 3)) + ' cm.']) };
     },
@@ -400,7 +400,7 @@ var QGen = (function () {
       var a = ri(2, 4), b = pick([2, 3, 5, 6]), c = ri(2, 4), d = pick([2, 3, 5, 6, 10, 15]);
       if (a === c && b === d) return AN2_MAS[4]();
       var coef = a * c, sq = simpSqrt(b * d), ansCoef = coef * sq[0], ans = sq[1] === 1 ? String(ansCoef) : rad(ansCoef, sq[1]);
-      return { prompt: 'A rectangular tomb lid measures ' + T(rad(a, b) + '\\text{ m}') + ' by ' + T(rad(c, d) + '\\text{ m}') + '.<br>Find its <b>exact</b> area in simplest form. (Type the number only.)', type: 'expr', answers: [ans], check: 'exact',
+      return { prompt: 'A rectangular tomb lid measures ' + T(rad(a, b) + '\\text{ m}') + ' by ' + T(rad(c, d) + '\\text{ m}') + '.<br>Find its <b>exact</b> area' + (sq[1] === 1 ? ' in simplest form' : ' in <b>simplest mixed radical form</b>') + ', in square metres. (No need to type the units.)', type: 'expr', answers: [ans], check: 'exact',
         hint: 'Multiply coefficients together and radicands together, then simplify the root.',
         solution: steps([T('A = ' + rad(a, b) + '\\times' + rad(c, d) + ' = ' + coef + '\\sqrt{' + b * d + '}') + '.', (sq[1] === 1 ? T('\\sqrt{' + b * d + '} = ' + sq[0]) + ', so ' + T('A = ' + ans) : sq[0] === 1 ? T(b * d) + ' has no perfect-square factor, so ' + T('A = ' + ans) : T('\\sqrt{' + b * d + '} = \\sqrt{' + sq[0] * sq[0] + '\\times' + sq[1] + '} = ' + rad(sq[0], sq[1])) + ', so ' + T('A = ' + ans)) + ' m².']) };
     }

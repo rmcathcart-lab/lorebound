@@ -335,7 +335,7 @@
         hint = 'Number of sheets = total height ÷ thickness of one sheet. Write the height in scientific notation first.';
         sol = [T(stdTex(h[0], h[1]) + ' = ' + sci(num(h[0]), h[1])) + '.', T('\\dfrac{' + sci(num(h[0]), h[1]) + '}{' + sci(t[0], t[1]) + '} = ' + num(h[0] / t[0]) + '\\times10^{' + (h[1] - t[1]) + '}') + '.', 'In scientific notation: ' + T(sci(num(ans[0]), ans[1])) + ' sheets.'];
       }
-      return { prompt: prompt + ' Answer in <b>scientific notation</b> (number only).', type: 'expr', answers: [sci(num(ans[0]), ans[1])], check: 'exact',
+      return { prompt: prompt + ' Answer in <b>scientific notation</b>. (No need to type the units.)', type: 'expr', answers: [sci(num(ans[0]), ans[1])], check: 'exact',
         note: 'Type it as a × 10^n, with × between.', hint: hint + ' Then make sure the coefficient is between 1 and 10.', solution: steps(sol) };
     },
     function () { // power with negative rational exponent -> radical
@@ -413,7 +413,7 @@
         hint = 'Step 1: mass of one colony = mass of a spore × number of spores. Step 2: change kilograms to grams, then divide by the mass of one colony.';
         sol = ['One colony: ' + T('(' + sci(m1, e1) + ')(' + sci(m2, e2) + ') = ' + sci(num(col[0]), col[1])) + ' g.', T(M + '\\text{ kg} = ' + sci(M, 3) + '\\text{ g}') + '.', T('\\dfrac{' + sci(M, 3) + '}{' + sci(num(col[0]), col[1]) + '} = ' + num(M / col[0]) + '\\times10^{' + (3 - col[1]) + '}') + '.', 'In scientific notation: ' + T(sci(num(ans[0]), ans[1])) + ' colonies.'];
       }
-      return { prompt: prompt + ' Answer in <b>scientific notation</b> (number only).', type: 'expr', answers: [sci(num(ans[0]), ans[1])], check: 'exact',
+      return { prompt: prompt + ' Answer in <b>scientific notation</b>. (No need to type the units.)', type: 'expr', answers: [sci(num(ans[0]), ans[1])], check: 'exact',
         note: 'Type it as a × 10^n, with × between.', hint: hint, solution: steps(sol) };
     },
     function () { // every law at once: rational AND negative exponents, positive-exponent answer (EP06 Q1–2)
