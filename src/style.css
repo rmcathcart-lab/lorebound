@@ -916,3 +916,75 @@ img.lord-mini { width: 26px; height: 26px; vertical-align: -8px; margin: -4px 0;
 .ach-when { font-family: var(--font-ui); font-size: 11.5px; letter-spacing: .06em; color: #e9c98d; margin-top: 6px; }
 .ach-card:not(.got) .ach-when { color: var(--bone-dim); }
 @media (max-width: 520px) { .ach-grid { grid-template-columns: 1fr; } .ach-badge { width: 60px; height: 60px; } }
+
+/* ---------- Chronicle ---------- */
+.chron-titles { font-family: var(--font-ui); font-size: 15px; letter-spacing: .04em; color: #e9c98d; margin: 4px 0 0; }
+.chron-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 0 0 18px; }
+.ck { position: relative; background: rgba(20,16,26,.88); border: 1px solid var(--edge); border-radius: 8px; padding: 14px 14px 12px; min-height: 112px; }
+.ck-k { font-family: var(--font-ui); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--bone-dim); }
+.ck-v { font-family: var(--font-display); font-size: 36px; line-height: 1.1; color: var(--bone); margin: 6px 0 4px; }
+.ck-of { font-size: 18px; color: var(--bone-dim); }
+.ck-sub { font-size: 13px; line-height: 1.35; color: var(--bone-dim); }
+.ck.lore .ck-v { color: var(--lore); }
+.ck-img { position: absolute; right: 8px; top: 8px; width: 56px; height: 56px; }
+.chron-journey .jr-row { display: grid; grid-template-columns: 76px minmax(150px, 1.4fr) minmax(120px, 1.3fr) 100px 76px 34px 108px; gap: 14px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(58,49,68,.6); }
+.chron-journey .eyebrow + .jr-row { border-top: 0; }
+.jr-ban { width: 76px; height: 46px; border-radius: 5px; background: #1a1520 center / cover no-repeat; box-shadow: inset 0 0 0 1px rgba(255,255,255,.06); }
+.jr-name b { display: block; font-weight: 600; color: var(--bone); font-size: 16px; }
+.jr-name span { display: block; font-size: 13px; color: var(--bone-dim); }
+.jr-row.done .jr-name b { color: #e9c98d; }
+.jr-track, .ms-track { height: 8px; border-radius: 4px; overflow: hidden; }
+.jr-track { background: rgba(217,120,46,.16); }
+.jr-track span { display: block; height: 100%; border-radius: 4px; background: var(--ember); }
+.jr-lab { display: block; font-size: 12px; color: var(--bone-dim); margin-top: 4px; }
+.jr-dots { display: flex; gap: 5px; }
+.jr-dots i { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(143,211,255,.45); }
+.jr-dots i.on { background: var(--lore); border-color: var(--lore); box-shadow: 0 0 6px rgba(143,211,255,.5); }
+.jr-chests b { font-family: var(--font-display); font-size: 20px; color: var(--bone); }
+.jr-chests .jr-lab { display: inline; margin-left: 4px; }
+.jr-key img { width: 30px; height: 30px; display: block; filter: grayscale(1) brightness(.45); opacity: .7; }
+.jr-key.on img { filter: none; opacity: 1; }
+.jr-boss { display: flex; align-items: center; gap: 8px; }
+.jr-boss img { width: 36px; height: 36px; filter: grayscale(1) brightness(.45); }
+.jr-boss.on img { filter: none; }
+.jr-boss .jr-lab { margin: 0; }
+.jr-boss.on .jr-lab { color: #e9c98d; }
+.jr-row.locked .jr-ban { filter: grayscale(1) brightness(.5); }
+.jr-row.locked .jr-name b { color: var(--bone-dim); }
+.jr-lockline { grid-column: 3 / -1; font-size: 14px; color: var(--bone-dim); display: flex; align-items: center; gap: 10px; }
+.jr-lockline img { height: 18px; width: auto; opacity: .75; }
+.chron-mastery > p { margin: 4px 0 10px; }
+.ms-land { border-top: 1px solid rgba(58,49,68,.6); padding: 10px 0 6px; }
+.ms-land summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.ms-land summary::-webkit-details-marker { display: none; }
+.ms-land summary::before { content: "▸"; color: var(--bone-dim); font-size: 13px; transition: transform .2s; display: inline-block; }
+.ms-land[open] summary::before { transform: rotate(90deg); }
+.ms-land summary b { font-size: 17px; color: var(--bone); }
+.ms-land summary .muted { font-size: 14px; }
+.ms-grid { margin-top: 8px; }
+.ms-row { display: grid; grid-template-columns: minmax(200px, 1.8fr) repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; padding: 7px 0; }
+.ms-row .ms-oc { align-self: center; }
+.ms-headrow { font-family: var(--font-ui); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--bone-dim); padding-bottom: 0; }
+.ms-oc { font-size: 15px; line-height: 1.3; color: var(--bone); }
+.ms-track { background: rgba(127,176,105,.16); }
+.ms-track span { display: block; height: 100%; border-radius: 4px; background: var(--good); }
+.ms-cell > span { display: block; font-size: 13px; color: var(--bone-dim); margin-top: 4px; }
+.ms-cell > span b { color: var(--bone); font-weight: 600; }
+.ms-cell > span small { font-size: inherit; }
+.ms-cell .sep { font-style: normal; }
+.ms-cell.todo > span { font-style: italic; opacity: .8; }
+.ms-cell.none > span { margin: 0; }
+.ms-lv { display: none; }
+@media (max-width: 1000px) { .chron-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) {
+  .chron-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ck { min-height: 0; padding: 12px; } .ck-v { font-size: 30px; } .ck-img { width: 44px; height: 44px; }
+  .chron-journey .jr-row { grid-template-columns: 56px 1fr auto auto; grid-template-areas: "ban name name name" "meter meter meter meter" "pages chests key boss"; gap: 8px 12px; padding: 12px 0; }
+  .jr-ban { grid-area: ban; width: 56px; height: 38px; } .jr-name { grid-area: name; } .jr-meter { grid-area: meter; } .jr-pages { grid-area: pages; } .jr-chests { grid-area: chests; } .jr-key { grid-area: key; } .jr-boss { grid-area: boss; }
+  .jr-lockline { grid-column: 1 / -1; }
+  .ms-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 12px; padding: 10px 0; border-top: 1px solid rgba(58,49,68,.35); }
+  .ms-headrow { display: none; } .ms-oc { grid-column: 1 / -1; }
+  .ms-lv { display: block; font-style: normal; font-family: var(--font-ui); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--bone-dim); margin-bottom: 4px; }
+  .ms-cell > span { font-size: 12px; } .ms-cell > span small { display: block; } .ms-cell .sep { display: none; }
+  .jr-row .empty { display: none; }
+}
