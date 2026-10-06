@@ -79,6 +79,7 @@
       if (w.top) { var above = ty > 0 ? tiles[(ty - 1) * MW + tx] : 0; if (above !== G.WALL && above !== G.EDGE) drawCell(ctx, cell(w.top, sheet), x, y - 16, sheet); }
       return true;
     }
+    if ((t === G.GATE || t === G.GATE_OPEN) && SP.hasDoorArt()) { drawCell(ctx, cell(tab.path[0], sheet), x, y, sheet); return true; } // the painted door is drawn as an entity (overworld.js)
     if (t === G.GATE || t === G.GATE_OPEN) { var open = Overworld.gateOpen(); var d = DT_DEFS[open ? 'doors_leaf_open' : 'doors_leaf_closed'][0]; ctx.drawImage(dt, d[0], d[1], d[2], d[3], x - 8, y - 16, 32, 32); return true; }
     if (t === G.FIRE && propOK) return true;
     if (t === G.FIRE) { var ff = Math.floor(Overworld.time() * 6) % 2 ? K(13, 0) : K(14, 0); ctx.drawImage(raw, ff[0], ff[1], 16, 16, x, y, 16, 16); return true; }
@@ -108,10 +109,15 @@
     if (e.kind === 'creature') { var b = CREATURE[e.ref.sigil] || CREATURE[e.ref.id] || 'skelet'; var mv = e.moving || (e.tx != null && Math.hypot(e.tx - e.x, e.ty - e.y) > 1); var an = animName(b, mv); def(an); return an; }
     if (e.kind === 'boss') { var bb = BOSS[L.id] || ['big_zombie', 1]; var bn = animName(bb[0], false); var bd = def(bn); if (bd && bb[1] !== 1) { var bk = bn + ':x' + bb[1]; if (!SP.defs[bk]) SP.defs[bk] = { img: bd.img, frames: bd.frames, fps: 6, scale: bb[1], tint: L.id === 'L4' ? 'rgba(255,200,80,.3)' : null }; return bk; } return bn; }
     if (e.kind === 'chest') { if (!SP.defs.chest) SP.defs.chest = { img: dt, frames: [{ x: DT_DEFS.chest_full_open_anim[0][0], y: DT_DEFS.chest_full_open_anim[0][1], w: 16, h: 16 }], fps: 1, anchorBottom: false }; return 'chest'; }
+    if (e.kind === 'page' && window.ART_IMG && ART_IMG['ui-lorebook-page']) { if (!SP.defs['ui:page']) SP.defs['ui:page'] = { hd: true, img: SP.ui('ui-lorebook-page', true), scale: 17 / 128, frames: [{ x: 0, y: 0, w: 128, h: 128, ax: 64, ay: 116 }], fps: 1 }; return 'ui:page'; }
     if (e.kind === 'page') { if (!SP.defs.page) SP.defs.page = kdef(ken, [K(44, 15)], 1); return 'page'; }
     if (e.kind === 'key') { if (!SP.defs.key) SP.defs.key = { img: keyImg(), frames: [{ x: 0, y: 0, w: 8, h: 14 }], fps: 1 }; return 'key'; }
     return null;
   };
+  /* painted UI icons used on the map (ART_IMG 'ui-*'): one Image each, returned once it has loaded (raw: return it at once) */
+  var uiCache = {};
+  SP.ui = function (k, raw) { var im = uiCache[k]; if (!im) { if (!window.ART_IMG || !ART_IMG[k]) return null; im = uiCache[k] = new Image(); im.src = ART_IMG[k]; } return raw || (im.complete && im.naturalWidth) ? im : null; };
+  SP.hasDoorArt = function () { return !!(window.ART_IMG && ART_IMG['ui-boss-door-closed'] && ART_IMG['ui-boss-door-open']); };
   function keyImg() { var cv = document.createElement('canvas'); cv.width = 8; cv.height = 14; var c = cv.getContext('2d'); c.fillStyle = '#b8862b'; c.fillRect(1, 0, 6, 6); c.fillRect(3, 6, 2, 8); c.fillRect(5, 11, 2, 1); c.fillRect(5, 13, 2, 1); c.fillStyle = '#ffd27a'; c.fillRect(2, 1, 4, 4); c.fillRect(3, 6, 1, 7); c.fillStyle = '#3a2a10'; c.fillRect(3, 2, 2, 2); return cv; }
 
   /* ---------- actors: painted creatures (one sheet each) and the hero, with idle / walk / attack / death ---------- */
@@ -196,7 +202,7 @@
     if (t === G.WATER) { var lf = def.liquid; put(lf[Math.floor(Overworld.time() * (def.liquidFps || 4)) % lf.length]); ctx.imageSmoothingEnabled = false; return true; }
     put(t === G.PATH ? def.path : def.ground[Math.floor(r * def.ground.length)]);
     ctx.imageSmoothingEnabled = false;
-    if ((t === G.GATE || t === G.GATE_OPEN) && def === (window.TERRAIN_DEFS || {}).L11 && SP.actor('cr:gate11')) return true; // the throne-room gate is drawn as a sprite, in front of the walls
+    if ((t === G.GATE || t === G.GATE_OPEN) && (SP.hasDoorArt() || (def === (window.TERRAIN_DEFS || {}).L11 && SP.actor('cr:gate11')))) return true; // the throne-room gate is drawn as a sprite, in front of the walls
     if (t === G.GATE || t === G.GATE_OPEN) { var open = Overworld.gateOpen(); var d = DT_DEFS[open ? 'doors_leaf_open' : 'doors_leaf_closed'][0]; ctx.drawImage(dt, d[0], d[1], d[2], d[3], x - 8, y - 16, 32, 32); }
     return true;
   }

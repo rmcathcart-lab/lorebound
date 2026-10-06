@@ -123,6 +123,7 @@
   function itemCount(id) { var it = itemById(id); if (it && it.permanent) return S ? 1 : 0; return (S && S.items && S.items[id]) || 0; } // permanent items never run out
   function isLordOfLore() { return !!(S && S.bossKills && S.bossKills[FINAL_ID]); }
   function rankAt(lv) { var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (lv >= x[0]) t = x[1]; }); return t; }
+  function lordBadge(cls) { var a = window.ART_IMG && ART_IMG['ui-ach-lord']; return a ? '<img class="' + cls + '" src="' + a + '" alt="">' : '♛'; } // the Lord of Lore's medallion (falls back to a crown)
   function levelTitle() { if (isLordOfLore()) return LEVEL.crown; var t = 'Wanderer'; LEVEL.titles.forEach(function (x) { if (S.level >= x[0]) t = x[1]; }); return t; }
   function levelLoreMult() { return 1 + LEVEL.lorePct / 100 * ((S.level || 1) - 1); }
   function timeMult() { var m = 1 + LEVEL.timePct / 100 * ((S.level || 1) - 1); if (owns('stillness')) m += 0.75; else if (owns('lichglass')) m += 0.4; else if (owns('sundial')) m += 0.2; return m; }
@@ -466,8 +467,8 @@
     setTimeout(function () { sfx('levelup'); toast(fresh.length === 1 ? 'Achievement earned: <b>' + esc(fresh[0].name) + '</b>' : fresh.length + ' achievements earned. See them at the bonfire.'); }, 700);
   }
   function achBadge(a, got) {
-    var art = window.ART_IMG && (ART_IMG['ach-' + a.id] || ART_IMG['ui-medal-back-' + a.tier]);
-    return '<span class="ach-badge' + (got ? ' got' : '') + (ART_IMG && ART_IMG['ach-' + a.id] ? '' : ' stand-in') + '">' + (art ? '<img src="' + art + '" alt="">' : '') + '</span>';
+    var art = window.ART_IMG && (ART_IMG['ui-ach-' + a.id] || ART_IMG['ui-medal-back-' + a.tier]);
+    return '<span class="ach-badge' + (got ? ' got' : '') + (ART_IMG && ART_IMG['ui-ach-' + a.id] ? '' : ' stand-in') + '">' + (art ? '<img src="' + art + '" alt="">' : '') + '</span>';
   }
   function bonfireAchievements() {
     S.ach = S.ach || {}; var got = ACHIEVEMENTS.filter(function (a) { return S.ach[a.id]; }).length;
@@ -583,7 +584,7 @@
       returnFrom: UI.returnFrom,
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst, strike) { startBattle(L, c, isBoss, inst, false, strike); },
-      onBonfire: function () { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); },
+      onBonfire: function (o) { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } }, // after a boss-room fire, the next visit starts at the land's own bonfire
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
       onSave: function () { saveLocal(); } });
@@ -611,7 +612,7 @@
       bossOpen: function () { return bossOpen(L); },
       returnFrom: UI.returnFrom,
       onBattle: function (c, isBoss, inst, strike) { startBattle(L, c, isBoss, inst, false, strike); },
-      onBonfire: function () { if (L.explore === 2) { var wd = S.world && S.world[L.id]; if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); },
+      onBonfire: function (o) { var wd = S.world && S.world[L.id]; if (L.explore === 2) { if (wd && wd.dead && wd.dead.length) { wd.dead = []; wd.deadAt = {}; toast('You rest. Out in the dark, the dead stir again.'); } } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } },
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
@@ -1033,7 +1034,7 @@
     var c = heroClass(), art = window.ART_IMG && ART_IMG['throne-' + c.id], hero = S.hero ? S.hero.name : S.name;
     var sp = el('div', 'throne-splash' + (art ? ' painted' : ''));
     sp.setAttribute('role', 'dialog'); sp.setAttribute('aria-label', 'You have become the Lord of Lore');
-    sp.innerHTML = (art ? '<img class="ts-art" src="' + art + '" alt="">' : '<div class="ts-seat"><div class="ts-crown">♛</div>' + (ART_IMG && ART_IMG['hero-' + c.id + '-3'] ? '<img src="' + ART_IMG['hero-' + c.id + '-3'] + '" alt="">' : '') + '</div>') +
+    sp.innerHTML = (art ? '<img class="ts-art" src="' + art + '" alt="">' : '<div class="ts-seat"><div class="ts-crown">' + lordBadge('ts-lord') + '</div>' + (ART_IMG && ART_IMG['hero-' + c.id + '-3'] ? '<img src="' + ART_IMG['hero-' + c.id + '-3'] + '" alt="">' : '') + '</div>') +
       '<div class="ts-glow"></div><div class="ts-cap"><div class="eyebrow">' + esc(hero) + ' · ' + esc(c.name) + '</div><h1>The lands have been vanquished,<br>you have become the Lord of Lore!</h1></div>';
     var b = el('button', 'btn big ts-rise', 'Rise, ' + esc(LEVEL.crown)); b.type = 'button'; b.onclick = function () { sp.classList.add('out'); setTimeout(function () { sp.remove(); }, 600); };
     sp.querySelector('.ts-cap').appendChild(b);
@@ -1254,6 +1255,7 @@
   }
   function screenBonfire() {
     syncUnlocks(false); S.where = null; // resting: a reload from here may go to the map
+    if (S.world) Object.keys(S.world).forEach(function (k) { if (S.world[k] && S.world[k].campfire) delete S.world[k].campfire; }); // a boss-room fire burns out once you have rested
     var tab = UI.bonfireTab || 'camp', Lc = landById(UI.land || S.lastLand || 'L1');
     if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast' || tab === 'ach') {} else tab = 'camp';
     var bkey = Lc && (Lc.banner || (Lc.id === 'L1' ? 'title' : null));
@@ -1346,7 +1348,7 @@
         var card = el('div', 'forge-card' + (has ? ' owned' : hardLock ? ' locked' : lock ? ' short' : ' ready'));
         var gimg = window.ART_IMG && ART_IMG['gear-' + g.id];
         card.innerHTML = '<div class="fc-art">' + (gimg ? '<img src="' + gimg + '" alt="">' : '') + '<span class="fc-tier">Tier ' + g.tier + '</span>' + (has ? '<span class="fc-seal">Owned</span>' : '') +
-          (hardLock ? '<span class="fc-lock">' + esc(lock) + '</span>' : '') + '<div class="fc-name">' + esc(g.name) + '</div></div>' +
+          (hardLock ? '<span class="fc-lock">' + (window.ART_IMG && ART_IMG['ui-lock-simple'] ? '<img class="lk" src="' + ART_IMG['ui-lock-simple'] + '" alt="">' : '') + esc(lock) + '</span>' : '') + '<div class="fc-name">' + esc(g.name) + '</div></div>' +
           '<div class="fc-body"><div class="desc">' + esc(g.desc) + (g.use ? ' ' + esc(g.use) : '') + '</div><div class="fc-foot"></div></div>';
         var foot = card.querySelector('.fc-foot');
         if (!has) {
@@ -1392,7 +1394,7 @@
     var shown = S.level || 1, medal = null;
     function label(lv, t) { rank.textContent = t; mc.setAttribute('aria-label', 'Level ' + lv + ', ' + t);
       var nx = null; LEVEL.titles.forEach(function (x) { if (!nx && x[0] > lv) nx = x; });
-      rankSub.innerHTML = (isLordOfLore() ? '<b>♛ ' + esc(LEVEL.crown) + '</b> · ' : '') + (nx ? 'next title, <i>' + esc(nx[1]) + '</i>, at level ' + nx[0] : 'the highest title'); }
+      rankSub.innerHTML = (isLordOfLore() ? '<b>' + lordBadge('lord-mini') + ' ' + esc(LEVEL.crown) + '</b> · ' : '') + (nx ? 'next title, <i>' + esc(nx[1]) + '</i>, at level ' + nx[0] : 'the highest title'); }
     label(shown, rankAt(shown));
     if (window.LoreboundMedallions) try {
       medal = LoreboundMedallions.mount(mc, { level: Math.max(1, Math.min(30, shown)), reducedMotion: still, onUpdate: function (st) { if (st.title !== rank.textContent) { label(st.displayLevel, st.title); if (st.rankChanged && st.revealed) { rank.classList.remove('new'); void rank.offsetWidth; rank.classList.add('new'); } } else if (st.revealed) label(st.displayLevel, st.title); } });
@@ -1425,7 +1427,6 @@
       toast('Level ' + to + '. ' + (rankAt(to) !== rankAt(to - 1) ? 'You are now ' + rankAt(to) + '.' : 'You feel stronger.'));
     });
     app.appendChild(stage.el);
-    stage.el.querySelector('.ritual-cv').onclick = stage.replay;
     var body = el('div', 'legacy-body'); app.appendChild(body);
     function fill() { // everything that changes with a level: the button, the gifts, the ladder
       var lv = S.level || 1, cost = LEVEL.cost(lv), maxed = lv >= LEVEL.max;
@@ -1461,10 +1462,26 @@
       var cur = 0; LEVEL.titles.forEach(function (t, i) { if (lv >= t[0]) cur = i; });
       lad.innerHTML = '<div class="eyebrow">The ladder of titles</div><div class="ladder">' + LEVEL.titles.map(function (t, i) {
         var im = window.ART_IMG && ART_IMG['ui-medal-' + String(t[0]).padStart(2, '0')];
-        return '<div class="rung' + (lv >= t[0] ? ' got' : '') + (i === cur ? ' here' : '') + '">' + (im ? '<img src="' + im + '" alt="">' : '<b>' + t[0] + '</b>') + '<span class="t">' + esc(t[1]) + '</span><span class="l">level ' + t[0] + '</span></div>';
-      }).join('') + '<div class="rung crown' + (isLordOfLore() ? ' got here' : '') + '"><span class="cr">♛</span><span class="t">' + esc(LEVEL.crown) + '</span><span class="l">' + (isLordOfLore() ? 'yours' : 'slay the final boss') + '</span></div></div>' +
+        return '<div class="rung' + (lv >= t[0] ? ' got' : '') + (i === cur ? ' here' : '') + '" data-lv="' + t[0] + '">' + (im ? '<img src="' + im + '" alt="">' : '<b>' + t[0] + '</b>') + '<span class="t">' + esc(t[1]) + '</span><span class="l">level ' + t[0] + '</span></div>';
+      }).join('') + '<div class="rung crown' + (isLordOfLore() ? ' got here' : '') + '">' + (window.ART_IMG && ART_IMG['ui-ach-lord'] ? lordBadge('lord') : '<span class="cr">♛</span>') + '<span class="t">' + esc(LEVEL.crown) + '</span><span class="l">' + (isLordOfLore() ? 'yours' : 'slay the final boss') + '</span></div></div>' +
         '<p class="legacy-fine">Every level costs more than the last: ' + n(LEVEL.cost(1)) + ', ' + n(LEVEL.cost(2)) + ', ' + n(LEVEL.cost(3)) + ' … ' + n(LEVEL.cost(9)) + ' Lore by level 10.</p>';
       body.appendChild(lad);
+      Array.prototype.forEach.call(lad.querySelectorAll('.rung'), function (r) { // a click turns the medallion over, as it does when you level up
+        r.tabIndex = 0; r.setAttribute('role', 'button'); r.setAttribute('aria-label', 'Spin the ' + r.querySelector('.t').textContent + ' medallion');
+        r.onclick = function () { spinRung(r); }; r.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); spinRung(r); } };
+      });
+    }
+    function spinRung(r) {
+      var lvl = +r.getAttribute('data-lv'), im = r.querySelector('img');
+      if (lvl && window.LoreboundMedallions) {
+        if (r._medal) { if (!r._medal.busy) r._medal.playTo(lvl).catch(function () {}); return; }
+        if (r._mounting) return; r._mounting = true;
+        var cv = el('canvas', 'rm'); cv.width = 256; cv.height = 256; cv.setAttribute('aria-hidden', 'true');
+        try { var m = LoreboundMedallions.mount(cv, { level: lvl }); } catch (e) { r._mounting = false; return; }
+        m.ready.then(function () { if (im && im.parentNode === r) r.replaceChild(cv, im); else r.insertBefore(cv, r.firstChild); r._medal = m; m.playTo(lvl).catch(function () {}); });
+        return;
+      }
+      if (im) { im.classList.remove('spin'); void im.offsetWidth; im.classList.add('spin'); } // the Lord of Lore's badge: a CSS turn
     }
     fill();
   }

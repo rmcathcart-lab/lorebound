@@ -585,7 +585,7 @@ body.in-world #app { padding: 0; max-width: none; }
 .forge-card.locked .fc-art img { filter: grayscale(.45) brightness(.72); }
 .forge-card.locked .fc-body { opacity: .82; }
 .fc-lock { top: auto; bottom: 42px; left: 12px; right: auto; text-align: left; padding: 3px 9px; font-size: 11px; color: var(--ember); background: rgba(10,8,14,.78); border: 1px solid rgba(217,120,46,.4); border-radius: 999px; text-shadow: none; }
-.fc-lock::before { content: "🔒 "; font-size: 10px; }
+.fc-lock img.lk { display: inline-block; width: auto; height: 15px; vertical-align: -3px; margin-right: 6px; }
 @media (max-width: 760px) {
   .ware .fc-seal { top: 38px; left: 10px; right: auto; }
   .ware .fc-tier, .ware .fc-seal { font-size: 9px; padding: 2px 6px; letter-spacing: .1em; }
@@ -793,6 +793,17 @@ html.has-hall { overflow-x: clip; }
 .legacy-ladder .rung.got .cr { color: #e9c98d; border-style: solid; border-color: rgba(214,168,96,.6); box-shadow: 0 0 18px rgba(214,168,96,.35); }
 .legacy-ladder .rung.here { border-color: rgba(214,168,96,.45); background: radial-gradient(ellipse at 50% 30%, rgba(214,168,96,.14), transparent 70%); }
 .legacy-ladder .rung.here .t { color: #e9c98d; }
+.legacy-ladder .rung { cursor: pointer; transition: background .2s; }
+.legacy-ladder .rung:hover { background: rgba(214,168,96,.06); }
+.legacy-ladder .rung:focus-visible { outline: 2px solid rgba(214,168,96,.7); outline-offset: 2px; }
+.legacy-ladder .rung canvas.rm { width: 76px; height: 76px; margin-top: -6px; margin-bottom: 4px; filter: grayscale(.55) brightness(.62); }
+.legacy-ladder .rung.got canvas.rm { filter: none; }
+.legacy-ladder .rung img.lord { width: 64px; height: 64px; margin: 0 0 10px; }
+.legacy-ladder .rung img.lord.spin { animation: lord-spin 2s cubic-bezier(.45,0,.2,1); }
+@keyframes lord-spin { from { transform: perspective(500px) rotateY(0); } to { transform: perspective(500px) rotateY(720deg); } }
+img.lord-mini { width: 20px; height: 20px; vertical-align: -5px; }
+.ts-crown img.ts-lord { width: clamp(60px, 10vh, 100px); height: auto; display: block; filter: drop-shadow(0 0 14px rgba(242,196,106,.7)); }
+@media (prefers-reduced-motion: reduce) { .legacy-ladder .rung img.lord.spin { animation: none; } }
 @media (max-width: 860px) { .legacy-grid { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
   .ritual-top { height: 236px; }
@@ -804,7 +815,7 @@ html.has-hall { overflow-x: clip; }
   .gift .k { min-height: 0; } .gift .v { grid-row: span 2; font-size: 28px; margin: 0; align-self: center; } .gift .nx { font-size: 14px; }
   .legacy-body .panel { padding: 18px 16px; }
   .legacy-ladder .ladder { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .legacy-ladder .rung img { width: 60px; height: 60px; } .legacy-ladder .rung .cr { width: 42px; height: 42px; margin: 4px 0 8px; font-size: 22px; }
+  .legacy-ladder .rung img { width: 60px; height: 60px; } .legacy-ladder .rung canvas.rm { width: 60px; height: 60px; } .legacy-ladder .rung img.lord { width: 50px; height: 50px; margin: 0 0 8px; } .legacy-ladder .rung .cr { width: 42px; height: 42px; margin: 4px 0 8px; font-size: 22px; }
   .legacy-hero .legacy-portrait { width: 84px; height: 112px; }
 }
 

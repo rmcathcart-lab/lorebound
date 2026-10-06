@@ -289,9 +289,15 @@ var Overworld = (function () {
     }
     var start = w.pos || fireAt;
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
+    // a boss has just fallen: a fire kindles in its room, so the hero need not walk the whole land back to rest.
+    // It lasts until the hero next rests at a bonfire (the camp screen clears it: game.js).
+    var kindled = false;
+    if (w.campfire && !walkable(map, w.campfire.x, w.campfire.y)) delete w.campfire;
+    if (ret && ret.isBoss && ret.outcome === 'won' && !L.tutorial && !w.campfire) { var cf = campSpot(map, start); if (cf) { w.campfire = cf; kindled = true; } }
     var vista = !!(map.theme && map.theme.name === 'throne'); if (vista) for (var si = 0; si < seen.length; si++) seen[si] = 1; // the processional is in view from the first step
     var braz = {}, brazOK = !!(SP.actor && SP.actor('cr:brazier')); if (brazOK) (map.braziers || []).forEach(function (b) { braz[b.y * map.w + b.x] = 1; });
     (map.props || []).forEach(function (q) { if (!q.flat) braz[q.y * map.w + q.x] = 1; }); // tall scenery is solid
+    if (w.campfire) braz[w.campfire.y * map.w + w.campfire.x] = 1;
     R = { vista: vista, braz: braz, brazOK: brazOK, container: container, L: L, S: S, w: w, map: map, seen: seen, cv: cv, ctx: cv.getContext('2d'), wrap: wrap, hint: hint, stick: stick, act: act, opts: opts,
       player: { x: start.x, y: start.y, vx: 0, vy: 0, dir: 1, moving: false, anim: 0, clock: 0, act: null }, keys: {}, stickVec: null, t: 0, last: 0, raf: 0, near: null, toast: null, toastT: 0, frozen: false };
     R.ctx.imageSmoothingEnabled = false;
@@ -299,12 +305,27 @@ var Overworld = (function () {
     if (ret && map.v2 && ret.outcome === 'won' && ret.inst != null) { var jk = ret.ref.id + '#' + ret.inst; R.ents.forEach(function (e) { if (e.kind === 'corpse' && e.key === jk) { e.dieT0 = 0.15; var fa = w.fightAt; e.dir = fa && start.x < e.x ? -1 : 1; } }); }
     if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
     if (ret && map.v2 && ret.outcome === 'died' && !opts.title) say('You wake at the bonfire. The dead have risen again.');
+    if (kindled) { say('A fire kindles where the boss fell. Rest at it to return to the bonfire.'); persist(); }
     if (opts.title) R.frozen = true; // hold still while the splash shows
     layout(); window.addEventListener('resize', layout);
     bindInput();
     reveal(); R.last = performance.now(); R.raf = requestAnimationFrame(frame);
     setTimeout(function () { try { cv.focus({ preventScroll: true }); } catch (e) {} }, 30);
     return wrap;
+  }
+  function walkable(map, x, y) { if (x < 1 || y < 1 || x >= map.w - 1 || y >= map.h - 1) return false; var t = map.tiles[y * map.w + x]; return !SOLID[t] && t !== G.GATE && t !== G.FIRE; }
+  function campSpot(map, start) { // an open tile 2-3 steps from the boss, all eight neighbours walkable, close to where the hero stands
+    var bx = map.boss.x, by = map.boss.y, sx = Math.floor(start.x / T), sy = Math.floor(start.y / T), best = null, bestD = 1e9, taken = {};
+    (map.props || []).concat(map.braziers || []).forEach(function (q) { taken[q.y * map.w + q.x] = 1; });
+    (map.lairs || []).forEach(function (q) { taken[q.y * map.w + q.x] = 1; });
+    for (var y = by - 3; y <= by + 3; y++) for (var x = bx - 3; x <= bx + 3; x++) {
+      var cheb = Math.max(Math.abs(x - bx), Math.abs(y - by)); if (cheb < 2 || taken[y * map.w + x] || !walkable(map, x, y)) continue;
+      var open = true; for (var oy = -1; oy <= 1 && open; oy++) for (var ox = -1; ox <= 1; ox++) if (!walkable(map, x + ox, y + oy)) { open = false; break; }
+      if (!open) continue;
+      var d = Math.hypot(x - sx, y - sy); if (d < 1.5) continue; d += cheb * 0.3;
+      if (d < bestD) { bestD = d; best = { x: x, y: y }; }
+    }
+    return best;
   }
   function unmount() {
     if (!R) return; cancelAnimationFrame(R.raf); window.removeEventListener('resize', layout); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp);
@@ -436,6 +457,7 @@ var Overworld = (function () {
     if (!R.near && Math.hypot(gx - p.x, gy - p.y) < 20 && !gateOpen()) R.near = { gate: true, d: 0 };
     var fx = R.map.spawn.x * T + T / 2, fy = R.map.spawn.y * T + T / 2;
     if (!R.near && Math.hypot(fx - p.x, fy - p.y) < 18) R.near = { fire: true, d: 0 };
+    var cf = R.w.campfire; if (!R.near && cf && Math.hypot(cf.x * T + T / 2 - p.x, cf.y * T + T / 2 - p.y) < 20) R.near = { fire: true, temp: true, d: 0 };
     updateHint();
     if (R.toastT > 0) R.toastT -= dt;
   }
@@ -444,6 +466,7 @@ var Overworld = (function () {
     var h = '';
     if (R.near && R.near.e) { var e = R.near.e; h = e.kind === 'boss' ? 'Challenge <b>' + e.ref.name + '</b> — <kbd>E</kbd> or ⚔' : 'Strike <b>' + e.ref.name + '</b> (' + e.ref.level + ') first: +20 s — <kbd>E</kbd> or ⚔'; }
     else if (R.near && R.near.gate) h = R.w.key ? 'The gate is sealed until every creature in this land has been slain.' : 'A sealed gate. It needs a key — search the land.';
+    else if (R.near && R.near.temp) h = 'Rest at the <b>boss-room fire</b>. It burns out once you rest — <kbd>E</kbd> or ⚔';
     else if (R.near && R.near.fire) h = 'Rest at the <b>bonfire</b> — <kbd>E</kbd> or ⚔';
     if (h !== R.hintHtml) { R.hintHtml = h; R.hint.innerHTML = h; R.hint.style.opacity = h ? 1 : 0; }
     R.act.classList.toggle('on', !!(R.near && (R.near.e || R.near.fire)));
@@ -451,7 +474,7 @@ var Overworld = (function () {
   function interact() {
     if (!R) return;
     if (!R.near || (!R.near.e && !R.near.fire)) { swing(); return; }
-    if (R.near.fire) { persist(); if (R.opts.onBonfire) R.opts.onBonfire(); return; }
+    if (R.near.fire) { persist(); if (R.opts.onBonfire) R.opts.onBonfire(R.near.temp ? { temp: true } : undefined); return; }
     if (!R.near.e) return;
     var e = R.near.e; persist();
     if (R.cut) return;
@@ -503,6 +526,8 @@ var Overworld = (function () {
     var list = R.ents.slice(); if (R.brazOK) (R.map.braziers || []).forEach(function (b, bi) { list.push({ kind: 'brazier', x: b.x * T + T / 2, y: b.y * T + T / 2 + 4, seed: bi }); });
     if (R.map.props) R.map.props.forEach(function (q) { if (!q.flat) list.push({ kind: 'prop', x: q.x * T + T / 2, y: q.y * T + T - 1, p: q }); });
     if (R.map.theme && R.map.theme.name === 'throne' && SP.actor && SP.actor('cr:gate11')) list.push({ kind: 'gate11', x: R.map.gate.x * T + T / 2, y: R.map.gate.y * T + T });
+    else if (SP.hasDoorArt && SP.hasDoorArt()) list.push({ kind: 'door', x: R.map.gate.x * T + T / 2, y: R.map.gate.y * T + 1 }); // sorts behind a hero walking through it
+    if (R.w.campfire) list.push({ kind: 'campfire', x: R.w.campfire.x * T + T / 2, y: R.w.campfire.y * T + T / 2 + 4 });
     list.push({ kind: 'fire', x: R.map.spawn.x * T + T / 2, y: R.map.spawn.y * T + T / 2, dir: 1, clock: R.t });
     list.push({ kind: 'hero', x: p.x, y: p.y, dir: p.dir, moving: p.moving && !R.cut, anim: p.anim, clock: p.clock, act: p.act, cls: R.opts.heroClass || 'knight', stage: R.opts.heroStage || 1 });
     list.sort(function (a, b) { return a.y - b.y; });
@@ -522,12 +547,15 @@ var Overworld = (function () {
         gr.addColorStop(0, 'rgba(255,150,60,' + (0.34 * fl) + ')'); gr.addColorStop(0.5, 'rgba(255,100,30,' + (0.12 * fl) + ')'); gr.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = gr; ctx.fillRect(bx - T * 3.3, by - T * 3.3, T * 6.6, T * 6.6); });
       ctx.restore();
     }
+    if (R.w.campfire) { var cfp = R.w.campfire, cbx = cfp.x * T + T / 2 - camx, cby = cfp.y * T - 8 - camy, cfl = 0.8 + Math.sin(R.t * 6.1) * 0.12 + Math.sin(R.t * 11.7) * 0.08;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; var cgr = ctx.createRadialGradient(cbx, cby, 1, cbx, cby, T * 4.2);
+      cgr.addColorStop(0, 'rgba(255,160,70,' + (0.42 * cfl) + ')'); cgr.addColorStop(0.5, 'rgba(255,110,40,' + (0.15 * cfl) + ')'); cgr.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = cgr; ctx.fillRect(cbx - T * 4.3, cby - T * 4.3, T * 8.6, T * 8.6); ctx.restore(); }
     // minimap (explored tiles only)
     if (cvw >= 300) {
     var mx = cvw - MW - 4, my = 4; ctx.fillStyle = 'rgba(10,8,12,.75)'; ctx.fillRect(mx - 2, my - 2, MW + 4, MH + 4);
     for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { i = y * MW + x; if (!R.seen[i]) continue; var tt = R.map.tiles[i]; ctx.fillStyle = tt === G.WALL || tt === G.EDGE ? '#3a3a3a' : tt === G.WATER ? (th.lava ? '#a0401a' : '#1f3550') : tt === G.PATH ? '#6a5a40' : tt === G.GATE ? '#d6a860' : '#4a5a44'; ctx.fillRect(mx + x, my + y, 1, 1); }
     R.ents.forEach(function (e) { if (!R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = e.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[e.ref.level]; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } else if (e.kind === 'corpse') { ctx.fillStyle = '#555'; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } });
-    ctx.fillStyle = '#ff9a3c'; ctx.fillRect(mx + R.map.spawn.x, my + R.map.spawn.y, 1, 1);
+    ctx.fillStyle = '#ff9a3c'; ctx.fillRect(mx + R.map.spawn.x, my + R.map.spawn.y, 1, 1); if (R.w.campfire) ctx.fillRect(mx + R.w.campfire.x, my + R.w.campfire.y, 1, 1);
     ctx.fillStyle = Math.floor(R.t * 3) % 2 ? '#ffffff' : '#e8dcc0'; ctx.fillRect(mx + Math.floor(p.x / T), my + Math.floor(p.y / T), 1, 1);
     }
     if (R.opts.fullscreen) {
@@ -601,6 +629,11 @@ var Overworld = (function () {
       if (aid.indexOf('cr:') === 0) return; // its painted sheet is still loading: draw nothing rather than the old placeholder sprite
     }
     if (e.kind === 'gate11') { var gd = SP.actor('cr:gate11'); if (gd) SP.drawActor(ctx, gd, gateOpen() ? 'open' : 'sealed', 0, x, y, false, {}); return; }
+    if (e.kind === 'door') { var di = SP.ui(gateOpen() ? 'ui-boss-door-open' : 'ui-boss-door-closed'); if (di) { var DS = 44; ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(di, Math.round(x - DS / 2), Math.round(y - 1 + T - DS * 0.89), DS, DS); ctx.restore(); } return; }
+    if (e.kind === 'campfire') { // the boss-room fire: a tall brazier like the ones along the processional
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x, y + 2, 7, 2.6, 0, 0, 7); ctx.fill();
+      var cbd = SP.actor && SP.actor('cr:brazier'); if (cbd && SP.drawActor(ctx, cbd, 'idle', R.t, x, y + 1, false, { mul: 1.3 })) return;
+      var cfh = 3 + Math.sin(R.t * 9) * 1.5; ctx.fillStyle = '#3a3030'; ctx.fillRect(x - 4, y - 2, 8, 4); ctx.fillStyle = '#ff9a3c'; ctx.fillRect(x - 2, y - 4 - cfh, 4, cfh + 2); ctx.fillStyle = '#ffd27a'; ctx.fillRect(x - 1, y - 3 - cfh, 2, cfh); return; }
     if (e.kind === 'prop') { if (SP.landProp) SP.landProp(ctx, R.map.theme.name, e.p.i, x, y, e.p.flip); return; }
     if (e.kind === 'brazier') { var bd = SP.actor('cr:brazier'); if (bd) SP.drawActor(ctx, bd, 'idle', R.t + e.seed * 0.37, x, y + 1, false, {}); return; }
     var name = SP.ready && SP.nameFor ? SP.nameFor(e, R.L) : null;
