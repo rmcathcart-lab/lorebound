@@ -148,6 +148,20 @@ math-field::part(virtual-keyboard-toggle), math-field::part(menu-toggle) { displ
 .result.win { border-color: var(--good); background: linear-gradient(180deg, rgba(127,176,105,.1), transparent); }
 .result.lose { border-color: var(--bad); background: linear-gradient(180deg, rgba(216,67,58,.12), transparent); }
 .result.warn { border-color: var(--ember); background: linear-gradient(180deg, rgba(217,120,46,.1), transparent); }
+.result.ward { border-color: #d9b45a; background: linear-gradient(180deg, rgba(217,180,90,.14), transparent 70%); animation: wardIn .5s ease-out; }
+.result.ward.ward-shield { border-color: #d8d0bc; background: linear-gradient(180deg, rgba(232,224,204,.12), transparent 70%); }
+.result.ward.ward-draught { border-color: var(--ember); background: linear-gradient(180deg, rgba(255,150,70,.13), transparent 70%); }
+.ward-head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.ward-head h2 { margin: 2px 0 0; }
+.ward-head .eyebrow { color: #e9c98d; }
+.ward-shield .ward-head .eyebrow { color: #e4dccb; } .ward-draught .ward-head .eyebrow { color: #ffb27a; }
+.ward-emblem { width: 52px; height: 58px; flex: 0 0 auto; display: grid; place-items: center; filter: drop-shadow(0 0 10px rgba(255,206,110,.55)); animation: wardPop .6s cubic-bezier(.2,1.6,.4,1); }
+.ward-emblem svg { width: 44px; height: 50px; } .ward-emblem svg path { fill: rgba(255,206,110,.22); stroke: #ffce6e; stroke-width: 2.4; stroke-linejoin: round; } .ward-emblem svg path.x { fill: none; stroke-width: 2; stroke-linecap: round; }
+.ward-emblem.art { width: 58px; height: 58px; background-size: cover; background-position: center; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); }
+.ward-still { color: var(--bone); border-left: 3px solid rgba(217,180,90,.6); padding: 4px 0 4px 10px; margin: 10px 0; }
+@keyframes wardPop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes wardIn { 0% { box-shadow: 0 0 0 0 rgba(255,206,110,.55); } 100% { box-shadow: 0 0 0 14px rgba(255,206,110,0); } }
+@media (prefers-reduced-motion: reduce) { .result.ward, .ward-emblem { animation: none; } }
 .result h2 { font-size: 26px; margin-bottom: 8px; }
 .result .gain { font-family: var(--font-ui); color: var(--lore); font-size: 22px; text-shadow: 0 0 12px rgba(143,211,255,.5); }
 .result .loss { font-family: var(--font-ui); color: var(--bad); font-size: 22px; }

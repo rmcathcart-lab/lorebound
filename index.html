@@ -154,6 +154,20 @@ math-field::part(virtual-keyboard-toggle), math-field::part(menu-toggle) { displ
 .result.win { border-color: var(--good); background: linear-gradient(180deg, rgba(127,176,105,.1), transparent); }
 .result.lose { border-color: var(--bad); background: linear-gradient(180deg, rgba(216,67,58,.12), transparent); }
 .result.warn { border-color: var(--ember); background: linear-gradient(180deg, rgba(217,120,46,.1), transparent); }
+.result.ward { border-color: #d9b45a; background: linear-gradient(180deg, rgba(217,180,90,.14), transparent 70%); animation: wardIn .5s ease-out; }
+.result.ward.ward-shield { border-color: #d8d0bc; background: linear-gradient(180deg, rgba(232,224,204,.12), transparent 70%); }
+.result.ward.ward-draught { border-color: var(--ember); background: linear-gradient(180deg, rgba(255,150,70,.13), transparent 70%); }
+.ward-head { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.ward-head h2 { margin: 2px 0 0; }
+.ward-head .eyebrow { color: #e9c98d; }
+.ward-shield .ward-head .eyebrow { color: #e4dccb; } .ward-draught .ward-head .eyebrow { color: #ffb27a; }
+.ward-emblem { width: 52px; height: 58px; flex: 0 0 auto; display: grid; place-items: center; filter: drop-shadow(0 0 10px rgba(255,206,110,.55)); animation: wardPop .6s cubic-bezier(.2,1.6,.4,1); }
+.ward-emblem svg { width: 44px; height: 50px; } .ward-emblem svg path { fill: rgba(255,206,110,.22); stroke: #ffce6e; stroke-width: 2.4; stroke-linejoin: round; } .ward-emblem svg path.x { fill: none; stroke-width: 2; stroke-linecap: round; }
+.ward-emblem.art { width: 58px; height: 58px; background-size: cover; background-position: center; border-radius: 8px; border: 1px solid rgba(255,255,255,.18); }
+.ward-still { color: var(--bone); border-left: 3px solid rgba(217,180,90,.6); padding: 4px 0 4px 10px; margin: 10px 0; }
+@keyframes wardPop { 0% { transform: scale(.4); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes wardIn { 0% { box-shadow: 0 0 0 0 rgba(255,206,110,.55); } 100% { box-shadow: 0 0 0 14px rgba(255,206,110,0); } }
+@media (prefers-reduced-motion: reduce) { .result.ward, .ward-emblem { animation: none; } }
 .result h2 { font-size: 26px; margin-bottom: 8px; }
 .result .gain { font-family: var(--font-ui); color: var(--lore); font-size: 22px; text-shadow: 0 0 12px rgba(143,211,255,.5); }
 .result .loss { font-family: var(--font-ui); color: var(--bad); font-size: 22px; }
@@ -11302,7 +11316,7 @@ var Overworld = (function () {
   setInterval(tickTimer, 250);
   function timeUp() {
     var B = UI.battle, q = B.qs[B.i]; B.deadline = 0;
-    logAttempt(q, '(out of time)', 'wrong'); B.lastRaw = '';
+    logAttempt(q, '(out of time)', 'wrong'); B.lastRaw = ''; B.timedOut = true;
     toast('Too slow. The creature strikes first.');
     if (B.busy) return;
     loseExchange();
@@ -11321,6 +11335,40 @@ var Overworld = (function () {
   }
   function stagePlay(who, anim) { var a = Stage[who]; if (!a) return; a.anim = anim; a.t0 = nowS(); }
   function stageHurt(who) { var a = Stage[who]; if (a) a.hurt = nowS(); }
+  // a killing blow that something stopped: 'knight' (the class's armour), 'shield' (Bone Shield, shatters) or 'draught' (a potion)
+  function stageWard(kind) { Stage.ward = { kind: kind, t0: nowS() }; if (!Stage.raf && Stage.cv) Stage.raf = requestAnimationFrame(stageFrame); }
+  function drawWard(ctx, w, cx, cy, size, t) {
+    var e = t - w.t0, D = w.kind === 'shield' ? 1.6 : 1.4; if (e < 0 || e > D) return;
+    var col = w.kind === 'knight' ? [255, 206, 110] : w.kind === 'shield' ? [236, 228, 208] : [255, 150, 70];
+    function rgba(a) { return 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')'; }
+    var pop = Math.min(1, e / 0.16), fade = e < D - 0.45 ? 1 : Math.max(0, (D - e) / 0.45);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    var burst = ctx.createRadialGradient(cx, cy, 0, cx, cy, size * (0.9 + e * 0.8)); // the flash where the blow lands
+    burst.addColorStop(0, rgba(0.55 * Math.max(0, 1 - e / 0.5))); burst.addColorStop(1, rgba(0)); ctx.fillStyle = burst; ctx.fillRect(cx - size * 3, cy - size * 3, size * 6, size * 6);
+    for (var ri = 0; ri < 2; ri++) { var re = e - ri * 0.12; if (re > 0 && re < 0.7) { ctx.strokeStyle = rgba(0.7 * (1 - re / 0.7)); ctx.lineWidth = 3 - ri; ctx.beginPath(); ctx.arc(cx, cy, size * (0.5 + re * 2.2), 0, Math.PI * 2); ctx.stroke(); } } // shock rings
+    for (var si = 0; si < 14; si++) { var ang = si * 2.399 + 0.6, sp = size * (1.2 + (si % 5) * 0.35), se = Math.min(e, 0.8); if (e > 0.8) continue; // sparks thrown off the guard
+      var sx = cx + Math.cos(ang) * sp * se, sy = cy + Math.sin(ang) * sp * se + 40 * se * se; ctx.fillStyle = rgba(1 - e / 0.8); ctx.fillRect(sx - 1.5, sy - 1.5, 3, 3); }
+    ctx.restore();
+    if (w.kind === 'draught') { // no shield: embers rise around the hero
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (var mi = 0; mi < 18; mi++) { var mx = cx + Math.sin(mi * 1.7) * size * 0.9, my = cy + size * 0.9 - ((e * 90 + mi * 13) % (size * 2.4)); ctx.fillStyle = rgba(0.8 * fade); ctx.beginPath(); ctx.arc(mx, my, 2.2, 0, 7); ctx.fill(); }
+      ctx.restore(); return; }
+    function shieldPath(c, s) { c.beginPath(); c.moveTo(-s * 0.62, -s * 0.72); c.quadraticCurveTo(0, -s * 0.9, s * 0.62, -s * 0.72); c.lineTo(s * 0.62, -s * 0.1); c.quadraticCurveTo(s * 0.55, s * 0.55, 0, s * 0.95); c.quadraticCurveTo(-s * 0.55, s * 0.55, -s * 0.62, -s * 0.1); c.closePath(); }
+    var sc = 0.55 + 0.45 * (1 - Math.pow(1 - pop, 3)), sz = size * sc;
+    var crack = w.kind === 'shield' ? Math.max(0, (e - 0.55) / 0.8) : 0; // the Bone Shield breaks apart
+    var parts = crack > 0 ? [[-1, -1], [1, -1], [-1, 1], [1, 1]] : [[0, 0]];
+    parts.forEach(function (pt, pi) {
+      ctx.save(); ctx.translate(cx + pt[0] * crack * size * 1.1, cy + pt[1] * crack * size * 0.6 + crack * crack * size * 1.4); ctx.rotate(pt[0] * crack * 0.9);
+      if (crack > 0) { ctx.beginPath(); ctx.rect(pt[0] < 0 ? -sz : 0, pt[1] < 0 ? -sz : 0, sz, sz); ctx.clip(); }
+      ctx.globalAlpha = fade * (crack > 0 ? Math.max(0, 1 - crack) : 1);
+      shieldPath(ctx, sz);
+      var g = ctx.createLinearGradient(0, -sz, 0, sz); g.addColorStop(0, rgba(0.55)); g.addColorStop(1, rgba(0.18)); ctx.fillStyle = g; ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = rgba(1); ctx.shadowColor = rgba(0.9); ctx.shadowBlur = 16; ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.lineWidth = 1.5; ctx.strokeStyle = rgba(0.85); ctx.beginPath(); ctx.moveTo(0, -sz * 0.6); ctx.lineTo(0, sz * 0.62); ctx.moveTo(-sz * 0.4, -sz * 0.18); ctx.lineTo(sz * 0.4, -sz * 0.18); ctx.stroke(); // a cross on the face
+      if (w.kind === 'shield' && e > 0.35 && !crack) { ctx.strokeStyle = 'rgba(40,30,25,.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-sz * 0.1, -sz * 0.8); ctx.lineTo(sz * 0.08, -sz * 0.2); ctx.lineTo(-sz * 0.12, sz * 0.25); ctx.lineTo(sz * 0.05, sz * 0.9); ctx.stroke(); } // a crack runs through it first
+      ctx.restore();
+    });
+  }
   function stageFrame() {
     Stage.raf = 0; var cv = Stage.cv; if (!cv || !document.body.contains(cv) || !window.Overworld || !Overworld.SP.actor) return;
     Stage.raf = requestAnimationFrame(stageFrame);
@@ -11339,14 +11387,15 @@ var Overworld = (function () {
       ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(row[2] + lunge, ground + 2, Math.min(60, tall(d) * k * 0.32), 7, 0, 0, 7); ctx.fill();
       SP.drawActor(ctx, d, st.anim, el2, row[2] + lunge + shake, ground, row[3], { mul: k, flash: fl, tint: row[0] === 'hero' && heroStage() > 1 && Stage.hero.id.indexOf('cr:') !== 0 ? (heroStage() === 3 ? 'rgba(255,200,80,.18)' : 'rgba(140,210,255,.16)') : null });
     });
+    if (Stage.ward && hd) { var hh = tall(hd) * k; drawWard(ctx, Stage.ward, hx + gap * 0.1, ground - hh * 0.55, Math.max(22, Math.min(46, hh * 0.32)), t); }
   }
   /* one exchange of blows, then the result: the attacker lunges, the defender flinches or falls */
-  function exchange(heroWins, fatal, then) {
+  function exchange(heroWins, fatal, then, ward) { // ward: what stops a killing blow ('knight' | 'shield' | 'draught')
     var B = UI.battle; B.busy = true;
     var atk = heroWins ? 'hero' : 'foe', def = heroWins ? 'foe' : 'hero';
     stagePlay(atk, 'attack');
-    setTimeout(function () { if (fatal) stagePlay(def, 'death'); else stageHurt(def); sfx(heroWins ? 'strike' : 'wrong'); }, 320);
-    setTimeout(function () { B.busy = false; if (UI.battle === B) then(); }, fatal ? 760 : 600);
+    setTimeout(function () { if (ward) { stageWard(ward); sfx('shield'); } else if (fatal) stagePlay(def, 'death'); else stageHurt(def); if (!ward) sfx(heroWins ? 'strike' : 'wrong'); }, 320);
+    setTimeout(function () { B.busy = false; if (UI.battle === B) then(); }, ward ? 1150 : fatal ? 760 : 600);
   }
 
   function screenBattle() {
@@ -11423,7 +11472,7 @@ var Overworld = (function () {
     var B = UI.battle, q = B.qs[B.i]; if (!B || B.busy) return;
     if (/\\placeholder/.test(raw)) { toast('There is an empty box in your answer. Fill it in, or press ⌫ to remove it.'); return; }
     var r = gradeAnswer(q, raw);
-    B.lastRaw = raw;
+    B.lastRaw = raw; B.timedOut = false;
     if (r.reason === 'blank') { toast('Write an answer first.'); return; }
     sfx('strike');
     if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
@@ -11435,13 +11484,14 @@ var Overworld = (function () {
     if (r.reason === 'form' && !B.formWarned) { B.formWarned = true; try { B.formEx = QGen.makeLike(q); } catch (e) { B.formEx = null; } exchange(true, false, function () { B.phase = 'warn'; armTimer(); sfx('wrong'); render(); }); return; }
     loseExchange();
   }
+  var KNIGHT_HOLD = 0.1; // the Knight's chance that armour stops a killing blow
   function loseExchange() { // a wrong answer (or the clock): the creature strikes, and what it costs depends on your gear
     var B = UI.battle;
     if (B.practice) { exchange(false, true, practiceEnd); return; }
-    if (classId() === 'knight' && Math.random() < 0.1) { exchange(false, false, function () { shieldBreak('knight'); }); return; } // Knight: armour that holds
+    if (classId() === 'knight' && Math.random() < KNIGHT_HOLD) { exchange(false, false, function () { shieldBreak('knight'); }, 'knight'); return; } // Knight: armour that holds
     if (charges('sight') > 0 && !B.sightUsed) { exchange(false, false, function () { B.phase = 'sight'; render(); }); return; }
-    if (charges('shield') > 0) { exchange(false, false, function () { shieldBreak(); }); return; }
-    if (itemCount('draught') > 0) { exchange(false, false, function () { shieldBreak('draught'); }); return; }
+    if (charges('shield') > 0) { exchange(false, false, function () { shieldBreak(); }, 'shield'); return; }
+    if (itemCount('draught') > 0) { exchange(false, false, function () { shieldBreak('draught'); }, 'draught'); return; }
     exchange(false, true, die);
   }
   function youTyped(B) { return B.lastRaw ? '<div class="you-typed">You wrote: ' + typedTex(B.lastRaw) + '</div>' : ''; }
@@ -11477,13 +11527,20 @@ var Overworld = (function () {
     if (foe.finale) setTimeout(throneSplash, 400);
     B.result = res; render();
   }
-  function shieldBreak(how) {
-    var B = UI.battle, q = B.qs[B.i];
+  function shieldBreak(how) { // a killing blow that something stopped: not a win, and the creature still stands
+    var B = UI.battle, q = B.qs[B.i], foe = '<b>' + esc(B.foe.name) + '</b>';
     if (how === 'draught') S.items.draught--; else if (how !== 'knight') S.gear.shield.charges--;
-    S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1; sfx('shield');
+    S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1;
     B.done = true; B.phase = 'result'; B.outcome = 'fled';
-    var res = el('div', 'result warn', how === 'knight' ? '<h2>Your armour holds</h2><p>The blow that should have killed you glances off your plate. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Try it again when you are ready.</p>' + youTyped(B) + solutionBlock(q) : how === 'draught' ? '<h2>You drink the Ember Draught</h2><p>Fire in your throat, and the blow that should have killed you lands on nothing. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. The draught is gone.</p>' + youTyped(B) + solutionBlock(q)
-      : '<h2>Your Bone Shield shatters</h2><p>The blow that should have killed you breaks on the shield. You keep your Lore, but <b>' + esc(B.foe.name) + '</b> still stands. Recharge the shield at a bonfire.</p>' + youTyped(B) + solutionBlock(q));
+    var art = window.ART_IMG && ART_IMG[how === 'draught' ? 'item-draught' : how === 'knight' ? '' : 'gear-shield'];
+    var emblem = art ? '<div class="ward-emblem art" style="background-image:url(' + art + ')"></div>'
+      : '<div class="ward-emblem"><svg viewBox="0 0 40 46" aria-hidden="true"><path d="M5 6 Q20 1 35 6 L35 20 Q34 36 20 44 Q6 36 5 20 Z" /><path class="x" d="M20 9 V38 M10 17 H30" /></svg></div>';
+    var why = B.timedOut ? 'The clock ran out' : 'That answer was wrong';
+    var parts = how === 'knight' ? ['Saved by your Knight\'s armour · a 1-in-' + Math.round(1 / KNIGHT_HOLD) + ' chance', 'Your armour holds', why + ', and the blow should have killed you, but it glanced off your plate.', '']
+      : how === 'draught' ? ['Saved by an Ember Draught · one used', 'You drink the Ember Draught', why + '. Fire in your throat, and the blow that should have killed you lands on nothing.', ' The draught is gone.']
+      : ['Saved by your Bone Shield · its charge is spent', 'Your Bone Shield shatters', why + ', and the blow that should have killed you broke on the shield.', ' Recharge the shield at a bonfire.'];
+    var res = el('div', 'result warn ward ward-' + how, '<div class="ward-head">' + emblem + '<div><div class="eyebrow">' + parts[0] + '</div><h2>' + parts[1] + '</h2></div></div>' +
+      '<p>' + parts[2] + ' You live, and you keep your Lore.' + parts[3] + '</p><p class="ward-still">This is not a win: ' + foe + ' still stands where you left it. Face it again when you are ready.</p>' + youTyped(B) + solutionBlock(q));
     res.appendChild(afterActions(false)); B.result = res; render();
   }
   function die() {
