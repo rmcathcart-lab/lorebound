@@ -39,11 +39,18 @@ var Ledger = (function () {
   function getStatus() { return status; }
   function ledger(key, cb) { jsonp({ action: 'ledger', key: key }, cb, 40000); }
   function player(key, id, cb) { jsonp({ action: 'player', key: key, id: id }, cb, 30000); }
+  function board(klass, name, cb) { jsonp({ action: 'board', 'class': klass, name: name }, cb, 20000); }
+  function duel(params, cb) { // duel moves: op = create | join | stake | level | answer | cancel | poll | mine
+    if (!ident || !ident.klass) { cb({ ok: false, error: 'no class' }); return; }
+    var p = { action: 'duel', 'class': ident.klass, name: ident.name }; Object.keys(params).forEach(function (k) { p[k] = params[k]; });
+    jsonp(p, function (res) { if (res && res.ok) status = 'ok'; cb(res); }, 15000);
+  }
+  function setFeatures(key, klass, board, duels, cb) { jsonp({ action: 'setfeatures', key: key, 'class': klass, board: board ? '1' : '0', duels: duels ? '1' : '0' }, cb, 30000); }
   function purge(key, klass, cb) { jsonp({ action: 'purge', key: key, 'class': klass }, cb, 40000); }
   function active() { return document.visibilityState === 'visible' && (Date.now() - lastInput) < 90000; }
   ['keydown', 'pointerdown', 'touchstart'].forEach(function (evn) { try { window.addEventListener(evn, function () { lastInput = Date.now(); }, { passive: true }); } catch (e) {} });
   setInterval(function () { flush(); }, 30000);
   setInterval(function () { if (ident && status !== 'ok' && document.visibilityState === 'visible') ping(function (st) { if (st === 'ok') { flush(); try { window.dispatchEvent(new CustomEvent('ledger-online')); } catch (e) {} } }); }, 60000);
   try { window.addEventListener('pagehide', function () { flush(true); }); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); }); } catch (e) {}
-  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, lands: lands, setLands: setLands, setClasses: setClasses, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active };
+  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, lands: lands, setLands: setLands, setClasses: setClasses, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active, board: board, duel: duel, setFeatures: setFeatures };
 })();

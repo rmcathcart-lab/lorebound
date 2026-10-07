@@ -103,6 +103,7 @@
     return 'Locked · slay ' + esc(P.boss.name) + ' in ' + esc(P.name) + (S && S.klass ? ', or wait for your teacher to open it' : '') + '.';
   }
   var UNL = { at: 0, busy: false };
+  var FEAT = { board: true, duels: true }; // per-class switches from the teacher's ledger (both on unless the teacher turns them off)
   function syncUnlocks(force, cb) { // asks the teacher's ledger which lands are open for this class
     if (!S || !S.klass || !Ledger.enabled() || UNL.busy) { if (cb) cb(); return; }
     if (!force && Date.now() - UNL.at < 60000) { if (cb) cb(); return; }
@@ -113,6 +114,8 @@
         var before = JSON.stringify(S.teacherOpen || []);
         S.teacherOpen = res.lands.filter(function (id) { return /^L([1-9]|10)$/.test(id); });
         changed = JSON.stringify(S.teacherOpen) !== before;
+        if (res.features) FEAT = { board: res.features.board !== false, duels: res.features.duels !== false };
+        if (!UNL.duelsChecked) { UNL.duelsChecked = true; settleMissedDuels(); }
         if (changed) { saveLocal(); if (UI.screen === 'map' || (UI.screen === 'bonfire' && (UI.bonfireTab || 'camp') === 'camp')) render(); }
       }
       if (cb) cb(changed);
@@ -158,14 +161,14 @@
   function snapshot(withSave) {
     var k = killsByLevel(), bosses = 0; Object.keys(S.bossKills).forEach(function (id) { bosses += S.bossKills[id] || 0; });
     var ev = { t: 'state', hero: S.hero ? S.hero.name : '', heroClass: S.hero ? S.hero.cls : '', stage: S.hero ? heroStage() : 0, lore: S.lore, legend: S.legend, deaths: S.deaths, lostForever: S.lostForever,
-      killsBEG: k.BEG, killsPRG: k.PRG, killsMAS: k.MAS, bossKills: bosses, titles: S.titles.join(', '), landsCleared: Object.keys(S.bossKills).join(' '), play: S.play || 0, lastLand: S.lastLand || '' };
+      killsBEG: k.BEG, killsPRG: k.PRG, killsMAS: k.MAS, bossKills: bosses, titles: S.titles.join(', '), landsCleared: Object.keys(S.bossKills).join(' '), play: S.play || 0, lastLand: S.lastLand || '', level: S.level || 1, ach: Object.keys(S.ach || {}).length, bestStreak: S.bestStreak || 0 };
     if (withSave) { ev.save = encode(S); ev.saveUpdated = S.updated; }
     return ev;
   }
   function report() { // called on every render: sends a state snapshot only when something that matters changed
     if (!S || !S.klass || !Ledger.enabled()) return;
     if (!Ledger.identity() || Ledger.identity().name !== S.name) Ledger.identify(S.klass, S.name);
-    var sig = [S.lore, S.legend, S.deaths, S.lostForever, JSON.stringify(S.kills), JSON.stringify(S.gear), S.hero && S.hero.name, S.hero && S.hero.cls, S.hero && S.hero.frame, S.titles.length].join('|');
+    var sig = [S.lore, S.legend, S.deaths, S.lostForever, JSON.stringify(S.kills), JSON.stringify(S.gear), S.hero && S.hero.name, S.hero && S.hero.cls, S.hero && S.hero.frame, S.titles.length, S.level, Object.keys(S.ach || {}).length, S.bestStreak].join('|');
     if (sig !== REP.sig) { REP.sig = sig; REP.lastTick = Date.now(); Ledger.push(snapshot(true)); }
   }
   function logAttempt(q, raw, result) {
@@ -243,7 +246,7 @@
     migrate();
     if (S && !S.hero && UI.screen !== 'title' && UI.screen !== 'hero' && UI.screen !== 'ledger') UI.screen = 'hero';
     Overworld.unmount(); WorldMap.unmount(); document.body.classList.remove('in-world', 'in-map'); document.documentElement.classList.remove('has-hall'); try { if (UI.screen !== 'land') Sfx.ambient(null); } catch (e) {} renderHud(); app.innerHTML = '';
-    var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger }[UI.screen] || screenTitle;
+    var fn = { title: screenTitle, hero: screenHero, map: screenMap, land: screenLand, battle: screenBattle, bonfire: screenBonfire, chronicle: screenChronicle, help: screenHelp, ledger: screenLedger, duel: screenDuel }[UI.screen] || screenTitle;
     app.classList.toggle('wide', UI.screen === 'bonfire' || UI.screen === 'chronicle' || UI.screen === 'help' || UI.screen === 'ledger');
     if (S && S.inFight && !(UI.battle && !UI.battle.done && UI.screen === 'battle')) S.inFight = null;
     checkAchievements();
@@ -255,6 +258,7 @@
   function resumeGame() {
     if (!S) { go('title'); return; }
     if (S.tutorialPending && !S.where && !S.inFight) { startTutorial('new'); return; }
+    if (S.duelActive && S.duelActive.code) { UI.duel = { land: S.duelActive.land, code: S.duelActive.code, phase: 'track' }; go('duel'); return; } // reloaded mid-duel: back to it
     if (S.inFight) {
       var f = S.inFight, L = landById(f.land), foe = L && (f.boss ? L.boss : creatureById(L, f.foe)), cost = Math.floor((S.lore || 0) * 0.5);
       S.lore -= cost; S.inFight = null; S.streak = 0;
@@ -470,6 +474,243 @@
     var art = window.ART_IMG && (ART_IMG['ui-ach-' + a.id] || ART_IMG['ui-medal-back-' + a.tier]);
     return '<span class="ach-badge' + (got ? ' got' : '') + (ART_IMG && ART_IMG['ui-ach-' + a.id] ? '' : ' stand-in') + '">' + (art ? '<img src="' + art + '" alt="">' : '') + '</span>';
   }
+  /* ---------- duels at the well ----------
+   * Two heroes of the same class, both past this land's boss. The challenger draws a code from the well and sets the stake
+   * (up to half of the poorer hero's carried Lore); the opponent enters the code and picks the difficulty. Both get the same
+   * question (same seed, same generator). One answer each: the first right answer the server receives wins the stake from
+   * the other; a wrong answer locks you out; if nobody is right before the clock runs out, both lose the stake.
+   * Lore settles from the server's result once per duel (S.duelsSettled), even if a game was closed mid-duel. */
+  var DUELQ = {}; // seed+land+level -> question, so every redraw shows the same one
+  function seededRun(seed, fn) { // Math.random replaced by a seeded generator (mulberry32) while fn builds the question
+    var orig = Math.random, st = seed >>> 0;
+    Math.random = function () { st = (st + 0x6D2B79F5) >>> 0; var t = st; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    try { return fn(); } finally { Math.random = orig; }
+  }
+  function duelQuestion(v) {
+    var k = v.seed + '|' + v.land + '|' + v.level; if (DUELQ[k]) return DUELQ[k];
+    var L = landById(v.land), pool = L.creatures.filter(function (c) { return c.level === v.level; }); if (!pool.length) pool = L.creatures;
+    var c = pool[v.seed % pool.length], q = seededRun(v.seed, function () { return QGen.make(c.gen); });
+    q.foe = c; DUELQ[k] = q; return q;
+  }
+  function duelServerNow() { return Date.now() + (UI.duelClock || 0); }
+  function duelCall(params, cb) {
+    var t0 = Date.now();
+    Ledger.duel(params, function (res) {
+      var t1 = Date.now();
+      if (res && res.now) { var off = res.now - (t0 + t1) / 2, rtt = t1 - t0; if (UI.duelRtt == null || rtt < UI.duelRtt + 150) { UI.duelClock = off; UI.duelRtt = Math.min(UI.duelRtt == null ? rtt : UI.duelRtt, rtt); } }
+      cb(res || { ok: false, error: 'network' });
+    });
+  }
+  function duelSettle(v) { // apply this duel's result to the carried Lore, once
+    S.duelsSettled = S.duelsSettled || {};
+    if (!v || v.state !== 'done' || v.delta == null || S.duelsSettled[v.code]) return false;
+    S.duelsSettled[v.code] = Date.now();
+    var keys = Object.keys(S.duelsSettled); if (keys.length > 80) keys.sort(function (a, b) { return S.duelsSettled[a] - S.duelsSettled[b]; }).slice(0, keys.length - 80).forEach(function (k) { delete S.duelsSettled[k]; });
+    S.lore = Math.max(0, S.lore + v.delta);
+    var st = S.stats = S.stats || {}; st.duels = (st.duels || 0) + 1; if (v.delta > 0 || (v.winner && v.winner === v.role)) st.duelWins = (st.duelWins || 0) + 1;
+    if (S.duelActive && S.duelActive.code === v.code) S.duelActive = null;
+    saveLocal(); renderHud(); return true;
+  }
+  function settleMissedDuels() { // duels that finished while this game was closed
+    if (!S || !S.klass || !Ledger.enabled()) return;
+    var who = S.name;
+    Ledger.duel({ op: 'mine' }, function (res) {
+      if (!res || !res.ok || !S || S.name !== who) return;
+      var sum = 0, cnt = 0;
+      (res.duels || []).forEach(function (d) { if (duelSettle({ code: d.code, state: 'done', delta: d.delta, winner: d.won ? 'me' : '', role: 'me' })) { sum += d.delta; cnt++; } });
+      if (cnt) toast((cnt === 1 ? 'A duel was settled' : cnt + ' duels were settled') + ' while you were away: ' + (sum >= 0 ? '+' : '−') + n(Math.abs(sum)) + ' Lore.');
+    });
+  }
+  var DUEL_ERR = { 'no duel': 'No duel has that code. Check the letters and try again.', taken: 'Someone else already answered that challenge.', expired: 'That challenge has faded from the well. Ask for a new code.',
+    'other class': 'That code belongs to a hero in another class.', limit: 'You two have already duelled 3 times today. Find a new rival, or try again tomorrow.', off: 'Your teacher has turned duels off for this class.',
+    busy: 'The well is busy. Try again in a moment.', network: 'The well could not be reached. Check your connection.', timeout: 'The well did not answer in time. Try again.', 'no class': 'Duels need a class code. Sign in with yours on the title screen.', 'bad key': 'The well is not awake yet: your teacher needs to update the Ledger before duels can start.', 'unknown action': 'The well is not awake yet: your teacher needs to update the Ledger before duels can start.' };
+  function duelErr(res) { if (res && res.error === 'other land') { var Lx = landById(res.land); return 'That challenge was drawn from the well in ' + (Lx ? theLand(Lx) : 'another land') + '. Go to that well to accept it.'; } return DUEL_ERR[res && res.error] || 'Something went wrong at the well. Try again.'; }
+  function duelHero() { return { hero: S.hero ? S.hero.name : S.name, heroClass: S.hero ? S.hero.cls : 'knight', stage: heroStage(), lore: S.lore }; }
+  function duelTimer() { // one poll loop for the duel screen: faster while a question is live
+    if (UI.duelTimer) return;
+    UI.duelTimer = setInterval(function () {
+      var D = UI.duel; if (UI.screen !== 'duel' || !D) { clearInterval(UI.duelTimer); UI.duelTimer = null; return; }
+      if (D.view && D.view.state === 'live') duelTick();
+      if (!D.code || D.polling || ['done', 'cancelled', 'expired'].indexOf(D.view && D.view.state) >= 0) return;
+      var live = D.view && D.view.state === 'live', gap = live ? 1200 : 2000; if (Date.now() - (D.polled || 0) < gap) return;
+      D.polling = true; D.polled = Date.now();
+      duelCall({ op: 'poll', code: D.code }, function (res) { D.polling = false; if (UI.duel !== D) return; if (res.ok) duelUpdate(res); });
+    }, 250);
+  }
+  function duelUpdate(v) { // a fresh view from the server: redraw only when the stage changed (keeps a half-typed answer)
+    var D = UI.duel, before = D.view ? D.view.state + '|' + (D.view.opp && D.view.opp.res) + '|' + (D.view.you && D.view.you.res) + '|' + D.view.stake : '';
+    D.view = v; D.code = v.code;
+    if (['open', 'joined', 'staked', 'live'].indexOf(v.state) >= 0) S.duelActive = { code: v.code, land: v.land }; else if (S.duelActive && S.duelActive.code === v.code) S.duelActive = null;
+    if (v.state === 'done' && duelSettle(v)) sfx(v.delta > 0 ? 'levelup' : v.winner ? 'death' : 'wrong');
+    var after = v.state + '|' + (v.opp && v.opp.res) + '|' + (v.you && v.you.res) + '|' + v.stake;
+    if (before !== after) { if (v.state === 'live' && before.indexOf('live') !== 0) sfx('boss'); render(); }
+  }
+  function duelTick() { // countdown and clock while live, without a redraw
+    var D = UI.duel, v = D.view, now = duelServerNow(), cd = document.getElementById('duel-count'), bar = document.getElementById('duel-timer');
+    if (now < v.startAt) { if (cd) cd.textContent = Math.ceil((v.startAt - now) / 1000); return; }
+    if (cd && !D.revealed) { D.revealed = true; render(); return; }
+    if (bar) { var left = Math.max(0, v.startAt + v.limit * 1000 - now), fr = left / (v.limit * 1000); bar.querySelector('.fill').style.width = (fr * 100) + '%'; bar.querySelector('.n').textContent = Math.ceil(left / 1000) + ' s'; bar.classList.toggle('low', fr < 0.2); if (!left && !D.timeUp) { D.timeUp = true; render(); } }
+    if (D.mf) try { D.typed = D.mf.value(); } catch (e) {}
+  }
+  function screenDuel() {
+    var D = UI.duel; if (!D) { go('land'); return; }
+    var L = landById(D.land), v = D.view;
+    var hall = campHall('duel', 'The Duelling Well', 'Below the boss\'s throne, still water remembers every hero who has looked into it.', function () { duelLeave(); }, { eyebrow: esc(L ? L.name : '') + ' · Duels', art: L && L.banner, backLabel: '◀ Back to ' + esc(L ? theLand(L) : 'the land') });
+    if (D.drawn) hall.classList.add('still'); D.drawn = true; app.appendChild(hall);
+    var box = el('div', 'duel'); app.appendChild(box);
+    function panel(html) { var p = el('div', 'panel duel-panel', html); box.appendChild(p); return p; }
+    function btn(label, cls, fn) { var b = el('button', 'btn' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.onclick = fn; return b; }
+    function oppLine() { return v && v.opp ? '<b>' + esc(v.opp.hero) + '</b>' : 'your opponent'; }
+    if (!S.klass || !Ledger.enabled()) { panel('<p>Duels are between heroes in the same class. Sign in with your class code on the title screen to use the well.</p>'); return; }
+    if (!FEAT.duels) { panel('<p>Your teacher has turned duels off for this class.</p>'); return; }
+    if (D.err) box.appendChild(el('div', 'duel-err', esc(D.err)));
+    if (!v && D.code && D.phase === 'track') { panel('<p class="muted">Finding your duel…</p>'); if (!D.polling) { D.polling = true; duelCall({ op: 'poll', code: D.code }, function (res) { D.polling = false; if (UI.duel !== D) return; if (res.ok) duelUpdate(res); else { S.duelActive = null; D.code = null; D.phase = 'menu'; D.err = 'That duel has ended.'; render(); } }); } duelTimer(); return; }
+    if (!v) { // the menu: draw a challenge, or answer one
+      var rules = '<ul class="rules duel-rules"><li>You and a classmate who has also broken this land\'s seal each get the <b>same question</b>.</li><li>The challenger sets the stake: up to half of the poorer hero\'s carried Lore. The opponent picks the difficulty.</li><li><b>One answer each.</b> The first right answer wins the stake from the other hero. A wrong answer locks you out.</li><li>If nobody is right before the clock runs out, you <b>both</b> lose the stake. Legend never changes.</li><li>The same two heroes can duel 3 times a day.</li></ul>';
+      var a = panel('<div class="eyebrow">Challenge a classmate</div><h2>Draw a challenge from the well</h2><p>You will get a code to give your opponent. You carry <b class="lore">' + n(S.lore) + ' Lore</b>.</p>');
+      a.appendChild(btn(D.busy ? 'Drawing…' : 'Draw a challenge', 'big', function () { if (D.busy) return; D.busy = true; D.err = ''; render();
+        duelCall(Object.assign({ op: 'create', land: D.land }, duelHero()), function (res) { D.busy = false; if (UI.duel !== D) return; if (res.ok) { duelUpdate(res); duelTimer(); } else { D.err = duelErr(res); render(); } }); }));
+      var b = panel('<div class="eyebrow">Answer a challenge</div><h2>Enter a classmate\'s code</h2>');
+      var row = el('div', 'duel-join'), inp = el('input'); inp.type = 'text'; inp.maxLength = 6; inp.placeholder = 'CODE'; inp.className = 'duel-code-in'; inp.setAttribute('autocapitalize', 'characters'); inp.autocomplete = 'off'; inp.spellcheck = false;
+      inp.oninput = function () { inp.value = inp.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+      function join() { var c = inp.value.trim(); if (c.length < 4 || D.busy) return; D.busy = true; D.err = ''; render();
+        duelCall(Object.assign({ op: 'join', code: c, land: D.land }, duelHero()), function (res) { D.busy = false; if (UI.duel !== D) return;
+          if (res.ok && res.role === 'a') { D.err = 'That is your own code. Give it to your opponent.'; duelUpdate(res); duelTimer(); return; }
+          if (res.ok) { duelUpdate(res); duelTimer(); } else { D.err = duelErr(res); render(); } }); }
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') join(); });
+      row.appendChild(inp); row.appendChild(btn(D.busy ? 'Answering…' : 'Answer the challenge', '', join)); b.appendChild(row);
+      panel('<div class="eyebrow">The rules of the well</div>' + rules);
+      box.appendChild(btn('Step away from the well', 'ghost', duelLeave));
+      setTimeout(function () { try { inp.focus(); } catch (e) {} }, 60);
+      return;
+    }
+    duelTimer();
+    var you = v.role === 'a' ? 'challenger' : 'opponent';
+    if (v.state === 'open') {
+      var p1 = panel('<div class="eyebrow">You are the challenger</div><h2>Give your opponent this code</h2><div class="duel-code">' + esc(v.code) + '</div><p>They enter it at the Duelling Well in <b>' + esc(L ? theLand(L) : '') + '</b>. They must have broken this land\'s seal too.</p><p class="muted duel-wait">Waiting for an opponent…</p>');
+      p1.appendChild(btn('Cancel the challenge', 'ghost', function () { duelCall({ op: 'cancel', code: v.code }, function (res) { if (res.ok) duelUpdate(res); }); }));
+    } else if (v.state === 'joined') {
+      if (v.role === 'a') {
+        var p2 = panel('<div class="eyebrow">' + oppLine() + ' answered your challenge</div><h2>Set the stake</h2><p>The winner takes this much Lore from the other. If nobody is right, you both lose it. Most you can stake: <b class="lore">' + n(v.cap) + ' Lore</b> (half of the poorer hero\'s carried Lore).</p>');
+        var amt = Math.min(v.cap, D.stake == null ? Math.round(v.cap / 2) : D.stake), out = el('div', 'duel-stake-val', n(amt) + ' Lore'), rng = el('input'); rng.type = 'range'; rng.min = 0; rng.max = Math.max(0, v.cap); rng.step = 1; rng.value = amt; rng.className = 'duel-range';
+        rng.oninput = function () { D.stake = +rng.value; out.textContent = n(D.stake) + ' Lore'; };
+        p2.appendChild(out); p2.appendChild(rng);
+        var quick = el('div', 'duel-quick'); [['Nothing', 0], ['A quarter', 0.25], ['Half', 0.5], ['All of it', 1]].forEach(function (qq) { quick.appendChild(btn(qq[0], 'ghost', function () { D.stake = Math.floor(v.cap * qq[1]); rng.value = D.stake; out.textContent = n(D.stake) + ' Lore'; })); }); p2.appendChild(quick);
+        var acts = el('div', 'actions'); acts.appendChild(btn(D.busy ? 'Setting…' : 'Set the stake', 'big', function () { if (D.busy) return; D.busy = true; duelCall({ op: 'stake', code: v.code, stake: +rng.value }, function (res) { D.busy = false; if (res.ok) duelUpdate(res); else { D.err = duelErr(res); render(); } }); }));
+        acts.appendChild(btn('Cancel', 'ghost', function () { duelCall({ op: 'cancel', code: v.code }, function (res) { if (res.ok) duelUpdate(res); }); })); p2.appendChild(acts);
+      } else panel('<div class="eyebrow">You are the opponent</div><h2>' + oppLine() + ' is setting the stake</h2><p class="muted duel-wait">Waiting…</p>');
+    } else if (v.state === 'staked') {
+      if (v.role === 'b') {
+        var p3 = panel('<div class="eyebrow">The stake is set: <b class="lore">' + n(v.stake) + ' Lore</b></div><h2>Pick the difficulty</h2><p>Both of you get the same question from ' + esc(L ? theLand(L) : 'this land') + '.</p>');
+        var lv = el('div', 'duel-levels');
+        [['BEG', 60], ['PRG', 150], ['MAS', 240]].forEach(function (x) { var b2 = btn('<b>' + LEVELS[x[0]].name + '</b><span>' + x[1] + ' seconds on the clock</span>', 'duel-lv lv-' + x[0], function () { if (D.busy) return; D.busy = true; duelCall({ op: 'level', code: v.code, level: x[0] }, function (res) { D.busy = false; if (res.ok) duelUpdate(res); else { D.err = duelErr(res); render(); } }); }); lv.appendChild(b2); });
+        p3.appendChild(lv);
+      } else panel('<div class="eyebrow">Stake: <b class="lore">' + n(v.stake) + ' Lore</b></div><h2>' + oppLine() + ' is picking the difficulty</h2><p class="muted duel-wait">Waiting…</p>');
+    } else if (v.state === 'live') {
+      var q = duelQuestion(v), now = duelServerNow();
+      var head = panel('<div class="duel-vs"><div class="dv-side"><span class="nm">' + esc(S.hero ? S.hero.name : S.name) + '</span><span class="st">' + (v.you && v.you.res === 'wrong' ? 'Locked out' : v.you && v.you.res === 'right' ? 'Struck true' : 'Thinking') + '</span></div><div class="dv-mid"><span>' + LEVELS[v.level].name + '</span><b class="lore">' + n(v.stake) + ' Lore</b></div><div class="dv-side r"><span class="nm">' + esc(v.opp.hero) + '</span><span class="st' + (v.opp.res === 'wrong' ? ' bad' : '') + '">' + (v.opp.res === 'wrong' ? 'Locked out' : v.opp.res === 'right' ? 'Struck true' : 'Thinking') + '</span></div></div>');
+      if (now < v.startAt) { panel('<div class="duel-countdown"><span>The water stills…</span><b id="duel-count">' + Math.ceil((v.startAt - now) / 1000) + '</b></div>'); return; }
+      D.revealed = true;
+      var qp = panel(''); qp.appendChild(el('div', 'eyebrow', 'The well asks you both'));
+      qp.appendChild(el('div', 'qtimer', '<div class="fill"></div><span class="n"></span>')).id = 'duel-timer';
+      qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note || 'Build your answer in the box. ' + (q.check === 'exact' ? 'It must be in the form asked for: the right value in the wrong form counts as a miss.' : '')) + '</div>' : '')));
+      if (v.you && v.you.res === 'wrong') qp.appendChild(el('div', 'result lose', '<h2>Locked out</h2><p>Your answer was wrong. If ' + oppLine() + ' misses too, nobody wins and you both lose the stake.</p>'));
+      else if (D.sent) qp.appendChild(el('div', 'result', '<p>Your answer is in. The well is judging…</p>'));
+      else if (D.timeUp) qp.appendChild(el('div', 'result lose', '<h2>Time is up</h2><p>The well is settling the duel…</p>'));
+      else {
+        var ar = el('div', 'answer-row'); ar.appendChild(el('label', null, 'Your answer'));
+        var mf = mathInput(); ar.appendChild(mf.node); qp.appendChild(ar); D.mf = mf; if (D.typed) mf.set(D.typed);
+        qp.appendChild(buildKeypad(mf));
+        var send = function () { if (D.sent) return; var raw = mf.value(); if (/\\placeholder/.test(raw)) { toast('There is an empty box in your answer.'); return; }
+          var r = gradeAnswer(q, raw); if (r.reason === 'blank') { toast('Write an answer first.'); return; } if (r.reason === 'unreadable') { toast('That could not be read as math. Check for empty boxes or stray symbols.'); return; }
+          D.sent = true; D.typed = raw; sfx('strike');
+          if (S.klass) Ledger.push({ t: 'attempt', hero: S.hero ? S.hero.name : '', land: v.land, outcome: q.foe.outcome, group: q.foe.group || '', level: v.level, gen: q.key || '', boss: false, question: '[Duel] ' + q.prompt, typed: raw, result: r.ok ? 'correct' : r.reason, lore: S.lore, streak: S.streak });
+          if (!r.ok && r.reason === 'form') toast('Right value, wrong form: it counts as a miss.');
+          render();
+          duelCall({ op: 'answer', code: v.code, correct: r.ok ? '1' : '0' }, function (res) { if (res.ok) duelUpdate(res); });
+        };
+        var acts2 = el('div', 'actions'); acts2.appendChild(btn('Strike', 'big', send)); mf.onEnter(send); qp.appendChild(acts2);
+        setTimeout(function () { try { mf.focus(); } catch (e) {} }, 50);
+      }
+      setTimeout(duelTick, 0);
+    } else if (v.state === 'done') {
+      var q2 = v.seed ? duelQuestion(v) : null, won = v.winner && v.winner === v.role, lost = v.winner && !won;
+      var res = panel('<div class="duel-result ' + (won ? 'win' : 'lose') + '"><div class="eyebrow">' + (won ? 'Victory' : lost ? 'Defeat' : 'Nobody struck true') + '</div><h2>' + (won ? 'You win the duel' : lost ? esc(v.opp.hero) + ' wins the duel' : 'The well keeps the stake') + '</h2>' +
+        '<div class="gain' + (v.delta < 0 ? ' loss' : '') + '">' + (v.delta > 0 ? '+' : v.delta < 0 ? '−' : '') + n(Math.abs(v.delta || 0)) + ' Lore</div>' +
+        '<p>' + (won ? 'You answered right first. ' + esc(v.opp.hero) + '\'s stake is yours.' : lost ? (v.you && v.you.res === 'wrong' ? 'Your answer was wrong, and ' : 'You were too slow: ') + esc(v.opp.hero) + ' answered right first.' : 'Neither of you answered right before the clock ran out, so you both lose the stake.') + '</p></div>');
+      if (q2) res.appendChild(el('div', 'solution', '<div class="eyebrow">The question</div><div class="question" style="font-size:17px">' + q2.prompt + '</div><div class="eyebrow" style="margin-top:12px">How it is done</div>' + q2.solution));
+      var acts3 = el('div', 'actions'); acts3.appendChild(btn('Back to the well', '', function () { UI.duel = { land: D.land, phase: 'menu' }; render(); })); acts3.appendChild(btn('Step away from the well', 'ghost', duelLeave)); res.appendChild(acts3);
+    } else { // cancelled or expired
+      var px = panel('<h2>' + (v.state === 'expired' ? 'The challenge faded' : 'The challenge was called off') + '</h2><p>No Lore changed hands.</p>');
+      var acts4 = el('div', 'actions'); acts4.appendChild(btn('Back to the well', '', function () { UI.duel = { land: D.land, phase: 'menu' }; render(); })); acts4.appendChild(btn('Step away from the well', 'ghost', duelLeave)); px.appendChild(acts4);
+    }
+  }
+  function duelLeave() {
+    var D = UI.duel, v = D && D.view;
+    if (v && (v.state === 'open' || v.state === 'joined' || v.state === 'staked')) duelCall({ op: 'cancel', code: v.code }, function () {});
+    if (v && v.state === 'live' && !(v.you && v.you.res) && !(D && D.leaving)) {
+      showModal('<h2>Leave the duel?</h2><p>The question is live. If you walk away now you cannot answer, and you will lose the stake unless ' + esc(v.opp.hero) + ' misses too. The duel settles itself either way.</p><div class="actions"><button type="button" class="btn ghost" id="duel-leave-anyway">Leave anyway</button></div>', 'Stay and answer');
+      var la = document.getElementById('duel-leave-anyway'); if (la) la.onclick = function () { D.leaving = true; closeModal(); duelLeave(); };
+      return; }
+    if (S.duelActive && v && ['done', 'cancelled', 'expired', 'open', 'joined', 'staked'].indexOf(v.state) >= 0) S.duelActive = null;
+    var land = D ? D.land : (S.lastLand || 'L1'); UI.duel = null; UI.land = land; go('land');
+  }
+
+  /* ---------- the class leaderboard (hero names only: the backend never sends real names) ---------- */
+  var BOARDS = [
+    { id: 'legend', name: 'Legend', unit: 'Legend', val: function (p) { return p.legend; }, fmt: function (v) { return n(v); } },
+    { id: 'level', name: 'Level', unit: 'level', val: function (p) { return p.level; }, fmt: function (v) { return 'Level ' + v; } },
+    { id: 'bosses', name: 'Bosses', unit: 'seals broken', val: function (p) { return p.bosses; }, fmt: function (v) { return v + (v === 1 ? ' seal' : ' seals'); } },
+    { id: 'ach', name: 'Achievements', unit: 'achievements', val: function (p) { return p.ach; }, fmt: function (v) { return v + ' of ' + ACHIEVEMENTS.length; } },
+    { id: 'acc', name: 'Accuracy', unit: '% right', val: function (p) { return p.answers >= 20 ? p.acc : null; }, fmt: function (v) { return v + '%'; }, note: 'Counts heroes with at least 20 answers.' },
+    { id: 'streak', name: 'Best streak', unit: 'in a row', val: function (p) { return p.streak; }, fmt: function (v) { return v + ' in a row'; } },
+    { id: 'lore', name: 'Lore carried', unit: 'Lore', val: function (p) { return p.lore; }, fmt: function (v) { return n(v) + ' Lore'; }, note: 'Lore carried right now: it can be lost, or won in a duel.' }
+  ];
+  var LB = { tab: 'legend', data: null, at: 0, busy: false, err: '' };
+  function bonfireBoard() {
+    var box = el('div', 'lb'); app.appendChild(box);
+    if (!S.klass || !Ledger.enabled()) { box.appendChild(el('div', 'panel', '<p>The leaderboard ranks the heroes in your class. Sign in with your class code on the title screen to join it.</p>')); return; }
+    if (!FEAT.board) { box.appendChild(el('div', 'panel', '<p>Your teacher has turned the leaderboard off for this class.</p>')); return; }
+    function load(force) {
+      if (LB.who !== S.klass + '|' + S.name) { LB.who = S.klass + '|' + S.name; LB.data = null; }
+      if (LB.busy || (!force && LB.data && Date.now() - LB.at < 30000)) { draw(); return; }
+      LB.busy = true; LB.err = ''; draw(); Ledger.flush();
+      Ledger.board(S.klass, S.name, function (res) {
+        LB.busy = false;
+        if (res && res.ok) { if (res.off) { FEAT.board = false; } LB.data = res.players || []; LB.at = Date.now(); } else LB.err = res && (res.error === 'bad key' || res.error === 'unknown action') ? 'The leaderboard is not ready yet: your teacher needs to update the Ledger first.' : 'The leaderboard could not be reached. Check your connection and try again.';
+        if (UI.screen === 'bonfire' && UI.bonfireTab === 'board') { if (!FEAT.board) render(); else draw(); }
+      });
+    }
+    function draw() {
+      box.innerHTML = '';
+      var bar = el('div', 'lb-tabs'); BOARDS.forEach(function (b) { var t = el('button', 'lb-tab' + (LB.tab === b.id ? ' on' : ''), b.name); t.type = 'button'; t.onclick = function () { LB.tab = b.id; draw(); }; bar.appendChild(t); });
+      box.appendChild(bar);
+      var pn = el('div', 'panel lb-panel'); box.appendChild(pn);
+      if (!LB.data) { pn.appendChild(el('p', 'muted', LB.err || 'Reading the class records…')); if (LB.err) { var rt = el('button', 'btn', 'Try again'); rt.type = 'button'; rt.onclick = function () { load(true); }; pn.appendChild(rt); } return; }
+      var B = BOARDS.filter(function (b) { return b.id === LB.tab; })[0];
+      var rows = LB.data.filter(function (p) { return B.val(p) != null; }).sort(function (a, b) { return B.val(b) - B.val(a) || b.legend - a.legend; });
+      var rank = 0, prev = null; rows.forEach(function (p, i) { if (B.val(p) !== prev) { rank = i + 1; prev = B.val(p); } p._rank = rank; });
+      var mine = rows.filter(function (p) { return p.me; })[0], top = rows.slice(0, 10), max = Math.max(1, rows.length ? B.val(rows[0]) : 1);
+      pn.appendChild(el('div', 'lb-head', '<div><div class="eyebrow">' + esc(S.klass) + ' · ' + LB.data.length + (LB.data.length === 1 ? ' hero' : ' heroes') + '</div><h2>' + B.name + '</h2>' + (B.note ? '<p class="muted">' + B.note + '</p>' : '') + '</div>' +
+        (mine ? '<div class="lb-you"><span>You are</span><b>#' + mine._rank + '</b><span>of ' + rows.length + '</span></div>' : '')));
+      if (!rows.length) { pn.appendChild(el('p', 'muted', B.id === 'acc' ? 'Nobody in your class has answered 20 questions yet.' : 'No heroes in your class yet.')); }
+      function line(p) {
+        var art = window.ART_IMG && ART_IMG['hero-' + (p.cls || 'knight') + '-' + Math.max(1, Math.min(3, p.stage || 1))], v = B.val(p);
+        return '<div class="lb-row' + (p.me ? ' me' : '') + (p._rank <= 3 ? ' r' + p._rank : '') + '"><span class="lb-rank">' + p._rank + '</span>' +
+          '<span class="lb-pic">' + (art ? '<img src="' + art + '" alt="">' : '') + '</span>' +
+          '<span class="lb-name"><b>' + esc(p.hero) + (p.me ? ' <em>(you)</em>' : '') + '</b><span>Level ' + p.level + (p.bosses ? ' · ' + p.bosses + (p.bosses === 1 ? ' seal' : ' seals') : '') + '</span></span>' +
+          '<span class="lb-bar"><span style="width:' + Math.max(2, Math.round(100 * v / max)) + '%"></span></span>' +
+          '<span class="lb-val">' + B.fmt(v) + '</span></div>';
+      }
+      var list = top.map(line).join('');
+      if (mine && mine._rank > 10) list += '<div class="lb-gap">⋯</div>' + line(mine);
+      pn.appendChild(el('div', 'lb-list', list));
+      var foot = el('div', 'lb-foot muted', 'Updated ' + fmtAgo(LB.at) + '. Heroes appear here after they play with your class code.');
+      var rf = el('button', 'btn ghost', LB.busy ? 'Refreshing…' : 'Refresh'); rf.type = 'button'; rf.disabled = LB.busy; rf.onclick = function () { load(true); }; foot.appendChild(rf);
+      pn.appendChild(foot);
+    }
+    load(false);
+  }
   function bonfireAchievements() {
     S.ach = S.ach || {}; var got = ACHIEVEMENTS.filter(function (a) { return S.ach[a.id]; }).length;
     var head = el('div', 'panel ach-head', '<div class="ach-count"><b>' + got + '</b> of ' + ACHIEVEMENTS.length + ' earned</div><div class="ach-bar"><span style="width:' + Math.round(100 * got / ACHIEVEMENTS.length) + '%"></span></div>');
@@ -584,6 +825,7 @@
       returnFrom: UI.returnFrom,
       heroSpeed: heroSpeed(), sightTiles: sightTiles(), loseAfter: loseAfter(),
       onBattle: function (c, isBoss, inst, strike) { startBattle(L, c, isBoss, inst, false, strike); },
+      well: !!(S.bossKills[L.id] && !L.finale), onWell: function () { sfx('click'); UI.duel = { land: L.id, phase: 'menu' }; go('duel'); },
       onBonfire: function (o) { sfx('bonfire'); var wd = S.world && S.world[L.id]; if (wd && ((wd.dead && wd.dead.length) || wd.bossDead)) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; toast('You rest. Out in the dark, the dead stir again.'); } go('bonfire'); if (wd && o && o.temp) { wd.pos = null; saveLocal(); } }, // after a boss-room fire, the next visit starts at the land's own bonfire
       onChest: function (nn) { return openChest(L, nn); },
       onPage: function (nn) { showPage(L, nn, true); },
@@ -1199,7 +1441,7 @@
     beast: '<path d="M5 20c0-6 3-10 7-10s7 4 7 10"/><path d="M8 11 6 4l4 4M16 11l2-7-4 4"/><path d="M10 15h.01M14 15h.01"/>',
     help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 1-1 1.7"/><path d="M12 17h.01"/>'
   };
-  var CAMP_ART = { ach: 'camp-achievements', ledger: 'camp-ledger', gear: 'camp-forge', level: 'camp-legacy', shop: 'camp-merchant', book: 'camp-lorebook', beast: 'camp-bestiary', chronicle: 'camp-chronicle', help: 'camp-rules' };
+  var CAMP_ART = { board: 'camp-leaderboard', ach: 'camp-achievements', ledger: 'camp-ledger', gear: 'camp-forge', level: 'camp-legacy', shop: 'camp-merchant', book: 'camp-lorebook', beast: 'camp-bestiary', chronicle: 'camp-chronicle', help: 'camp-rules' };
   function campArt(id, cls) { var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k]; return src ? '<span class="camp-art' + (cls ? ' ' + cls : '') + '"><img src="' + src + '" alt=""></span>' : campIcon(id); }
   /* the bonfire at the top of the camp: the painted shrine sprite, crackling */
   var campFireRaf = 0;
@@ -1249,6 +1491,7 @@
     if (id === 'shop') { var cnt = 0; ITEMS.forEach(function (it) { cnt += itemCount(it.id); }); var cheap = ITEMS.filter(function (it) { return S.lore >= it.cost; }).length; return cnt + (cnt === 1 ? ' item' : ' items') + ' in your Satchel' + (cheap ? ' · ' + cheap + ' kinds within reach' : ''); }
     if (id === 'book') { var found = 0, total = 0; LANDS.forEach(function (L) { if (!isOpen(L) || !LOREBOOK[L.id]) return; total += LOREBOOK[L.id].length; found += (((S.world && S.world[L.id]) || {}).pages || []).length; }); return found + ' of ' + total + ' pages found'; }
     if (id === 'beast') { var met = 0, tot = 0; LANDS.forEach(function (L) { if (!isOpen(L)) return; L.creatures.concat([L.boss]).forEach(function (c) { tot++; if (S.met && S.met[c.id]) met++; }); }); return met + ' of ' + tot + ' creatures met'; }
+    if (id === 'board') return !S.klass || !Ledger.enabled() ? 'Needs a class code' : !FEAT.board ? 'Turned off by your teacher' : 'See where you rank';
     if (id === 'ach') { var got = ACHIEVEMENTS.filter(function (a) { return S.ach && S.ach[a.id]; }).length; return got + ' of ' + ACHIEVEMENTS.length + ' earned'; }
     if (id === 'chronicle') return 'Legend ' + n(S.legend) + ' · ' + n(S.deaths) + (S.deaths === 1 ? ' death' : ' deaths') + ' · save code';
     return 'How Lore, death and the lands work';
@@ -1257,15 +1500,15 @@
     syncUnlocks(false); S.where = null; // resting: a reload from here may go to the map
     if (S.world) Object.keys(S.world).forEach(function (k) { if (S.world[k] && S.world[k].campfire) delete S.world[k].campfire; }); // a boss-room fire burns out once you have rested
     var tab = UI.bonfireTab || 'camp', Lc = landById(UI.land || S.lastLand || 'L1');
-    if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast' || tab === 'ach') {} else tab = 'camp';
+    if (tab === 'gear' || tab === 'level' || tab === 'shop' || tab === 'book' || tab === 'beast' || tab === 'ach' || tab === 'board') {} else tab = 'camp';
     var bkey = Lc && (Lc.banner || (Lc.id === 'L1' ? 'title' : null));
     if (bkey && window.ART_IMG && ART_IMG[bkey]) { var bd = el('div', 'camp-backdrop'); bd.style.backgroundImage = 'url(' + ART_IMG[bkey] + ')'; app.appendChild(bd); }
-    var TILES = [['gear', 'The Forge', 'Richard the blacksmith\'s permanent upgrades, in six branches.'], ['level', 'Imbue Lore into Legacy', 'Laura turns the Lore you spend into strength.'], ['shop', 'The Merchant', 'Callum\'s one-use wares for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['ach', 'Achievements', 'Deeds the Chronicle remembers.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
+    var TILES = [['gear', 'The Forge', 'Richard the blacksmith\'s permanent upgrades, in six branches.'], ['level', 'Imbue Lore into Legacy', 'Laura turns the Lore you spend into strength.'], ['shop', 'The Merchant', 'Callum\'s one-use wares for the Satchel.'], ['book', 'Lorebook', 'Read the pages you have found.'], ['beast', 'Bestiary', 'Fight creatures you have met, with nothing at stake.'], ['ach', 'Achievements', 'Deeds the Chronicle remembers.'], ['board', 'Leaderboard', 'Where your hero stands among your class.'], ['chronicle', 'Chronicle', 'Your record, by outcome.'], ['help', 'Rules', 'The rules of the world.']];
     if (tab !== 'camp') { // entering one of the camp's places: a full-width painting, then its contents
       var cur = TILES.filter(function (t) { return t[0] === tab; })[0];
       var kp = window.KEEPERS && KEEPERS[tab]; // the keeper's word, laid over their banner beside them
       app.appendChild(campHall(tab, cur[1], cur[2], function () { UI.bonfireTab = 'camp'; render(); window.scrollTo(0, 0); }, kp ? { quote: { text: kp.lines[Math.floor(Math.random() * kp.lines.length)], who: kp.name + ', ' + kp.role } } : null));
-      if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else if (tab === 'ach') bonfireAchievements(); else bonfireBook();
+      if (tab === 'gear') bonfireGear(); else if (tab === 'level') bonfireLevel(); else if (tab === 'shop') bonfireShop(); else if (tab === 'beast') bonfireBestiary(); else if (tab === 'ach') bonfireAchievements(); else if (tab === 'board') bonfireBoard(); else bonfireBook();
       return;
     }
     var head = el('div', 'camp-head');
@@ -1284,10 +1527,10 @@
     });
     app.appendChild(grid);
   }
-  var HALL_FOCUS = { ach: 'center 40%', ledger: 'center 28%', gear: 'center 16%', level: 'center 10%', shop: 'center 48%', book: 'center 45%', beast: 'center 40%', chronicle: 'center 40%', help: 'center 45%' };
+  var HALL_FOCUS = { board: 'center 40%', ach: 'center 40%', ledger: 'center 28%', gear: 'center 16%', level: 'center 10%', shop: 'center 48%', book: 'center 45%', beast: 'center 40%', chronicle: 'center 40%', help: 'center 45%' };
   function campHall(id, title, desc, back, o) { // the banner at the top of a camp place; the only way out is back to the bonfire
     document.documentElement.classList.add('has-hall'); o = o || {};
-    var k = CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = S ? landById(UI.land || S.lastLand || 'L1') : null;
+    var k = o.art || CAMP_ART[id], src = k && window.ART_IMG && ART_IMG[k], Lc = S ? landById(UI.land || S.lastLand || 'L1') : null;
     var h = el('div', 'camp-hall hall-' + id + (src ? '' : ' plain'));
     if (src) { var im = el('img'); im.src = src; im.alt = ''; im.style.objectPosition = HALL_FOCUS[id] || 'center 40%'; h.appendChild(im); }
     var spend = id === 'gear' || id === 'level' || id === 'shop';
@@ -1691,7 +1934,7 @@
     bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
     app.appendChild(bar);
     ledgerClassCodes();
-    ledgerLands();
+    ledgerLands(); ledgerFeatures();
     // class summary
     var tot = { students: players.length, play: 0, attempts: 0, correct: 0, bosses: 0, legend: 0, deaths: 0 };
     players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.attempts += Number(p.attempts) || 0; tot.correct += Number(p.correct) || 0; tot.bosses += Number(p.bossKills) || 0; tot.legend += Number(p.legend) || 0; tot.deaths += Number(p.deaths) || 0; });
@@ -1766,6 +2009,30 @@
     var pv = teacherPreview(), tb = el('button', 'btn ghost small', pv ? 'Turn off teacher preview on this device' : 'Teacher preview: open every land on this device'); tb.type = 'button';
     tb.onclick = function () { try { if (pv) localStorage.removeItem(SAVE_PREFIX + 'preview'); else localStorage.setItem(SAVE_PREFIX + 'preview', '1'); } catch (e) {} toast(pv ? 'Teacher preview is off.' : 'Every land is open on this device, for any hero played here.'); render(); };
     p.appendChild(tb);
+    app.appendChild(p);
+  }
+  function ledgerFeatures() { // per class: the leaderboard and duels, and the duels fought lately
+    var p = el('div', 'panel ledger-feat'), f = LG.data.features;
+    p.appendChild(el('div', 'eyebrow', 'Leaderboard and duels · ' + (LG.klass ? 'class ' + esc(LG.klass) : 'choose a class')));
+    if (!f) { p.appendChild(el('p', 'muted', 'To use the leaderboard and duels, paste the newest <b>backend/Code.gs</b> into the Apps Script project and deploy a new version.')); app.appendChild(p); return; }
+    if (!LG.klass) p.appendChild(el('p', 'muted', 'Both are on for every class unless you turn them off. Choose a class above to switch them for that class. The leaderboard shows hero names only; duels happen at a well in each land a student has cleared.'));
+    else {
+      var cur = f[normClass(LG.klass)] || {}, on = { board: cur.board !== false, duels: cur.duels !== false }, row = el('div', 'feat-row');
+      [['board', 'Leaderboard', 'Students see their class ranked by Legend, level, bosses, achievements, accuracy, streak and Lore (hero names only).'], ['duels', 'Duels', 'Two students who have cleared a land can duel at its well: same question, first right answer wins the stake.']].forEach(function (x) {
+        var b = el('button', 'feat-chip' + (on[x[0]] ? ' on' : ''), '<b>' + x[1] + '</b><span>' + (on[x[0]] ? 'On' : 'Off') + '</span><em>' + x[2] + '</em>'); b.type = 'button'; b.setAttribute('aria-pressed', on[x[0]] ? 'true' : 'false');
+        b.onclick = function () { var next = { board: on.board, duels: on.duels }; next[x[0]] = !on[x[0]]; row.querySelectorAll('button').forEach(function (y) { y.disabled = true; });
+          Ledger.setFeatures(LG.key, LG.klass, next.board, next.duels, function (res) { if (res && res.ok) { LG.data.features = res.features; toast(x[1] + (next[x[0]] ? ' on' : ' off') + ' for ' + LG.klass + '.'); } else toast('Could not save: ' + ((res && res.error) || 'no reply')); render(); }); };
+        row.appendChild(b);
+      });
+      p.appendChild(row);
+    }
+    var ds = (LG.data.duels || []).filter(function (d) { return !LG.klass || normClass(d['class']) === normClass(LG.klass); }).slice(0, 15);
+    if (ds.length) {
+      var t = '<table class="oc duels"><tr><th>When</th><th>Land</th><th>Level</th><th>Stake</th><th>Challenger</th><th>Opponent</th><th>Result</th></tr>';
+      ds.forEach(function (d) { var Lx = landById(d.land), w = d.winner === 'a' ? d.aName : d.winner === 'b' ? d.bName : '';
+        t += '<tr><td>' + fmtAgo(d.finished) + '</td><td>' + esc(Lx ? Lx.name : d.land) + '</td><td>' + esc((LEVELS[d.level] || {}).name || d.level) + '</td><td>' + n(Number(d.stake) || 0) + '</td><td>' + esc(d.aName) + ' <span class="muted">(' + esc(d.aHero) + ')</span></td><td>' + esc(d.bName) + ' <span class="muted">(' + esc(d.bHero) + ')</span></td><td>' + (w ? '<b>' + esc(w) + '</b> won' : 'nobody right') + '</td></tr>'; });
+      var tw = el('div', 'table-wrap'); tw.innerHTML = t + '</table>'; p.appendChild(el('div', 'eyebrow', 'Recent duels')); p.appendChild(tw);
+    }
     app.appendChild(p);
   }
   function heatTable(outcomeMaps) {
@@ -1848,5 +2115,6 @@
   window.Lorebound = { encode: encode, decode: decode, state: function () { return S; } };
   if (window.LOREBOUND_DEBUG === true) { window.Lorebound.battle = function () { return UI.battle; }; window.Lorebound.go = go;
     window.Lorebound.fight = function (i, strike) { var L = landById(UI.land || S.lastLand); startBattle(L, L.creatures[i], false, 0, false, strike); };
+    window.Lorebound.duel = function () { return UI.duel; }; window.Lorebound.duelQ = function () { return UI.duel && UI.duel.view && UI.duel.view.seed ? duelQuestion(UI.duel.view) : null; };
     window.Lorebound.fightBoss = function () { var L = landById(UI.land || S.lastLand); startBattle(L, L.boss, true); }; }
 })();
