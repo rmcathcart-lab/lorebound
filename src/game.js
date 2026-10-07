@@ -1065,7 +1065,7 @@
   }
   function stagePlay(who, anim) { var a = Stage[who]; if (!a) return; a.anim = anim; a.t0 = nowS(); }
   function stageHurt(who) { var a = Stage[who]; if (a) a.hurt = nowS(); }
-  // a killing blow that something stopped: 'knight' (the class's armour), 'shield' (Bone Shield, shatters) or 'draught' (a potion)
+  // a killing blow that something stopped: 'knight' (the class's parry), 'shield' (Bone Shield, shatters) or 'draught' (a potion)
   function stageWard(kind) { Stage.ward = { kind: kind, t0: nowS() }; if (!Stage.raf && Stage.cv) Stage.raf = requestAnimationFrame(stageFrame); }
   function drawWard(ctx, w, cx, cy, size, t) {
     var e = t - w.t0, D = w.kind === 'shield' ? 1.6 : 1.4; if (e < 0 || e > D) return;
@@ -1114,17 +1114,23 @@
       if ((st.anim === 'attack') && el2 > len) { st.anim = 'idle'; st.t0 = t; el2 = 0; }       // attacks return to guard; deaths hold
       var lunge = st.anim === 'attack' ? Math.sin(Math.PI * Math.min(1, el2 / Math.max(0.01, len))) * gap * 0.22 * row[4] : 0;
       var fl = Math.max(0, 1 - (t - st.hurt) / 0.4), shake = fl ? Math.sin(t * 70) * 3 * fl : 0;
+      if (row[0] === 'hero' && Stage.ward && Stage.ward.kind === 'knight') { var dd = SP.actor(Stage.hero.id + '-deflect'), de = t - Stage.ward.t0; // the Knight parries the blow (painted)
+        if (dd && de >= 0 && de < SP.animLength(dd, 'deflect')) { d = dd; st = { anim: 'deflect' }; el2 = de; lunge = 0; Stage.ward.art = true; } }
       ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(row[2] + lunge, ground + 2, Math.min(60, tall(d) * k * 0.32), 7, 0, 0, 7); ctx.fill();
       SP.drawActor(ctx, d, st.anim, el2, row[2] + lunge + shake, ground, row[3], { mul: k, flash: fl, tint: row[0] === 'hero' && heroStage() > 1 && Stage.hero.id.indexOf('cr:') !== 0 ? (heroStage() === 3 ? 'rgba(255,200,80,.18)' : 'rgba(140,210,255,.16)') : null });
     });
-    if (Stage.ward && hd) { var hh = tall(hd) * k; drawWard(ctx, Stage.ward, hx + gap * 0.1, ground - hh * 0.55, Math.max(22, Math.min(46, hh * 0.32)), t); }
+    if (Stage.ward && hd) { var hh = tall(hd) * k, wd = Stage.ward, we = t - wd.t0;
+      var fx = wd.kind === 'shield' ? SP.actor('cr:fx-shield') : wd.kind === 'draught' ? SP.actor('cr:fx-ember') : null; // painted effects; the drawn ward is the fallback
+      if (fx) { if (we >= 0 && we < SP.animLength(fx, wd.kind === 'shield' ? 'shatter' : 'burst')) SP.drawActor(ctx, fx, wd.kind === 'shield' ? 'shatter' : 'burst', we, wd.kind === 'shield' ? hx + gap * 0.08 : hx, wd.kind === 'shield' ? ground - hh * 0.5 : ground, false, { mul: k }); }
+      else if (!(wd.kind === 'knight' && SP.actor(Stage.hero.id + '-deflect'))) drawWard(ctx, wd, hx + gap * 0.1, ground - hh * 0.55, Math.max(22, Math.min(46, hh * 0.32)), t); }
   }
   /* one exchange of blows, then the result: the attacker lunges, the defender flinches or falls */
   function exchange(heroWins, fatal, then, ward) { // ward: what stops a killing blow ('knight' | 'shield' | 'draught')
     var B = UI.battle; B.busy = true;
     var atk = heroWins ? 'hero' : 'foe', def = heroWins ? 'foe' : 'hero';
     stagePlay(atk, 'attack');
-    setTimeout(function () { if (ward) { stageWard(ward); sfx('shield'); } else if (fatal) stagePlay(def, 'death'); else stageHurt(def); if (!ward) sfx(heroWins ? 'strike' : 'wrong'); }, 320);
+    if (ward === 'knight') setTimeout(function () { stageWard('knight'); }, 140); // the parry starts as the blow comes in; its contact frame meets the strike
+    setTimeout(function () { if (ward) { if (ward !== 'knight') stageWard(ward); sfx('shield'); } else if (fatal) stagePlay(def, 'death'); else stageHurt(def); if (!ward) sfx(heroWins ? 'strike' : 'wrong'); }, 320);
     setTimeout(function () { B.busy = false; if (UI.battle === B) then(); }, ward ? 1150 : fatal ? 760 : 600);
   }
 
@@ -1262,11 +1268,11 @@
     if (how === 'draught') S.items.draught--; else if (how !== 'knight') S.gear.shield.charges--;
     S.streak = 0; S.losses[B.foe.id] = (S.losses[B.foe.id] || 0) + 1;
     B.done = true; B.phase = 'result'; B.outcome = 'fled';
-    var art = window.ART_IMG && ART_IMG[how === 'draught' ? 'item-draught' : how === 'knight' ? '' : 'gear-shield'];
+    var art = window.ART_IMG && ART_IMG[how === 'draught' ? 'item-draught' : how === 'knight' ? 'hero-knight-' + heroStage() : 'gear-shield']; // the painted tile, as in the Satchel
     var emblem = art ? '<div class="ward-emblem art" style="background-image:url(' + art + ')"></div>'
       : '<div class="ward-emblem"><svg viewBox="0 0 40 46" aria-hidden="true"><path d="M5 6 Q20 1 35 6 L35 20 Q34 36 20 44 Q6 36 5 20 Z" /><path class="x" d="M20 9 V38 M10 17 H30" /></svg></div>';
     var why = B.timedOut ? 'The clock ran out' : 'That answer was wrong';
-    var parts = how === 'knight' ? ['Saved by your Knight\'s armour · a 1-in-' + Math.round(1 / KNIGHT_HOLD) + ' chance', 'Your armour holds', why + ', and the blow should have killed you, but it glanced off your plate.', '']
+    var parts = how === 'knight' ? ['Saved by your Knight\'s parry · a 1-in-' + Math.round(1 / KNIGHT_HOLD) + ' chance', 'You turn the blow aside', why + ', and the blow should have killed you, but you caught it on your blade.', '']
       : how === 'draught' ? ['Saved by an Ember Draught · one used', 'You drink the Ember Draught', why + '. Fire in your throat, and the blow that should have killed you lands on nothing.', ' The draught is gone.']
       : ['Saved by your Bone Shield · its charge is spent', 'Your Bone Shield shatters', why + ', and the blow that should have killed you broke on the shield.', ' Recharge the shield at a bonfire.'];
     var res = el('div', 'result warn ward ward-' + how, '<div class="ward-head">' + emblem + '<div><div class="eyebrow">' + parts[0] + '</div><h2>' + parts[1] + '</h2></div></div>' +
