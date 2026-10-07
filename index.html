@@ -876,8 +876,8 @@ img.lord-mini { width: 26px; height: 26px; vertical-align: -8px; margin: -4px 0;
 /* first strike / ambush, above the question clock */
 .strike-note { margin: 2px 0 8px; padding: 7px 12px; border-radius: 5px; font-size: 16px; line-height: 1.35; border: 1px solid; }
 .strike-note b { font-family: var(--font-ui); font-weight: 600; letter-spacing: .05em; margin-right: 4px; }
-.strike-note.hero { color: #cfe8b8; border-color: rgba(127,176,105,.45); background: rgba(127,176,105,.10); }
-.strike-note.creature { color: #f2c0b6; border-color: rgba(216,67,58,.45); background: rgba(216,67,58,.10); }
+.strike-note.sn-hero { color: #cfe8b8; border-color: rgba(127,176,105,.45); background: rgba(127,176,105,.10); }
+.strike-note.sn-creature { color: #f2c0b6; border-color: rgba(216,67,58,.45); background: rgba(216,67,58,.10); }
 /* the world map's way back to the bonfire, top left over the sea */
 .atlas-back { position: absolute; top: 14px; left: 16px; z-index: 60; font-size: 13px; padding: 9px 14px; background: rgba(20,14,12,.82); backdrop-filter: blur(4px); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
 @media (max-width: 520px) { .atlas-back { top: 10px; left: 10px; font-size: 12px; padding: 7px 11px; } }
@@ -11355,7 +11355,7 @@ var Overworld = (function () {
     var wrap = el('div', 'battle');
     var head = el('div', 'panel');
     var foeEl = el('div', 'foe'); foeEl.style.setProperty('--lvl', lvlColor);
-    var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
+    var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i || (B.allDone && i === B.i) ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
     var tagTxt = (foe.finale ? 'Question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.tutorial ? 'nothing at stake' : B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore'); if (foe.finale && !B.practice) tagTxt = tagTxt.replace(/ · [\d,]+ Lore$/, '');
     foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + tagTxt + '</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
@@ -11376,7 +11376,7 @@ var Overworld = (function () {
     if (B.phase === 'ask' || B.phase === 'sight' || B.phase === 'warn') {
       var qp = el('div', 'panel');
       qp.appendChild(el('div', 'eyebrow', B.isBoss ? 'It speaks' : 'The creature asks'));
-      if (B.strike && B.i === 0 && B.deadline) qp.appendChild(el('div', 'strike-note ' + B.strike, B.strike === 'hero' ? '<b>First strike!</b> You attacked first: +' + FIRST_STRIKE + ' seconds on the clock.' : '<b>Ambushed!</b> ' + esc(foe.name) + ' caught you first: −' + FIRST_STRIKE + ' seconds on the clock.'));
+      if (B.strike && B.i === 0 && B.deadline) qp.appendChild(el('div', 'strike-note sn-' + B.strike, B.strike === 'hero' ? '<b>First strike!</b> You attacked first: +' + FIRST_STRIKE + ' seconds on the clock.' : '<b>Ambushed!</b> ' + esc(foe.name) + ' caught you first: −' + FIRST_STRIKE + ' seconds on the clock.'));
       if (B.deadline) qp.appendChild(el('div', 'qtimer', '<div class="fill"></div><span class="n"></span>')).id = 'qtimer';
       qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Build your answer in the box: the keypad makes fractions, powers and roots with boxes to fill in. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
       if (B.phase === 'warn') {
@@ -11453,6 +11453,7 @@ var Overworld = (function () {
       B.i++; B.hintShown = false; B.freeHint = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; rollInsight(B); armTimer();
       toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); sfx('correct'); render(); return;
     }
+    B.allDone = true; // the last question fell: every tick on the boss bar fills
     if (B.practice) { practiceEnd(true); return; }
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);

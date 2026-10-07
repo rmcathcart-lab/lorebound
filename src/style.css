@@ -870,8 +870,8 @@ img.lord-mini { width: 26px; height: 26px; vertical-align: -8px; margin: -4px 0;
 /* first strike / ambush, above the question clock */
 .strike-note { margin: 2px 0 8px; padding: 7px 12px; border-radius: 5px; font-size: 16px; line-height: 1.35; border: 1px solid; }
 .strike-note b { font-family: var(--font-ui); font-weight: 600; letter-spacing: .05em; margin-right: 4px; }
-.strike-note.hero { color: #cfe8b8; border-color: rgba(127,176,105,.45); background: rgba(127,176,105,.10); }
-.strike-note.creature { color: #f2c0b6; border-color: rgba(216,67,58,.45); background: rgba(216,67,58,.10); }
+.strike-note.sn-hero { color: #cfe8b8; border-color: rgba(127,176,105,.45); background: rgba(127,176,105,.10); }
+.strike-note.sn-creature { color: #f2c0b6; border-color: rgba(216,67,58,.45); background: rgba(216,67,58,.10); }
 /* the world map's way back to the bonfire, top left over the sea */
 .atlas-back { position: absolute; top: 14px; left: 16px; z-index: 60; font-size: 13px; padding: 9px 14px; background: rgba(20,14,12,.82); backdrop-filter: blur(4px); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
 @media (max-width: 520px) { .atlas-back { top: 10px; left: 10px; font-size: 12px; padding: 7px 11px; } }

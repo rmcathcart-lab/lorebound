@@ -1099,7 +1099,7 @@
     var wrap = el('div', 'battle');
     var head = el('div', 'panel');
     var foeEl = el('div', 'foe'); foeEl.style.setProperty('--lvl', lvlColor);
-    var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
+    var prog = B.isBoss ? '<div class="boss-progress">' + B.qs.map(function (_, i) { return '<span class="' + (i < B.i || (B.allDone && i === B.i) ? 'done' : i === B.i ? 'now' : '') + '"></span>'; }).join('') + '</div>' : '';
     var tagTxt = (foe.finale ? 'Question ' + (B.i + 1) + ' of ' + B.qs.length + ' · ' + (q.outcome || '') + ' Mastery' : B.isBoss ? 'Boss · question ' + (B.i + 1) + ' of ' + B.qs.length : foe.outcome + ' · ' + LEVELS[foe.level].name) + ' · ' + (B.tutorial ? 'nothing at stake' : B.practice ? 'Practice · no Lore at stake' : n(LEVELS[foe.level].lore) + ' Lore'); if (foe.finale && !B.practice) tagTxt = tagTxt.replace(/ · [\d,]+ Lore$/, '');
     foeEl.innerHTML = portrait(foe.sigil) + '<div><div class="tag">' + tagTxt + '</div><h2>' + esc(foe.name) + '</h2>' + prog + '</div>';
     var arena = el('div', 'arena');
@@ -1120,7 +1120,7 @@
     if (B.phase === 'ask' || B.phase === 'sight' || B.phase === 'warn') {
       var qp = el('div', 'panel');
       qp.appendChild(el('div', 'eyebrow', B.isBoss ? 'It speaks' : 'The creature asks'));
-      if (B.strike && B.i === 0 && B.deadline) qp.appendChild(el('div', 'strike-note ' + B.strike, B.strike === 'hero' ? '<b>First strike!</b> You attacked first: +' + FIRST_STRIKE + ' seconds on the clock.' : '<b>Ambushed!</b> ' + esc(foe.name) + ' caught you first: −' + FIRST_STRIKE + ' seconds on the clock.'));
+      if (B.strike && B.i === 0 && B.deadline) qp.appendChild(el('div', 'strike-note sn-' + B.strike, B.strike === 'hero' ? '<b>First strike!</b> You attacked first: +' + FIRST_STRIKE + ' seconds on the clock.' : '<b>Ambushed!</b> ' + esc(foe.name) + ' caught you first: −' + FIRST_STRIKE + ' seconds on the clock.'));
       if (B.deadline) qp.appendChild(el('div', 'qtimer', '<div class="fill"></div><span class="n"></span>')).id = 'qtimer';
       qp.appendChild(el('div', 'question', q.prompt + (q.type === 'expr' ? '<div class="note">' + (q.note ? q.note : 'Build your answer in the box: the keypad makes fractions, powers and roots with boxes to fill in. ' + (q.check === 'exact' ? 'It must be in the form asked for.' : '')) + '</div>' : '')));
       if (B.phase === 'warn') {
@@ -1197,6 +1197,7 @@
       B.i++; B.hintShown = false; B.freeHint = false; B.tomeQ = null; B.formWarned = false; B.sightUsed = false; B.phase = 'ask'; rollInsight(B); armTimer();
       toast('It reels. ' + (B.qs.length - B.i) + ' to go.'); sfx('correct'); render(); return;
     }
+    B.allDone = true; // the last question fell: every tick on the boss bar fills
     if (B.practice) { practiceEnd(true); return; }
     var rw = rewardFor(foe.level, B.isBoss, B.used), reclaimed = 0;
     S.lore += rw.amount; S.legend += rw.amount; S.streak++; S.bestStreak = Math.max(S.bestStreak, S.streak);
