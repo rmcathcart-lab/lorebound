@@ -14,15 +14,33 @@ var Ledger = (function () {
     if (!enabled() || !ident || !queue.length || (flushing && !useBeacon)) return;
     if (status !== 'ok') return; // hold events until the ledger is reachable (sign-in), then send them all
     var body = JSON.stringify({ v: 1, 'class': ident.klass, name: ident.name, events: queue.splice(0, queue.length) });
-    if (useBeacon && navigator.sendBeacon) { try { navigator.sendBeacon(url, body); return; } catch (e) {} }
+    // credentials 'omit': the web app is open to Anyone, and Google sign-in cookies make it redirect to /u/N/ (and fail)
+    // in browsers signed in to more than one Google account. keepalive lets the last batch go out as the page closes.
     flushing = true;
     try {
-      fetch(url, { method: 'POST', mode: 'no-cors', credentials: 'include', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, keepalive: !!useBeacon })
+      fetch(url, { method: 'POST', mode: 'no-cors', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: body, keepalive: !!useBeacon })
         .then(function () { flushing = false; }, function () { flushing = false; });
     } catch (e) { flushing = false; }
   }
+  // Reads: a cookie-less fetch first (works in browsers signed in to several Google accounts, where a script tag
+  // carrying sign-in cookies is redirected to /u/N/ and fails); a JSONP script tag if fetch itself is unavailable.
   function jsonp(params, cb, timeoutMs) {
     if (!enabled()) { cb({ ok: false, error: 'no backend' }); return; }
+    if (!window.fetch) return scriptGet(params, cb, timeoutMs);
+    var qs = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+    var done = false, ctl = window.AbortController ? new AbortController() : null;
+    var tm = setTimeout(function () { if (done) return; done = true; try { if (ctl) ctl.abort(); } catch (e) {} cb({ ok: false, error: 'timeout' }); }, timeoutMs || 20000);
+    fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + qs + '&callback=lore&_=' + Date.now(), { credentials: 'omit', signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { return r.text(); })
+      .then(function (t) {
+        if (done) return; var data = null;
+        try { data = JSON.parse(String(t).replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '')); } catch (e) {}
+        if (!data) throw new Error('bad reply');
+        done = true; clearTimeout(tm); cb(data);
+      })
+      .catch(function () { if (done) return; done = true; clearTimeout(tm); scriptGet(params, cb, timeoutMs); });
+  }
+  function scriptGet(params, cb, timeoutMs) {
     var name = '__lore_cb' + (++cbN), done = false, s = document.createElement('script');
     var qs = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
     window[name] = function (data) { if (done) return; done = true; try { delete window[name]; } catch (e) { window[name] = undefined; } s.remove(); cb(data || { ok: false }); };

@@ -555,7 +555,7 @@
   function screenDuel() {
     var D = UI.duel; if (!D) { go('land'); return; }
     var L = landById(D.land), v = D.view;
-    var hall = campHall('duel', 'The Duelling Well', 'Below the boss\'s throne, still water remembers every hero who has looked into it.', function () { duelLeave(); }, { eyebrow: esc(L ? L.name : '') + ' · Duels', art: L && L.banner, backLabel: '◀ Back to ' + esc(L ? theLand(L) : 'the land') });
+    var hall = campHall('duel', 'The Duelling Well', 'Beside the bonfire, still water remembers every hero who has looked into it.', function () { duelLeave(); }, { eyebrow: esc(L ? L.name : '') + ' · Duels', art: L && L.banner, backLabel: '◀ Back to ' + esc(L ? theLand(L) : 'the land') });
     if (D.drawn) hall.classList.add('still'); D.drawn = true; app.appendChild(hall);
     var box = el('div', 'duel'); app.appendChild(box);
     function panel(html) { var p = el('div', 'panel duel-panel', html); box.appendChild(p); return p; }

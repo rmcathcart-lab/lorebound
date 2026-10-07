@@ -292,7 +292,7 @@ var Overworld = (function () {
     if (w.pos) { var stx = Math.floor(w.pos.x / T), sty = Math.floor(w.pos.y / T); if (stx < 0 || sty < 0 || stx >= MW || sty >= MH || SOLID[map.tiles[sty * MW + stx]] || map.tiles[sty * MW + stx] === G.FIRE) start = fireAt; }
     // a boss has just fallen: a fire kindles in its room, so the hero need not walk the whole land back to rest.
     // It lasts until the hero next rests at a bonfire (the camp screen clears it: game.js).
-    var well = opts.well ? wellSpot(map) : null; // the duelling well: in the boss room once the land's boss has fallen
+    var well = opts.well ? wellSpot(map) : null; // the duelling well: beside the land's bonfire once its boss has fallen
     var kindled = false;
     if (w.campfire && !walkable(map, w.campfire.x, w.campfire.y)) delete w.campfire;
     if (ret && ret.isBoss && ret.outcome === 'won' && !w.campfire) { var cf = campSpot(map, start, well); if (cf) { w.campfire = cf; kindled = true; } }
@@ -309,7 +309,9 @@ var Overworld = (function () {
     if (ret && map.v2 && ret.outcome === 'won' && ret.isBoss) R.ents.forEach(function (e) { if (e.kind === 'corpse' && e.boss) e.dieT0 = 0.15; }); // the boss's death plays as you come back
     if (ret && map.v2 && ret.outcome !== 'died' && ret.inst != null) { R.ents.forEach(function (e) { if (e.kind === 'creature' && e.ref.id === ret.ref.id && e.n === ret.inst) { e.stun = 3; e.state = 'idle'; } }); }
     if (ret && map.v2 && ret.outcome === 'died' && !opts.title) say('You wake at the bonfire. The dead have risen again.');
+    var wellNews = !!(well && !w.wellSeen); if (wellNews) w.wellSeen = true; // the first time the well is there, say so
     if (kindled) { say('A fire kindles where the boss fell. Rest at it to return to the bonfire.'); persist(); }
+    if (wellNews) { var wr = R; if (!kindled && !opts.title) say('A Duelling Well has risen beside the bonfire.'); else setTimeout(function () { if (R === wr) say('A Duelling Well has risen beside the bonfire.'); }, 3700); persist(); }
     if (opts.title) R.frozen = true; // hold still while the splash shows
     layout(); window.addEventListener('resize', layout);
     bindInput();
@@ -318,14 +320,15 @@ var Overworld = (function () {
     return wrap;
   }
   function walkable(map, x, y) { if (x < 1 || y < 1 || x >= map.w - 1 || y >= map.h - 1) return false; var t = map.tiles[y * map.w + x]; return !SOLID[t] && t !== G.GATE && t !== G.FIRE; }
-  function wellSpot(map) { // an open tile 3-4 steps from the boss, as far from the gate as the room allows
-    var bx = map.boss.x, by = map.boss.y, gx = map.gate.x, gy = map.gate.y, best = null, bestD = -1, taken = {};
-    (map.props || []).concat(map.braziers || [], map.lairs || []).forEach(function (q) { taken[q.y * map.w + q.x] = 1; });
-    for (var y = by - 4; y <= by + 4; y++) for (var x = bx - 4; x <= bx + 4; x++) {
-      var cheb = Math.max(Math.abs(x - bx), Math.abs(y - by)); if (cheb < 3 || taken[y * map.w + x] || !walkable(map, x, y)) continue;
-      var open = true; for (var oy = -1; oy <= 1 && open; oy++) for (var ox = -1; ox <= 1; ox++) if (!walkable(map, x + ox, y + oy)) { open = false; break; }
+  function wellSpot(map) { // an open tile 2-4 steps from the land's bonfire, clear of the hero's waking spot and of anything else on the map
+    var fx = map.spawn.x, fy = map.spawn.y, ax = fx + 1, ay = fy, best = null, bestD = 1e9, taken = {};
+    (map.props || []).concat(map.braziers || [], map.lairs || [], map.chests || [], map.pages || [], map.key ? [map.key] : []).forEach(function (q) { taken[q.y * map.w + q.x] = 1; });
+    for (var y = fy - 4; y <= fy + 4; y++) for (var x = fx - 4; x <= fx + 4; x++) {
+      var cheb = Math.max(Math.abs(x - fx), Math.abs(y - fy)); if (cheb < 2 || taken[y * map.w + x] || !walkable(map, x, y)) continue;
+      if (Math.max(Math.abs(x - ax), Math.abs(y - ay)) < 2) continue; // not on top of where the hero wakes
+      var open = true; for (var oy = -1; oy <= 1 && open; oy++) for (var ox = -1; ox <= 1; ox++) if (!walkable(map, x + ox, y + oy) || taken[(y + oy) * map.w + x + ox]) { open = false; break; }
       if (!open) continue;
-      var d = Math.hypot(x - gx, y - gy) - 0.01 * (x + y * 0.5); if (d > bestD) { bestD = d; best = { x: x, y: y }; }
+      var d = Math.hypot(x - fx, y - fy) + (x > fx ? 0.4 : 0) + (Math.abs(x - fx) <= 1 && y < fy ? 1.5 : 0) /* beside the fire, not behind its tall flames */ + 0.01 * (x + y * 0.5); if (d < bestD) { bestD = d; best = { x: x, y: y }; }
     }
     return best;
   }
@@ -584,7 +587,7 @@ var Overworld = (function () {
     }
     // name tags for nearby creature
     if (R.near && R.near.e) { var ne = R.near.e; tag(ctx, ne.x - camx, ne.y - camy - 16, ne.ref.name, ne.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[ne.ref.level] || '#e8dcc0'); }
-    if (R.toastT > 0 && R.toast) label(ctx, cvw * R.scale / 2, 22, R.toast, '#e8dcc0', 'center', 'rgba(10,8,12,.85)');
+    if (R.toastT > 0 && R.toast) label(ctx, cvw * R.scale / 2, 22 + (R.hintHtml ? 36 * (R.cv.height / (R.cv.getBoundingClientRect().height || R.cv.height)) : 0), R.toast, '#e8dcc0', 'center', 'rgba(10,8,12,.85)');
   }
   var LEVEL_COLORS = { BEG: '#7fb069', PRG: '#6f9be0', MAS: '#b07be8', BOSS: '#d8433a' };
   function tag(ctx, x, y, text, color) { label(ctx, x * R.scale, Math.max(14, y * R.scale), text, color, 'center', 'rgba(10,8,12,.8)', true); }
