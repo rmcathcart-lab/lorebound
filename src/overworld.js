@@ -655,7 +655,7 @@ var Overworld = (function () {
     if (e.kind === 'gate11') { var gd = SP.actor('cr:gate11'); if (gd) SP.drawActor(ctx, gd, gateOpen() ? 'open' : 'sealed', 0, x, y, false, {}); return; }
     if (e.kind === 'door') { var di = SP.ui(gateOpen() ? 'ui-boss-door-open' : 'ui-boss-door-closed'); if (di) { var DS = 44; ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(di, Math.round(x - DS / 2), Math.round(y - 1 + T - DS * 0.89), DS, DS); ctx.restore(); } return; }
     if (e.kind === 'well') { // the duelling well: painted art when it arrives (ART_IMG['ui-well']), a drawn stand-in until then
-      var wi = SP.ui && SP.ui('ui-well'); if (wi) { var WS = 34; ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(wi, Math.round(x - WS / 2), Math.round(y + 3 - WS * 0.9), WS, WS); ctx.restore(); return; }
+      var wi = SP.ui && SP.ui('ui-well'); if (wi) { var WS = 38; ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x, y + 4, 12, 4, 0, 0, 7); ctx.fill(); ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(wi, x - WS / 2, y + 6 - WS * 0.95, WS, WS); ctx.restore(); return; } // ground anchor at 95% of the frame
       var gl = 0.5 + Math.sin(R.t * 2.2) * 0.2;
       ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x, y + 3, 10, 3.5, 0, 0, 7); ctx.fill();
       ctx.fillStyle = '#5b5560'; ctx.fillRect(x - 9, y - 7, 18, 9); ctx.fillStyle = '#433e48'; for (var sx = -9; sx < 9; sx += 6) ctx.fillRect(x + sx + ((Math.floor(sx / 6) & 1) ? 3 : 0), y - 3, 1, 5);
