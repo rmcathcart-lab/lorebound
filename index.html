@@ -316,6 +316,7 @@ table.attempts tr.r-correct td:last-child { color: var(--good); } table.attempts
 
 .ledger-pill { font-family: var(--font-ui); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--edge); color: var(--bone-dim); }
 .ledger-pill.ok { color: var(--good); border-color: rgba(127,176,105,.4); } .ledger-pill.offline { color: var(--bad); border-color: rgba(216,67,58,.4); }
+.ledger-pill { cursor: pointer; } .ledger-pill.ok.away { color: #e9c46a; border-color: rgba(233,196,106,.55); background: rgba(233,196,106,.08); }
 .panel.ledger-warn { border-color: rgba(216,67,58,.5); } .panel.ledger-warn .btn { margin-top: 10px; }
 .btn.danger { border-color: rgba(216,67,58,.5); color: var(--bad); }
 
@@ -1078,6 +1079,20 @@ img.lord-mini { width: 26px; height: 26px; vertical-align: -8px; margin: -4px 0;
 .feat-chip.on { border-color: var(--beg); } .feat-chip.on span { color: var(--beg); }
 @media (max-width: 640px) { .feat-row { grid-template-columns: 1fr; } }
 
+/* ledger: in-class view and class times */
+.seg { display: inline-flex; border: 1px solid var(--edge); border-radius: 999px; overflow: hidden; }
+.seg-b { background: transparent; color: var(--bone-dim); border: 0; padding: 6px 12px; font-family: var(--font-ui); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.seg-b.on { background: rgba(233,196,106,.16); color: #e9c46a; }
+.lg-note { margin: 10px 0 0; font-size: 13px; }
+.block-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 14px; }
+.block-chip { text-align: left; background: var(--ash); border: 1px solid var(--edge); border-radius: 6px; padding: 10px 12px; color: var(--bone); cursor: pointer; display: grid; gap: 4px; font-family: var(--font-body); }
+.block-chip b { font-family: var(--font-ui); letter-spacing: .06em; } .block-chip span { font-size: 12px; color: var(--bone-dim); line-height: 1.35; }
+.block-chip.on { border-color: #e9c46a; background: rgba(233,196,106,.1); box-shadow: inset 0 0 0 1px rgba(233,196,106,.35); }
+.noschool { border-top: 1px dashed var(--edge); padding-top: 12px; }
+.noschool input[type=date] { background: var(--ash); color: var(--bone); border: 1px solid var(--edge); border-radius: 4px; padding: 7px 9px; font: inherit; color-scheme: dark; }
+.out-tag { display: inline-block; margin-top: 3px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #e9c46a; border: 1px solid rgba(233,196,106,.45); border-radius: 999px; padding: 1px 6px; }
+table.oc tr.outside td { opacity: .8; }
+
 </style>
 <div id="artdefs"></div>
 <div id="hud" class="hud" hidden></div>
@@ -1530,13 +1545,15 @@ var Ledger = (function () {
     jsonp(p, function (res) { if (res && res.ok) status = 'ok'; cb(res); }, 15000);
   }
   function setFeatures(key, klass, board, duels, cb) { jsonp({ action: 'setfeatures', key: key, 'class': klass, board: board ? '1' : '0', duels: duels ? '1' : '0' }, cb, 30000); }
+  function setBlock(key, klass, block, cb) { jsonp({ action: 'setblock', key: key, 'class': klass, block: block || '' }, cb, 30000); }
+  function setNoSchool(key, dates, cb) { jsonp({ action: 'setnoschool', key: key, dates: dates.join(',') }, cb, 30000); }
   function purge(key, klass, cb) { jsonp({ action: 'purge', key: key, 'class': klass }, cb, 40000); }
   function active() { return document.visibilityState === 'visible' && (Date.now() - lastInput) < 90000; }
   ['keydown', 'pointerdown', 'touchstart'].forEach(function (evn) { try { window.addEventListener(evn, function () { lastInput = Date.now(); }, { passive: true }); } catch (e) {} });
   setInterval(function () { flush(); }, 30000);
   setInterval(function () { if (ident && status !== 'ok' && document.visibilityState === 'visible') ping(function (st) { if (st === 'ok') { flush(); try { window.dispatchEvent(new CustomEvent('ledger-online')); } catch (e) {} } }); }, 60000);
   try { window.addEventListener('pagehide', function () { flush(true); }); document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') flush(true); }); } catch (e) {}
-  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, lands: lands, setLands: setLands, setClasses: setClasses, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active, board: board, duel: duel, setFeatures: setFeatures };
+  return { enabled: enabled, identify: identify, identity: identity, push: push, flush: flush, hello: hello, lands: lands, setLands: setLands, setClasses: setClasses, ping: ping, status: getStatus, ledger: ledger, player: player, purge: purge, active: active, board: board, duel: duel, setFeatures: setFeatures, setBlock: setBlock, setNoSchool: setNoSchool };
 })();
 
 /* ===================== SOUND =====================
@@ -10379,6 +10396,27 @@ var Overworld = (function () {
   }
   var UNL = { at: 0, busy: false };
   var FEAT = { board: true, duels: true }; // per-class switches from the teacher's ledger (both on unless the teacher turns them off)
+  /* Class times: the teacher gives each class code a timetable block. Outside that block's period, play is still recorded
+   * but is kept out of the teacher's in-class view. The server decides what counts (backend/Code.gs, BELL); this copy
+   * only colours the Ledger badge, so a changed device clock changes the colour and nothing else. */
+  var CLS = { block: '', noSchool: [] };
+  var BELL = { day1: [['A', '09:00', '10:28'], ['B', '10:33', '12:00'], ['C', '12:45', '14:13'], ['D', '14:18', '15:45']],
+    day2: [['B', '09:00', '10:28'], ['A', '10:33', '12:00'], ['D', '12:45', '14:13'], ['C', '14:18', '15:45']],
+    fri: [['A', '09:00', '10:07'], ['B', '10:11', '11:18'], ['C', '11:48', '12:55'], ['D', '12:58', '14:05']] };
+  function edmontonNow() { var o = {}; try { new Intl.DateTimeFormat('en-US', { timeZone: 'America/Edmonton', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date()).forEach(function (p) { o[p.type] = p.value; }); } catch (e) { return null; }
+    return { dow: { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[o.weekday], mins: Number(o.hour) * 60 + Number(o.minute), date: o.year + '-' + o.month + '-' + o.day }; }
+  function inClassNow() { // true when there is no block (everything counts), or now is inside the block's period
+    if (!CLS.block) return true; var t = edmontonNow(); if (!t) return true;
+    if (t.dow > 5 || (CLS.noSchool || []).indexOf(t.date) >= 0) return false;
+    var day = t.dow === 5 ? BELL.fri : (t.dow === 1 || t.dow === 3) ? BELL.day1 : BELL.day2;
+    return day.some(function (b) { if (b[0] !== CLS.block) return false; var a = b[1].split(':'), z = b[2].split(':'); return t.mins >= a[0] * 60 + +a[1] - 2 && t.mins <= z[0] * 60 + +z[1] + 2; });
+  }
+  function setClassTimes(times) { if (!times) return; var was = CLS.block ? inClassNow() : null; CLS = { block: String(times.block || ''), noSchool: Array.isArray(times.noSchool) ? times.noSchool : [] }; CLS.lastIn = CLS.block ? inClassNow() : null; if (was !== CLS.lastIn) try { renderHud(); } catch (e) {} }
+  setInterval(function () { // the bell rings: tell the student once, and recolour the badge
+    if (!S || !S.klass || !CLS.block) return; var now = inClassNow(); if (now === CLS.lastIn) return;
+    var first = CLS.lastIn == null; CLS.lastIn = now; renderHud();
+    if (!first) toast(now ? 'Class time has started: your answers now count toward your grade.' : 'Class time is over. Your play is still recorded, but it will not count toward your grade.');
+  }, 20000);
   function syncUnlocks(force, cb) { // asks the teacher's ledger which lands are open for this class
     if (!S || !S.klass || !Ledger.enabled() || UNL.busy) { if (cb) cb(); return; }
     if (!force && Date.now() - UNL.at < 60000) { if (cb) cb(); return; }
@@ -10390,6 +10428,7 @@ var Overworld = (function () {
         S.teacherOpen = res.lands.filter(function (id) { return /^L([1-9]|10)$/.test(id); });
         changed = JSON.stringify(S.teacherOpen) !== before;
         if (res.features) FEAT = { board: res.features.board !== false, duels: res.features.duels !== false };
+        if (res.times) setClassTimes(res.times);
         if (!UNL.duelsChecked) { UNL.duelsChecked = true; settleMissedDuels(); }
         if (changed) { saveLocal(); if (UI.screen === 'map' || (UI.screen === 'bonfire' && (UI.bonfireTab || 'camp') === 'camp')) render(); }
       }
@@ -10503,7 +10542,10 @@ var Overworld = (function () {
     w.appendChild(el('span', 'lore-pill', '<span class="orb"></span>' + n(S.lore) + ' Lore'));
     if (S.dropped) { var L = landById(S.dropped.land), c = L && creatureById(L, S.dropped.creature); w.appendChild(el('span', 'drop-pill', n(S.dropped.amount) + ' Lore lies at ' + (c ? esc(c.name) : 'the grave'))); }
     if (S.streak > 1) w.appendChild(el('span', 'streak-pill', 'Streak ' + S.streak));
-    if (Ledger.enabled() && S.klass) { var st = Ledger.status(); var lp = el('span', 'ledger-pill ' + st, st === 'ok' ? 'Ledger ✓' : st === 'offline' ? 'Ledger ✗' : 'Ledger …'); lp.title = st === 'ok' ? 'Connected to your teacher\'s ledger (class ' + S.klass + ')' : 'Not connected to your teacher\'s ledger'; w.appendChild(lp); }
+    if (Ledger.enabled() && S.klass) { var st = Ledger.status(), away = st === 'ok' && CLS.block && !inClassNow();
+      var lp = el('span', 'ledger-pill ' + st + (away ? ' away' : ''), st === 'ok' ? 'Ledger ✓' : st === 'offline' ? 'Ledger ✗' : 'Ledger …');
+      lp.title = away ? 'Outside class time: your play is still recorded in your teacher\'s ledger, but it does not count toward your grade.' : st === 'ok' ? 'Connected to your teacher\'s ledger (class ' + S.klass + ')' + (CLS.block ? '. It is class time: your answers count.' : '') : 'Not connected to your teacher\'s ledger';
+      lp.setAttribute('role', 'button'); lp.tabIndex = 0; lp.onclick = function () { toast(lp.title); }; w.appendChild(lp); }
     w.appendChild(el('span', 'spacer'));
     var nav = el('div', 'nav'); // no Map or Bonfire buttons: the bonfire is reached by walking to it, and the map from the bonfire
     var ic = window.ART_IMG && ART_IMG['ui-satchel-closed'], io = window.ART_IMG && ART_IMG['ui-satchel-open'];
@@ -10576,6 +10618,7 @@ var Overworld = (function () {
           if (w) { w.hidden = false; w.textContent = '"' + st.klass + '" is not one of your teacher\'s class codes. Check the code and try again.'; }
           if (klassInp) { klassInp.focus(); klassInp.select(); } toast('That class code was not recognised.'); return;
         }
+        if (res && res.ok && res.times) setClassTimes(res.times);
         if (res && res.ok && Array.isArray(res.lands)) lands = res.lands.filter(function (id) { return /^L([1-9]|10)$/.test(id); });
         if (res && res.ok && res.found && res.save && Number(res.saveUpdated || 0) > Number(st.updated || 0) + 1500) {
           try { var cloud = decode(res.save); cloud.klass = st.klass; start(cloud, 'Progress loaded from your teacher\'s ledger.'); return; } catch (e) {}
@@ -12235,8 +12278,12 @@ var Overworld = (function () {
 
 
   /* ---------- Teacher's Ledger (dashboard) ---------- */
-  var LG = { key: '', data: null, klass: '', sort: 'lastSeen', dir: -1, sel: null, detail: null, q: '' };
-  try { LG.key = localStorage.getItem(SAVE_PREFIX + 'tkey') || ''; } catch (e) {}
+  var LG = { key: '', data: null, klass: '', sort: 'lastSeen', dir: -1, sel: null, detail: null, q: '', inClass: false };
+  try { LG.key = localStorage.getItem(SAVE_PREFIX + 'tkey') || ''; LG.inClass = localStorage.getItem(SAVE_PREFIX + 'ledgerView') === 'in'; } catch (e) {}
+  function lgIn() { return LG.inClass && !!(LG.data && LG.data.blocks); } // "in class only" (needs the class-times backend)
+  function pOut(p) { return (lgIn() ? p.outcomesIn : p.outcomes) || {}; }
+  function pTries(p) { return lgIn() ? Number(p.attemptsIn) || 0 : Number(p.attempts) || 0; }
+  function pRight(p) { return lgIn() ? Number(p.correctIn) || 0 : Number(p.correct) || 0; }
   function fmtDur(sec) { sec = Math.round(Number(sec) || 0); var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? h + 'h ' + (m < 10 ? '0' : '') + m + 'm' : m + 'm'; }
   function fmtAgo(ts) { if (!ts) return '—'; var d = Date.now() - Number(ts); if (d < 90000) return 'just now'; if (d < 3600000) return Math.round(d / 60000) + ' min ago'; if (d < 86400000) return Math.round(d / 3600000) + ' h ago'; var dt = new Date(Number(ts)); return dt.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) + ' ' + dt.toLocaleTimeString('en-CA', { hour: 'numeric', minute: '2-digit' }); }
   function accColor(pct) { if (pct == null) return 'transparent'; var h = Math.round(pct * 1.2); return 'hsla(' + h + ', 55%, 45%, ' + (0.25 + 0.45 * Math.abs(pct - 50) / 50) + ')'; }
@@ -12276,7 +12323,7 @@ var Overworld = (function () {
     list.sort(function (a, b) { var va = a[k], vb = b[k]; if (k === 'accuracy') { va = acc(a); vb = acc(b); } if (typeof va === 'string' || typeof vb === 'string') return String(va || '').localeCompare(String(vb || '')) * dir; return ((Number(va) || 0) - (Number(vb) || 0)) * dir; });
     return list;
   }
-  function acc(p) { return p.attempts ? Math.round(100 * (Number(p.correct) || 0) / Number(p.attempts)) : null; }
+  function acc(p) { var a = pTries(p); return a ? Math.round(100 * pRight(p) / a) : null; }
   function ledgerBody() {
     var players = ledgerPlayers(), classes = ledgerClasses();
     // controls
@@ -12287,6 +12334,11 @@ var Overworld = (function () {
     sel.onchange = function () { LG.klass = sel.value; LG.sel = null; LG.detail = null; render(); };
     bar.appendChild(el('label', 'eyebrow', 'Class')); bar.appendChild(sel);
     var q = el('input'); q.type = 'search'; q.placeholder = 'Find a student'; q.value = LG.q; q.oninput = function () { LG.q = q.value; renderLedgerTable(); }; bar.appendChild(q);
+    if (LG.data.blocks) { // count every answer, or only those given in class time
+      var seg = el('div', 'seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Which answers to count');
+      [[false, 'All play'], [true, 'In class only']].forEach(function (x) { var b = el('button', 'seg-b' + (LG.inClass === x[0] ? ' on' : ''), x[1]); b.type = 'button'; b.setAttribute('aria-pressed', LG.inClass === x[0] ? 'true' : 'false');
+        b.onclick = function () { LG.inClass = x[0]; try { localStorage.setItem(SAVE_PREFIX + 'ledgerView', x[0] ? 'in' : 'all'); } catch (e) {} render(); }; seg.appendChild(b); });
+      bar.appendChild(seg); }
     bar.appendChild(el('span', 'spacer'));
     var rf = el('button', 'btn ghost', 'Refresh'); rf.type = 'button'; rf.onclick = function () { ledgerLoad(); }; bar.appendChild(rf);
     var out = el('button', 'btn ghost', 'Forget key'); out.type = 'button'; out.onclick = function () { LG.key = ''; LG.data = null; try { localStorage.removeItem(SAVE_PREFIX + 'tkey'); } catch (e) {} go('ledger'); }; bar.appendChild(out);
@@ -12297,19 +12349,19 @@ var Overworld = (function () {
     bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
     app.appendChild(bar);
     ledgerClassCodes();
-    ledgerLands(); ledgerFeatures();
+    ledgerLands(); ledgerFeatures(); ledgerTimes();
     // class summary
     var tot = { students: players.length, play: 0, attempts: 0, correct: 0, bosses: 0, legend: 0, deaths: 0 };
-    players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.attempts += Number(p.attempts) || 0; tot.correct += Number(p.correct) || 0; tot.bosses += Number(p.bossKills) || 0; tot.legend += Number(p.legend) || 0; tot.deaths += Number(p.deaths) || 0; });
+    players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.attempts += pTries(p); tot.correct += pRight(p); tot.bosses += Number(p.bossKills) || 0; tot.legend += Number(p.legend) || 0; tot.deaths += Number(p.deaths) || 0; });
     var st = el('div', 'panel'), stats = el('div', 'stats');
     [['Students', n(tot.students)], ['Time played', fmtDur(tot.play)], ['Questions answered', n(tot.attempts)], ['Accuracy', tot.attempts ? Math.round(100 * tot.correct / tot.attempts) + '%' : '—'], ['Deaths', n(tot.deaths)], ['Bosses slain', n(tot.bosses)], ['Legend (total)', n(tot.legend), 'lore']].forEach(function (x) {
       stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>'));
     });
-    st.appendChild(stats); app.appendChild(st);
+    st.appendChild(stats); if (lgIn()) st.appendChild(el('p', 'muted lg-note', 'Showing answers given <b>in class time</b> only (questions answered, accuracy and the grids). Time, Legend, deaths and kills always include all play.')); app.appendChild(st);
     // heat map by outcome × level
-    var hm = el('div', 'panel'); hm.appendChild(el('div', 'eyebrow', (LG.klass || 'All classes') + ' · accuracy by outcome and level'));
+    var hm = el('div', 'panel'); hm.appendChild(el('div', 'eyebrow', (LG.klass || 'All classes') + ' · accuracy by outcome and level' + (lgIn() ? ' · in class only' : '')));
     hm.appendChild(el('p', 'muted', 'Each cell: percent correct (first answer, before any retry) over every attempt by every student shown, with the number of attempts. Darker green is better; red needs a lesson.'));
-    hm.appendChild(heatTable(players.map(function (p) { return p.outcomes || {}; })));
+    hm.appendChild(heatTable(players.map(pOut)));
     app.appendChild(hm);
     // table
     var tp = el('div', 'panel'); tp.id = 'ledger-table'; app.appendChild(tp);
@@ -12398,6 +12450,43 @@ var Overworld = (function () {
     }
     app.appendChild(p);
   }
+  function ledgerTimes() { // each class code's timetable block, and the days with no school
+    var p = el('div', 'panel ledger-times'), blocks = LG.data.blocks;
+    p.appendChild(el('div', 'eyebrow', 'Class times · ' + (LG.klass ? 'class ' + esc(LG.klass) : 'choose a class')));
+    if (!blocks) { p.appendChild(el('p', 'muted', 'To use class times, paste the newest <b>backend/Code.gs</b> into the Apps Script project and deploy a new version.')); app.appendChild(p); return; }
+    p.appendChild(el('p', 'muted', 'Give each class its block. Answers given during that block\'s period count as <b>in class</b>; anything else is still recorded but can be left out with <b>In class only</b> above. Students see their Ledger badge turn yellow outside class time. A class with no block counts everything as in class. The server checks the time itself, so changing a device\'s clock does not help.'));
+    if (LG.klass) {
+      var cur = blocks[normClass(LG.klass)] || '', row = el('div', 'block-row');
+      [['', 'No block'], ['A', 'A'], ['B', 'B'], ['C', 'C'], ['D', 'D']].forEach(function (x) {
+        var b = el('button', 'block-chip' + (cur === x[0] ? ' on' : ''), x[0] ? '<b>Block ' + x[0] + '</b><span>' + blockTimes(x[0]) + '</span>' : '<b>No block</b><span>everything counts</span>'); b.type = 'button'; b.setAttribute('aria-pressed', cur === x[0] ? 'true' : 'false');
+        b.onclick = function () { if (cur === x[0]) return; row.querySelectorAll('button').forEach(function (y) { y.disabled = true; });
+          Ledger.setBlock(LG.key, LG.klass, x[0], function (res) { if (res && res.ok) { LG.data.blocks = res.blocks; toast(LG.klass + (x[0] ? ' is block ' + x[0] + '.' : ' has no block: everything counts.') + ' Students see it within a minute.'); } else toast('Could not save: ' + ((res && res.error) || 'no reply')); render(); }); };
+        row.appendChild(b);
+      });
+      p.appendChild(row);
+    } else {
+      var set = Object.keys(blocks).map(function (k) { return k.toUpperCase() + ': block ' + blocks[k]; });
+      p.appendChild(el('p', 'muted', set.length ? set.join(' · ') : 'No class has a block yet. Choose a class above to set one.'));
+    }
+    // days with no classes (PD days, holidays): nothing on them counts as in class, for every class
+    var days = (LG.data.noSchool || []).slice(), dz = el('div', 'noschool');
+    dz.appendChild(el('div', 'eyebrow', 'No-school days (every class)'));
+    function saveDays(next) { dz.querySelectorAll('button, input').forEach(function (x) { x.disabled = true; }); Ledger.setNoSchool(LG.key, next, function (res) { if (res && res.ok) { LG.data.noSchool = res.noSchool; toast('No-school days saved.'); } else toast('Could not save: ' + ((res && res.error) || 'no reply')); render(); }); }
+    var today = (edmontonNow() || {}).date || '', upcoming = days.filter(function (d) { return d >= today; }), past = days.length - upcoming.length;
+    var chips = el('div', 'code-chips');
+    upcoming.forEach(function (d) { var dt = new Date(d + 'T12:00:00'), ch = el('span', 'code-chip', esc(dt.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' })) + ' '); var x = el('button', null, '×'); x.type = 'button'; x.title = 'Remove ' + d; x.setAttribute('aria-label', x.title); x.onclick = function () { saveDays(days.filter(function (y) { return y !== d; })); }; ch.appendChild(x); chips.appendChild(ch); });
+    dz.appendChild(upcoming.length ? chips : el('p', 'muted', 'None set. Add PD days, holidays and breaks so that play on those weekdays does not count as in class.'));
+    if (past) dz.appendChild(el('p', 'muted', n(past) + ' past day' + (past === 1 ? '' : 's') + ' also on the list.'));
+    var add = el('div', 'code-add'), di = el('input'); di.type = 'date'; di.id = 'noschool-date'; var ab = el('button', 'btn', 'Add day'); ab.type = 'button';
+    ab.onclick = function () { var v = di.value; if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { di.focus(); return; } if (days.indexOf(v) >= 0) { toast('Already on the list.'); return; } saveDays(days.concat([v])); };
+    add.appendChild(di); add.appendChild(ab); dz.appendChild(add); p.appendChild(dz);
+    app.appendChild(p);
+  }
+  function blockTimes(b) { // "Mon/Wed 9:00–10:28 · Tue/Thu 10:33–12:00 · Fri 9:00–10:07"
+    function f(t) { var h = +t.split(':')[0], m = t.split(':')[1]; return (h > 12 ? h - 12 : h) + ':' + m; }
+    function at(day) { var x = BELL[day].filter(function (r) { return r[0] === b; })[0]; return x ? f(x[1]) + '–' + f(x[2]) : ''; }
+    return 'Mon/Wed ' + at('day1') + '<br>Tue/Thu ' + at('day2') + '<br>Fri ' + at('fri');
+  }
   function heatTable(outcomeMaps) {
     var agg = {}; outcomeMaps.forEach(function (m) { Object.keys(m).forEach(function (o) { agg[o] = agg[o] || {}; Object.keys(m[o]).forEach(function (lv) { var c = agg[o][lv] = agg[o][lv] || { a: 0, c: 0, f: 0 }; c.a += m[o][lv].a || 0; c.c += m[o][lv].c || 0; c.f += m[o][lv].f || 0; }); }); });
     var tw = el('div', 'table-wrap'), t = '<table class="oc heat"><tr><th>Outcome</th><th>Beginning</th><th>Progressing</th><th>Mastery</th></tr>';
@@ -12421,7 +12510,7 @@ var Overworld = (function () {
     var tw = el('div', 'table-wrap'), t = '<table class="oc students"><tr>' + cols.map(function (c) { return '<th data-k="' + c[0] + '" class="' + (LG.sort === c[0] ? 'sorted' : '') + '">' + c[1] + (LG.sort === c[0] ? (LG.dir < 0 ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '</tr>';
     players.forEach(function (p) {
       var a = acc(p);
-      t += '<tr data-key="' + esc(p.key) + '" class="' + (LG.sel === p.key ? 'sel' : '') + '"><td><b>' + esc(p.name) + '</b>' + (LG.klass ? '' : '<br><span class="muted" style="font-size:12px">' + esc(p['class']) + '</span>') + '</td><td>' + esc(p.hero || '—') + (p.heroClass ? '<br><span class="muted" style="font-size:12px">' + esc(p.heroClass) + ' · stage ' + esc(p.stage || 1) + '</span>' : '') + '</td><td>' + fmtDur(p.playSeconds) + '</td><td class="lore">' + n(p.legend || 0) + '</td><td>' + n(p.lore || 0) + '</td><td>' + n(p.deaths || 0) + '</td><td>' + n(p.killsBEG || 0) + '</td><td>' + n(p.killsPRG || 0) + '</td><td>' + n(p.killsMAS || 0) + '</td><td>' + n(p.bossKills || 0) + (p.titles ? '<br><span class="muted" style="font-size:12px">' + esc(p.titles) + '</span>' : '') + '</td><td style="background:' + accColor(a) + '">' + (a == null ? '—' : a + '%') + '<br><span class="muted" style="font-size:12px">' + n(p.attempts || 0) + ' tries</span></td><td>' + esc(p.lastLand || '—') + '</td><td>' + fmtAgo(p.lastSeen) + '</td></tr>';
+      t += '<tr data-key="' + esc(p.key) + '" class="' + (LG.sel === p.key ? 'sel' : '') + '"><td><b>' + esc(p.name) + '</b>' + (LG.klass ? '' : '<br><span class="muted" style="font-size:12px">' + esc(p['class']) + '</span>') + '</td><td>' + esc(p.hero || '—') + (p.heroClass ? '<br><span class="muted" style="font-size:12px">' + esc(p.heroClass) + ' · stage ' + esc(p.stage || 1) + '</span>' : '') + '</td><td>' + fmtDur(p.playSeconds) + '</td><td class="lore">' + n(p.legend || 0) + '</td><td>' + n(p.lore || 0) + '</td><td>' + n(p.deaths || 0) + '</td><td>' + n(p.killsBEG || 0) + '</td><td>' + n(p.killsPRG || 0) + '</td><td>' + n(p.killsMAS || 0) + '</td><td>' + n(p.bossKills || 0) + (p.titles ? '<br><span class="muted" style="font-size:12px">' + esc(p.titles) + '</span>' : '') + '</td><td style="background:' + accColor(a) + '">' + (a == null ? '—' : a + '%') + '<br><span class="muted" style="font-size:12px">' + n(pTries(p)) + ' tries' + (!lgIn() && p.attemptsIn != null && pTries(p) > Number(p.attemptsIn) ? ' · ' + n(pTries(p) - Number(p.attemptsIn)) + ' outside' : '') + '</span></td><td>' + esc(p.lastLand || '—') + '</td><td>' + fmtAgo(p.lastSeen) + '</td></tr>';
     });
     t += '</table>'; tw.innerHTML = t; tp.appendChild(tw);
     if (!players.length) tp.appendChild(el('p', 'muted', 'No students yet' + (LG.q ? ' match that search.' : '. They appear here after entering the class code on the title screen.')));
@@ -12436,14 +12525,15 @@ var Overworld = (function () {
     var stats = el('div', 'stats');
     [['Time played', fmtDur(p.playSeconds)], ['Legend', n(p.legend || 0), 'lore'], ['Lore carried', n(p.lore || 0)], ['Deaths', n(p.deaths || 0)], ['Lore lost forever', n(p.lostForever || 0)], ['Accuracy', acc(p) == null ? '—' : acc(p) + '%'], ['First seen', fmtAgo(p.firstSeen)], ['Lands cleared', esc(p.landsCleared || '—')]].forEach(function (x) { stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>')); });
     pn.appendChild(stats);
-    pn.appendChild(el('div', 'eyebrow', 'Accuracy by outcome')); pn.appendChild(heatTable([p.outcomes || {}]));
+    pn.appendChild(el('div', 'eyebrow', 'Accuracy by outcome' + (lgIn() ? ' · in class only' : ''))); pn.appendChild(heatTable([pOut(p)]));
     pn.appendChild(el('div', 'eyebrow', 'Most recent questions'));
     if (!LG.detail) pn.appendChild(el('p', 'muted', 'Loading…'));
     else if (!LG.detail.attempts.length) pn.appendChild(el('p', 'muted', 'No questions recorded yet.'));
     else {
       var tw = el('div', 'table-wrap'), t = '<table class="oc attempts"><tr><th>When</th><th>Where</th><th>Question</th><th>They wrote</th><th>Result</th></tr>';
       LG.detail.attempts.forEach(function (a) {
-        t += '<tr class="r-' + esc(a.result) + '"><td>' + fmtAgo(a.time) + '</td><td>' + esc(a.outcome) + ' · ' + esc(a.level) + (a.boss ? ' · boss' : '') + '</td><td class="qtext">' + esc(a.question) + '</td><td>' + typedTex(a.typed) + '</td><td><b>' + (a.result === 'correct' ? 'correct' : a.result === 'form' ? 'right value, wrong form' : 'wrong') + '</b></td></tr>';
+        if (lgIn() && a.inClass === false) return;
+        t += '<tr class="r-' + esc(a.result) + (a.inClass === false ? ' outside' : '') + '"><td>' + fmtAgo(a.time) + (a.inClass === false ? '<br><span class="out-tag">outside class</span>' : '') + '</td><td>' + esc(a.outcome) + ' · ' + esc(a.level) + (a.boss ? ' · boss' : '') + '</td><td class="qtext">' + esc(a.question) + '</td><td>' + typedTex(a.typed) + '</td><td><b>' + (a.result === 'correct' ? 'correct' : a.result === 'form' ? 'right value, wrong form' : 'wrong') + '</b></td></tr>';
       });
       t += '</table>'; tw.innerHTML = t; pn.appendChild(tw);
     }

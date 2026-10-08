@@ -15,6 +15,9 @@
  * it is written from the in-game ledger (Lands open) and read by the game when a student signs in.
  * Script property FEATURES holds per-class switches: { "<class>": { board: bool, duels: bool } } (default: both on).
  * Sheet Duels records every finished duel (the live state of a duel lives in the script cache for up to 6 hours).
+ * Script property BLOCKS maps a class code to its timetable block: { "<class>": "A" }. NOSCHOOL lists dates
+ * ("2026-10-12") with no classes. Every answered question is tagged inClass Y/N against the bell schedule (BELL), so the
+ * ledger can show work with or without play done outside class. A class with no block counts everything as in class.
  * Script property CLASSES lists the class codes the teacher accepts. While it is empty every code is
  * accepted; once it has codes, play events sent with any other code are ignored (keeps junk out of the sheet,
  * since the web app is open to Anyone).
@@ -24,7 +27,7 @@ var PLAYER_COLS = ['key', 'class', 'name', 'hero', 'heroClass', 'stage', 'lore',
   'killsBEG', 'killsPRG', 'killsMAS', 'bossKills', 'titles', 'landsCleared', 'playSeconds', 'attempts', 'correct',
   'firstSeen', 'lastSeen', 'lastLand', 'saveUpdated', 'save', 'level', 'achievements', 'bestStreak'];
 var DUEL_COLS = ['finished', 'code', 'class', 'land', 'level', 'stake', 'aKey', 'aHero', 'bKey', 'bHero', 'winner', 'aResult', 'bResult'];
-var ATTEMPT_COLS = ['time', 'class', 'name', 'hero', 'land', 'outcome', 'group', 'level', 'gen', 'boss', 'question', 'typed', 'result', 'loreBefore', 'streak'];
+var ATTEMPT_COLS = ['time', 'class', 'name', 'hero', 'land', 'outcome', 'group', 'level', 'gen', 'boss', 'question', 'typed', 'result', 'loreBefore', 'streak', 'inClass'];
 
 function ss_() {
   var props = PropertiesService.getScriptProperties(), id = props.getProperty('SHEET_ID');
@@ -65,11 +68,13 @@ function doGet(e) {
     var action = p.action || 'ping';
     if (action === 'ping') return json_({ ok: true, t: Date.now() }, cb);
     if (action === 'hello') return json_(hello_(p), cb);
-    if (action === 'lands') return json_({ ok: true, lands: landsFor_(p['class']), classOk: classOk_(p['class']), features: featuresFor_(p['class']) }, cb);
+    if (action === 'lands') return json_({ ok: true, lands: landsFor_(p['class']), classOk: classOk_(p['class']), features: featuresFor_(p['class']), times: timesFor_(p['class']) }, cb);
     if (action === 'board') return json_(board_(p['class'], p.name), cb);
     if (action === 'duel') return json_(duel_(p), cb);
     if (p.key !== teacherKey_() || !teacherKey_()) return json_({ ok: false, error: 'bad key' }, cb);
-    if (action === 'ledger') { var led = ledger_(); led.unlocks = unlocks_(); led.classes = classes_(); led.features = features_(); led.duels = recentDuels_(); return json_(led, cb); }
+    if (action === 'ledger') { var led = ledger_(); led.unlocks = unlocks_(); led.classes = classes_(); led.features = features_(); led.duels = recentDuels_(); led.blocks = blocks_(); led.noSchool = noSchool_(); led.bell = BELL; return json_(led, cb); }
+    if (action === 'setblock') return json_(setBlock_(p['class'], p.block), cb);
+    if (action === 'setnoschool') return json_(setNoSchool_(p.dates), cb);
     if (action === 'setclasses') return json_(setClasses_(p.classes), cb);
     if (action === 'setlands') return json_(setLands_(p['class'], p.lands), cb);
     if (action === 'setfeatures') return json_(setFeatures_(p['class'], p.board, p.duels), cb);
@@ -85,9 +90,9 @@ function hello_(p) {
   var key = keyOf_(p['class'], p.name);
   var row = findPlayer_(key);
   var lands = landsFor_(p['class']);
-  if (!row) return { ok: true, found: false, lands: lands };
+  if (!row) return { ok: true, found: false, lands: lands, features: featuresFor_(p['class']), times: timesFor_(p['class']) };
   var r = row.values;
-  return { ok: true, found: true, lands: lands, features: featuresFor_(p['class']), save: r[col_('save')] || '', saveUpdated: Number(r[col_('saveUpdated')] || 0), legend: Number(r[col_('legend')] || 0) };
+  return { ok: true, found: true, lands: lands, features: featuresFor_(p['class']), times: timesFor_(p['class']), save: r[col_('save')] || '', saveUpdated: Number(r[col_('saveUpdated')] || 0), legend: Number(r[col_('legend')] || 0) };
 }
 
 /* ---------------- lands the teacher has opened ---------------- */
@@ -135,13 +140,13 @@ function doPost(e) {
   try { lock.waitLock(15000); } catch (err) { return json_({ ok: false, error: 'busy' }); }
   try {
     var events = body.events || [], now = Date.now();
-    var key = keyOf_(body['class'], body.name);
+    var key = keyOf_(body['class'], body.name), block = blockFor_(body['class']), off = noSchool_();
     var attemptsRows = [], latestState = null, ticks = 0;
     events.forEach(function (ev) {
       if (!ev || !ev.t) return;
       if (ev.t === 'attempt') {
         attemptsRows.push([new Date(ev.at || now), String(body['class']).trim(), String(body.name).trim(), ev.hero || '', ev.land || '', ev.outcome || '', ev.group || '', ev.level || '', ev.gen || '', ev.boss ? 'Y' : '',
-          clean_(ev.question, 600), clean_(ev.typed, 200), ev.result || '', Number(ev.lore || 0), Number(ev.streak || 0)]);
+          clean_(ev.question, 600), clean_(ev.typed, 200), ev.result || '', Number(ev.lore || 0), Number(ev.streak || 0), inClass_(block, off, Number(ev.at || now), now) ? 'Y' : 'N']);
       } else if (ev.t === 'state') { latestState = ev; }
       else if (ev.t === 'tick') { ticks++; latestState = latestState || ev; }
     });
@@ -194,13 +199,15 @@ function ledger_() {
   var players = [], byKey = {};
   if (psh.getLastRow() > 1) psh.getRange(2, 1, psh.getLastRow() - 1, PLAYER_COLS.length).getValues().forEach(function (r) {
     var o = {}; PLAYER_COLS.forEach(function (c, i) { if (c === 'save') return; var v = r[i]; o[c] = (v instanceof Date) ? v.getTime() : v; });
-    o.outcomes = {}; players.push(o); byKey[o.key] = o;
+    o.outcomes = {}; o.outcomesIn = {}; o.attemptsIn = 0; o.correctIn = 0; players.push(o); byKey[o.key] = o;
   });
+  function add(map, oc, lv, res) { var cell = (map[oc] = map[oc] || {})[lv] = map[oc][lv] || { a: 0, c: 0, f: 0 }; cell.a++; if (res === 'correct') cell.c++; else if (res === 'form') cell.f++; }
   if (ash.getLastRow() > 1) ash.getRange(2, 1, ash.getLastRow() - 1, ATTEMPT_COLS.length).getValues().forEach(function (r) {
     var p = byKey[keyOf_(r[1], r[2])]; if (!p) return;
-    var oc = r[5], lv = r[7], res = r[12]; if (!oc || !lv) return;
-    var cell = (p.outcomes[oc] = p.outcomes[oc] || {})[lv] = (p.outcomes[oc] || {})[lv] || { a: 0, c: 0, f: 0 };
-    cell.a++; if (res === 'correct') cell.c++; else if (res === 'form') cell.f++;
+    var oc = r[5], lv = r[7], res = r[12], inside = r[15] !== 'N'; // rows from before class times were set count as in class
+    if (inside) { p.attemptsIn++; if (res === 'correct') p.correctIn++; }
+    if (!oc || !lv) return;
+    add(p.outcomes, oc, lv, res); if (inside) add(p.outcomesIn, oc, lv, res);
   });
   var out = { ok: true, generated: Date.now(), sheetUrl: ss_().getUrl(), players: players };
   var txt = JSON.stringify(out);
@@ -230,10 +237,52 @@ function playerDetail_(key) {
     var all = ash.getRange(2, 1, ash.getLastRow() - 1, ATTEMPT_COLS.length).getValues();
     for (var i = all.length - 1; i >= 0 && rows.length < 60; i--) {
       var r = all[i]; if (keyOf_(r[1], r[2]) !== key) continue;
-      rows.push({ time: r[0] instanceof Date ? r[0].getTime() : r[0], land: r[4], outcome: r[5], group: r[6], level: r[7], boss: r[9] === 'Y', question: r[10], typed: r[11], result: r[12] });
+      rows.push({ time: r[0] instanceof Date ? r[0].getTime() : r[0], land: r[4], outcome: r[5], group: r[6], level: r[7], boss: r[9] === 'Y', question: r[10], typed: r[11], result: r[12], inClass: r[15] !== 'N' });
     }
   }
   return { ok: true, key: key, attempts: rows };
+}
+
+/* ---------------- class times: the bell schedule (2026-27) ----------------
+ * Mon/Wed are Day 1, Tue/Thu Day 2, Friday has its own shorter periods. [block, start, end] in local time. */
+var BELL = {
+  day1: [['A', '09:00', '10:28'], ['B', '10:33', '12:00'], ['C', '12:45', '14:13'], ['D', '14:18', '15:45']],
+  day2: [['B', '09:00', '10:28'], ['A', '10:33', '12:00'], ['D', '12:45', '14:13'], ['C', '14:18', '15:45']],
+  fri:  [['A', '09:00', '10:07'], ['B', '10:11', '11:18'], ['C', '11:48', '12:55'], ['D', '12:58', '14:05']]
+};
+var BELL_TZ = 'America/Edmonton', BELL_GRACE = 2; // minutes either side of the bells
+function blocks_() { try { var b = JSON.parse(PropertiesService.getScriptProperties().getProperty('BLOCKS') || '{}'); return (b && typeof b === 'object') ? b : {}; } catch (e) { return {}; } }
+function blockFor_(klass) { return blocks_()[norm_(klass)] || ''; }
+function noSchool_() { try { var d = JSON.parse(PropertiesService.getScriptProperties().getProperty('NOSCHOOL') || '[]'); return Array.isArray(d) ? d : []; } catch (e) { return []; } }
+function timesFor_(klass) { return { block: blockFor_(klass), noSchool: noSchool_() }; }
+/* the block's period on the school day containing ms, as local minutes [start, end], or null */
+function period_(block, off, ms) {
+  var parts = Utilities.formatDate(new Date(ms), BELL_TZ, 'u|HH|mm|yyyy-MM-dd').split('|'), dow = Number(parts[0]);
+  if (dow > 5 || off.indexOf(parts[3]) >= 0) return null;
+  var day = dow === 5 ? BELL.fri : (dow === 1 || dow === 3) ? BELL.day1 : BELL.day2, mins = Number(parts[1]) * 60 + Number(parts[2]);
+  for (var i = 0; i < day.length; i++) if (day[i][0] === block) { var a = day[i][1].split(':'), b = day[i][2].split(':'); return { now: mins, start: a[0] * 60 + Number(a[1]), end: b[0] * 60 + Number(b[1]) }; }
+  return null;
+}
+function inPeriod_(block, off, ms, extraAfter) { var p = period_(block, off, ms); return !!p && p.now >= p.start - BELL_GRACE && p.now <= p.end + BELL_GRACE + (extraAfter || 0); }
+/* In class: the answer was stamped inside the block's period by the student's device AND reached the server inside it
+ * (allowing a few minutes for the game's 30-second batches). A changed device clock fails the second test. */
+function inClass_(block, off, at, now) {
+  if (!block) return true;
+  return Math.abs(now - at) < 10 * 60000 && inPeriod_(block, off, at, 0) && inPeriod_(block, off, now, 5);
+}
+/* Teacher-only: a class code's block (A-D, or empty for none). */
+function setBlock_(klass, block) {
+  var k = norm_(klass); if (!k) return { ok: false, error: 'no class' };
+  var b = String(block || '').trim().toUpperCase(); if (b && !/^[ABCD]$/.test(b)) return { ok: false, error: 'bad block' };
+  var lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try { var all = blocks_(); if (b) all[k] = b; else delete all[k]; PropertiesService.getScriptProperties().setProperty('BLOCKS', JSON.stringify(all)); return { ok: true, blocks: all }; }
+  finally { lock.releaseLock(); }
+}
+/* Teacher-only: replace the no-school dates. dates = "2026-10-12,2026-11-11". */
+function setNoSchool_(csv) {
+  var out = []; String(csv || '').split(',').forEach(function (x) { x = x.trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(x) && out.indexOf(x) < 0) out.push(x); });
+  out.sort(); PropertiesService.getScriptProperties().setProperty('NOSCHOOL', JSON.stringify(out.slice(-200)));
+  return { ok: true, noSchool: out.slice(-200) };
 }
 
 /* ---------------- per-class switches: the leaderboard and duels ---------------- */

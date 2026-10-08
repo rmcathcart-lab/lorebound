@@ -43,11 +43,19 @@ var CacheService = { getScriptCache: function () { return {
 var LockService = { getScriptLock: function () { return { waitLock: function () {}, releaseLock: function () {} }; } };
 var ContentService = { MimeType: { JAVASCRIPT: 'js', JSON: 'json' }, createTextOutput: function (t) { var o = { text: t, mime: 'json', setMimeType: function (m) { o.mime = m; return o; } }; return o; } };
 var Utilities = { getUuid: function () { return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, function () { return (Math.random() * 16 | 0).toString(16); }); },
-  formatDate: function (d, tz, f) { var x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); } };
+  formatDate: function (d, tz, f) { // the patterns Code.gs uses: yyyy MM dd HH mm u (1 = Monday), in the given time zone
+    var o = {}; new Intl.DateTimeFormat('en-US', { timeZone: tz || 'America/Edmonton', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' })
+      .formatToParts(new Date(d)).forEach(function (p) { o[p.type] = p.value; });
+    var u = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[o.weekday];
+    return String(f).replace(/yyyy|MM|dd|HH|mm|u/g, function (t) { return { yyyy: o.year, MM: o.month, dd: o.day, HH: o.hour, mm: o.minute, u: String(u) }[t]; });
+  } };
 var Session = { getScriptTimeZone: function () { return 'America/Edmonton'; } };
 var Logger = { log: function () {} };
 
-var ctx = vm.createContext({ SpreadsheetApp: SpreadsheetApp, PropertiesService: PropertiesService, CacheService: CacheService, LockService: LockService, ContentService: ContentService, Utilities: Utilities, Session: Session, Logger: Logger, JSON: JSON, Math: Math, Date: Date, String: String, Number: Number, Object: Object, Array: Array });
+var OFFSET = 0; // /__set?__offset=<ms> moves the backend's clock (to test class times)
+function FakeDate() { var a = Array.prototype.slice.call(arguments); return a.length ? new (Function.prototype.bind.apply(Date, [null].concat(a)))() : new Date(Date.now() + OFFSET); }
+FakeDate.now = function () { return Date.now() + OFFSET; }; FakeDate.UTC = Date.UTC; FakeDate.parse = Date.parse; FakeDate.prototype = Date.prototype;
+var ctx = vm.createContext({ Intl: Intl, SpreadsheetApp: SpreadsheetApp, PropertiesService: PropertiesService, CacheService: CacheService, LockService: LockService, ContentService: ContentService, Utilities: Utilities, Session: Session, Logger: Logger, JSON: JSON, Math: Math, Date: FakeDate, String: String, Number: Number, Object: Object, Array: Array });
 vm.runInContext(fs.readFileSync(path.join(__dirname, 'Code.gs'), 'utf8'), ctx);
 vm.runInContext('setup()', ctx);
 
@@ -55,7 +63,7 @@ var stats = { get: 0, post: 0, maxConcurrent: 0, open: 0 };
 http.createServer(function (req, res) {
   var u = url.parse(req.url, true), body = '';
   if (u.pathname === '/__stats') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ stats: stats, sheets: Object.keys(book.sheets).reduce(function (o, k) { o[k] = book.sheets[k].rows; return o; }, {}), props: props })); return; }
-  if (u.pathname === '/__set') { Object.keys(u.query).forEach(function (k) { props[k] = u.query[k]; }); res.end('ok'); return; }
+  if (u.pathname === '/__set') { Object.keys(u.query).forEach(function (k) { if (k === '__offset') OFFSET = Number(u.query[k]) || 0; else props[k] = u.query[k]; }); res.end('ok'); return; }
   req.on('data', function (c) { body += c; });
   req.on('end', function () {
     stats.open++; stats.maxConcurrent = Math.max(stats.maxConcurrent, stats.open);
