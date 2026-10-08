@@ -630,7 +630,7 @@
           duelCall({ op: 'answer', code: v.code, correct: r.ok ? '1' : '0' }, function (res) { if (res.ok) duelUpdate(res); });
         };
         var acts2 = el('div', 'actions'); acts2.appendChild(btn('Strike', 'big', send)); mf.onEnter(send); qp.appendChild(acts2);
-        setTimeout(function () { try { mf.focus(); } catch (e) {} }, 50);
+        focusAnswer(mf);
       }
       setTimeout(duelTick, 0);
     } else if (v.state === 'done') {
@@ -1044,6 +1044,21 @@
     if (left <= 0) timeUp();
   }
   setInterval(tickTimer, 250);
+  /* Anti-cheat: switching away from the game (another tab, minimising the window, locking the screen) in the middle of a
+   * real fight loses it, the same as a wrong answer. A 2-second grace forgives a stray click. Practice, the tutorial and
+   * result screens are exempt. Closing or reloading the page mid-fight still counts as fleeing (resumeGame). */
+  var AWAY_GRACE = 2000, awayT = null;
+  function liveFight(B) { return !!(B && !B.done && !B.practice && !B.tutorial && UI.screen === 'battle' && (B.phase === 'ask' || B.phase === 'warn' || B.phase === 'sight')); }
+  function forfeit() {
+    var B = UI.battle; if (!liveFight(B)) return;
+    if (B.busy) { setTimeout(forfeit, 900); return; } // let a blow already in the air finish first
+    var q = B.qs[B.i]; B.deadline = 0; B.leftTab = true; B.lastRaw = '';
+    logAttempt(q, '(left the game)', 'wrong'); stagePlay('hero', 'death'); die();
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') { if (liveFight(UI.battle) && !awayT) awayT = setTimeout(function () { awayT = null; if (document.visibilityState === 'hidden') forfeit(); }, AWAY_GRACE); }
+    else if (awayT) { clearTimeout(awayT); awayT = null; }
+  });
   function timeUp() {
     var B = UI.battle, q = B.qs[B.i]; B.deadline = 0;
     logAttempt(q, '(out of time)', 'wrong'); B.lastRaw = ''; B.timedOut = true;
@@ -1195,7 +1210,8 @@
         acts.appendChild(el('span', 'spacer'));
         var fl = el('button', 'btn ghost', B.tutorial ? 'Back away' : B.practice ? 'Leave practice' : 'Flee (lose half your Lore)'); fl.type = 'button'; fl.onclick = function () { flee(); }; acts.appendChild(fl);
         qp.appendChild(acts);
-        setTimeout(function () { try { mf.focus(); } catch (e) {} }, 50);
+        if (!B.practice && !B.tutorial) qp.appendChild(el('div', 'stay-note', 'Stay in the game until the fight ends: switching tabs or windows counts as a loss.'));
+        focusAnswer(mf);
       }
       wrap.appendChild(qp);
     } else { // result phase
@@ -1293,7 +1309,7 @@
     S.lore = keep;
     B.done = true; B.phase = 'result'; B.outcome = 'died';
     if (B.land.explore === 2) { var wd = S.world && S.world[B.land.id]; if (wd) { wd.dead = []; wd.deadAt = {}; wd.bossDead = false; wd.pos = null; } }
-    var html = '<h2>You died</h2>' + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(theLand(B.land)) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
+    var html = (B.leftTab ? '<h2>You left the fight</h2><p>Switching away from the game in the middle of a fight counts as a loss, just like a wrong answer.</p>' : '<h2>You died</h2>') + (B.land.explore === 2 ? '<p>You will wake at the bonfire, and everything you slew in ' + esc(theLand(B.land)) + ' will be alive again.</p>' : '') + (drop > 0 ? '<div class="loss">−' + n(drop) + ' Lore</div><p>It lies where you fell. Defeat <b>' + esc(foe.name) + '</b>' + (B.isBoss ? ' (all ' + B.qs.length + ' questions)' : '') + ' to take it back. Die anywhere first and it is gone.</p>' : '<p>You were carrying nothing. Nothing is lost but pride.</p>') +
       notes.map(function (t) { return '<p>' + t + '</p>'; }).join('') + youTyped(B) + solutionBlock(q);
     var res = el('div', 'result lose', html);
     res.appendChild(afterActions(false)); B.result = res; render();
@@ -1342,6 +1358,21 @@
   }
 
   /* ---------- math input + keypad ---------- */
+  /* put the cursor in the answer box as the question appears, so the student can just type. The math editor can take a
+   * moment to mount, so keep trying briefly, unless the student has already clicked or focused something else. */
+  function focusAnswer(mf) {
+    var node = mf.node, stop = false, t0 = Date.now(); mf.wantFocus = true;
+    function interfered(e) { if (!node.contains(e.target)) stop = true; }
+    document.addEventListener('pointerdown', interfered, true);
+    setTimeout(function tryIt() { // first try once the screen is in the page
+      if (stop || !document.body.contains(node) || Date.now() - t0 > 2500) { mf.wantFocus = false; document.removeEventListener('pointerdown', interfered, true); return; }
+      var a = document.activeElement, elsewhere = a && a !== document.body && !node.contains(a) && /^(INPUT|TEXTAREA|BUTTON|SELECT|MATH-FIELD)$/.test(a.tagName);
+      if (elsewhere) { stop = true; return tryIt(); }
+      var has = mf.hasFocus ? mf.hasFocus() : (a && node.contains(a));
+      if (!has) { try { mf.focus(); } catch (e) {} }
+      setTimeout(tryIt, has ? 400 : 120);
+    }, 30);
+  }
   function mathReady() { return !!(window.customElements && customElements.get('math-field')); }
   function mathInput() {
     if (mathReady()) return mathFieldInput();
@@ -1379,12 +1410,15 @@
     var obj = {}, wrap = el('div'), mf = document.createElement('math-field');
     mf.id = 'answer-field'; mf.setAttribute('math-virtual-keyboard-policy', 'manual');
     try { mf.menuItems = []; } catch (e) {}
+    try { mf.smartSuperscript = false; } catch (e) {} // stay inside an exponent until the student arrows or clicks out (MathLive's default leaps out after one digit)
     function noPhoneKeyboard() { try { var sink = mf.shadowRoot && mf.shadowRoot.querySelector('[part="keyboard-sink"]'); if (sink) sink.setAttribute('inputmode', window.matchMedia('(pointer: coarse)').matches ? 'none' : 'text'); } catch (e) {} }
     mf.addEventListener('pointerdown', noPhoneKeyboard); mf.addEventListener('focusin', noPhoneKeyboard);
     wrap.appendChild(mf); setTimeout(noPhoneKeyboard, 0);
     obj.node = wrap; obj.math = true;
     obj.value = function () { return mf.value; };
     obj.focus = function () { try { mf.focus({ preventScroll: true }); } catch (e) {} };
+    obj.hasFocus = function () { try { return typeof mf.hasFocus === 'function' ? mf.hasFocus() : document.activeElement === mf; } catch (e) { return false; } };
+    mf.addEventListener('mount', function () { if (obj.wantFocus) obj.focus(); }); // MathLive ignores focus() until the editor has mounted
     obj.set = function (v) { try { mf.value = /\\/.test(v) ? v : latexFromTyped(v); } catch (e) { mf.value = v; } };
     obj.onEnter = function (fn) { mf.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); fn(); } }); };
     obj.press = function (k) {
@@ -1910,8 +1944,8 @@
       '<li><b>Win streaks pay.</b> Every kill in a row adds 5% (up to +50%). A death resets it.</li>' +
       '<li><b>Answers must be in the form asked for.</b> A right value in the wrong form staggers the creature once; the second time it kills you.</li>' +
       '<li><b>Strike first.</b> Walk up to a creature and attack it (<kbd>E</kbd> or ⚔) before it reaches you, and you get ' + FIRST_STRIKE + ' extra seconds on the clock. If it catches you first, you lose ' + FIRST_STRIKE + ' seconds. Bosses are always challenged, so their clocks never change.</li>' +
-      '<li><b>Fleeing</b> a fight costs half the Lore you carry, and leaving the game in the middle of a fight counts as fleeing. Leave the game while out in a land and you come back exactly where you stood. To get home from deep in a land, crush the <b>Cinder of Return</b> that every Satchel holds (it burns all the Lore you carry), or buy a <b>Homeward Ember</b> from Callum the Merchant (it keeps your Lore).</li>' +
-      '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance a wrong answer does not kill. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form. To rename your hero (free) or take up another class (' + n(CLASS_CHANGE_COST) + ' Lore), go to Imbue Lore into Legacy at the bonfire.</li>' +
+      '<li><b>Stay in the fight.</b> Switching to another tab or window in the middle of a fight loses it, just like a wrong answer. <b>Fleeing</b> a fight costs half the Lore you carry, and closing or reloading the game in the middle of a fight counts as fleeing. Leave the game while out in a land and you come back exactly where you stood. To get home from deep in a land, crush the <b>Cinder of Return</b> that every Satchel holds (it burns all the Lore you carry), or buy a <b>Homeward Ember</b> from Callum the Merchant (it keeps your Lore).</li>' +
+      '<li><b>Every class has an edge.</b> Knight: a 1 in 10 chance to parry a killing blow. Sorcerer: a 1 in 5 chance the hint appears free. Ranger: 50% more time on the clock. Rogue: the right value counts even in the wrong form. To rename your hero (free) or take up another class (' + n(CLASS_CHANGE_COST) + ' Lore), go to Imbue Lore into Legacy at the bonfire.</li>' +
       '<li><b>The clock.</b> Each question has a time limit (Beginning ' + LEVELS.BEG.time + ' s, Progressing ' + LEVELS.PRG.time + ' s, Mastery and bosses ' + LEVELS.MAS.time + ' s, longer with levels and Patience gear). Out of time counts as a wrong answer.</li>' +
       '<li><b>The lands are labyrinths.</b> Creatures roam them in packs and chase you when they see you — but you are faster. A slain creature leaves a corpse. Die, or rest at the bonfire, and every corpse rises again. The boss door needs the Gate Key and every kind of creature slain once.</li>' +
       '<li><b>The boss</b> of a land opens once you have slain every creature there at least once. It asks several questions in a row; one wrong answer and you die.</li>' +

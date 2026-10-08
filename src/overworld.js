@@ -9,7 +9,7 @@
  * opened chests, pages, key, position) lives in state.world[landId].
  */
 var Overworld = (function () {
-  var T = 16, MW = 56, MH = 40;                       // tile size; map size in tiles (set per map on mount; v1 maps are 56x40)
+  var T = 16, MW = 56, MH = 40, REACH = 32;              // REACH: how close (px) a creature must be to strike it first (2 tiles)                       // tile size; map size in tiles (set per map on mount; v1 maps are 56x40)
   var G = { GROUND: 0, GROUND2: 1, PATH: 2, WALL: 3, WATER: 4, DECO: 5, GATE: 6, GATE_OPEN: 7, FIRE: 8, EDGE: 9 };
   var SOLID = { 3: 1, 4: 1, 6: 1, 9: 1 };
 
@@ -451,7 +451,7 @@ var Overworld = (function () {
         var sees = !e.ref.asleep && !nearFire && !(e.blind > 0) && ((pd < (R.opts.sightTiles || 6.5) * T && lineOfSight(e.x, e.y, p.x, p.y)) || e.alert > 0);
         if (sees) { if (e.state !== 'chase' && window.Sfx) Sfx.play('alert'); e.state = 'chase'; e.lost = 0; } else if (e.state === 'chase') { e.lost += dt; if (e.lost > (R.opts.loseAfter || 2.5)) { e.state = 'home'; } }
         if (e.state === 'chase') {
-          if (pd < 11 && R.contactCool <= 0) { R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); e.dir = pdx < 0 ? -1 : 1; p.dir = -e.dir; cutscene(e, 'creature', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n, 'creature'); }); return; }
+          if (pd < 11 && R.contactCool <= 0 && !(p.act && p.act.free)) { /* a hero mid-swing is not ambushed: the swing lands instead (below) */ R.contactCool = 2; R.w.fightAt = { key: e.key, x: e.x, y: e.y }; persist(); e.dir = pdx < 0 ? -1 : 1; p.dir = -e.dir; cutscene(e, 'creature', function () { if (R && R.opts.onBattle) R.opts.onBattle(e.ref, false, e.n, 'creature'); }); return; }
           var cs = (e.level === 'MAS' ? 46 : e.level === 'PRG' ? 44 : 40) * dt, mx = e.x + pdx / (pd || 1) * cs, my = e.y + pdy / (pd || 1) * cs;
           if (!blocked(mx, e.y)) e.x = mx; if (!blocked(e.x, my)) e.y = my; e.dir = pdx < 0 ? -1 : 1; e.moving = true; return;
         }
@@ -471,8 +471,11 @@ var Overworld = (function () {
       if (e.kind === 'key' && dd < 10) { R.w.key = true; R.ents.splice(i, 1); if (window.Sfx) Sfx.play('pickup'); say('You found the Gate Key. The boss door will open once every creature here has been slain.'); persist(); continue; }
       if (e.kind === 'page' && dd < 10) { R.w.pages.push(e.n); R.ents.splice(i, 1); persist(); if (R.opts.onPage) R.opts.onPage(e.n); if (!R) return; continue; }
       if (e.kind === 'chest' && dd < 12) { R.w.chests.push(e.n); R.ents.splice(i, 1); persist(); var msg = R.opts.onChest ? R.opts.onChest(e.n) : null; if (!R) return; if (msg) say(msg); continue; }
-      if ((e.kind === 'creature' || e.kind === 'boss') && dd < 22 && (!R.near || dd < R.near.d)) R.near = { e: e, d: dd };
+      if ((e.kind === 'creature' || e.kind === 'boss') && dd < REACH && (!R.near || dd < R.near.d)) R.near = { e: e, d: dd };
     }
+    // a swing that was a moment early still lands: if a creature comes into reach while the blade is moving, it is a first strike
+    if (p.act && p.act.free && !R.cut) { var hit = null; R.ents.forEach(function (e) { if (e.kind === 'creature') { var hd = Math.hypot(e.x - p.x, e.y - p.y); if (hd < REACH && (!hit || hd < hit.d)) hit = { e: e, d: hd }; } });
+      if (hit) { p.act = null; R.near = hit; interact(); return; } }
     var gx = R.map.gate.x * T + T / 2, gy = R.map.gate.y * T + T / 2;
     if (!R.near && Math.hypot(gx - p.x, gy - p.y) < 20 && !gateOpen()) R.near = { gate: true, d: 0 };
     var fx = R.map.spawn.x * T + T / 2, fy = R.map.spawn.y * T + T / 2;
