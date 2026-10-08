@@ -380,12 +380,65 @@ var Overworld = (function () {
       cw = (R.container && R.container.clientWidth ? R.container.clientWidth - 22 : 0) || 800; scale = cw >= 1240 ? 3 : 2;
       vw = Math.min(26, Math.floor(cw / (T * scale))); vh = Math.max(9, Math.min(15, Math.round(vw * 0.6)));
     }
-    var dpr = Math.min(3, window.devicePixelRatio || 1);
+    var dpr = Math.min(GFX.level >= 1 ? 1 : 2, window.devicePixelRatio || 1); // slow devices draw at 1x (see GFX)
     R.scale = scale; R.vw = vw; R.vh = vh; R.dpr = dpr; R.k = scale * dpr; R.lw = vw * T; R.lh = vh * T;
     // backing store at device resolution: the world is drawn through an integer-ish transform (nearest-neighbour, so pixel art stays crisp)
     // while text is drawn at full resolution instead of being blown up with the pixels
     R.cv.width = Math.round(vw * T * R.k); R.cv.height = Math.round(vh * T * R.k); R.cv.style.width = (vw * T * scale) + 'px'; R.cv.style.height = (vh * T * scale) + 'px';
     R.ctx.imageSmoothingEnabled = false;
+    R.chunks = {}; R.dark = null; // caches depend on the size and resolution
+    SP.q = GFX.level >= 2 ? 'low' : GFX.level >= 1 ? 'medium' : 'high';
+  }
+  /* Graphics level, chosen by watching the frame rate: 0 = sharp (up to 2x pixels), 1 = 1x pixels, 2 = 1x pixels and
+   * cheaper image smoothing. A device that drops to a level starts there next time (localStorage lorebound:gfx). */
+  var GFX = { level: 0, ft: [], checked: 0 };
+  try { GFX.level = Math.max(0, Math.min(2, Number(localStorage.getItem('lorebound:gfx')) || 0)); } catch (e) {}
+  function gfxWatch(dtMs) {
+    if (!R || R.frozen || document.visibilityState !== 'visible') return;
+    if (!GFX.ft.length) GFX.t0 = performance.now(); GFX.ft.push(dtMs); if (GFX.ft.length < 90 && !(GFX.ft.length >= 6 && performance.now() - GFX.t0 > 2500)) return;
+    var a = GFX.ft.slice().sort(function (x, y) { return x - y; }), med = a[a.length >> 1]; GFX.ft = [];
+    if (med > 26 && GFX.level < 2) { GFX.level++; try { localStorage.setItem('lorebound:gfx', GFX.level); } catch (e) {} layout(); }
+  }
+
+  /* ---------- terrain cache ----------
+   * The ground does not change between frames, so it is painted once per 8x8-tile chunk into its own canvas (with the
+   * contact shadows) and each frame just copies the visible chunks. Water, the bonfire and the gate are drawn live.
+   * A chunk is repainted when fog lifts inside it. */
+  var CH = 8, LIVE = {}; LIVE[4] = 1; LIVE[6] = 1; LIVE[7] = 1; LIVE[8] = 1;
+  function chunkK() { return R.k; } // drawn 1:1, so copying a chunk never resamples
+  function buildChunk(cx, cy) {
+    var k = chunkK(), c = R.chunks[cx + ',' + cy]; if (!c) { c = R.chunks[cx + ',' + cy] = { cv: document.createElement('canvas') }; c.cv.width = c.cv.height = Math.ceil(CH * T * k); }
+    var g = c.cv.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.cv.width, c.cv.height); g.setTransform(k, 0, 0, k, 0, 0); g.imageSmoothingEnabled = false;
+    var th = R.map.theme, x0 = cx * CH, y0 = cy * CH; SP.tileK = Number.isInteger(k) ? k : 0;
+    for (var y = y0; y < Math.min(MH, y0 + CH); y++) for (var x = x0; x < Math.min(MW, x0 + CH); x++) { var i = y * MW + x; if (!R.seen[i] || LIVE[R.map.tiles[i]]) continue; drawTile(g, x, y, R.map.tiles[i], (x - x0) * T, (y - y0) * T, th); }
+    if (SP.contactShadows) SP.contactShadows(g, R.map.tiles, R.seen, x0, y0, Math.min(MW, x0 + CH) - 1, Math.min(MH, y0 + CH) - 1, x0 * T, y0 * T);
+    c.dirty = false; c.k = k; c.used = R.t;
+    var keys = Object.keys(R.chunks), cap = (Math.ceil(R.vw / CH) + 3) * (Math.ceil(R.vh / CH) + 3); if (keys.length > cap) { keys.sort(function (a, b) { return R.chunks[a].used - R.chunks[b].used; }); keys.slice(0, keys.length - cap).forEach(function (key) { delete R.chunks[key]; }); }
+    return c;
+  }
+  function seenChanged(x, y) { R.seenVer = (R.seenVer || 0) + 1; var c = R.chunks && R.chunks[Math.floor(x / CH) + ',' + Math.floor(y / CH)]; if (c) c.dirty = true; }
+  function darkLayer() { // the night around the hero (soft vignette + far fog) as a small sprite drawn 1:1 on the hero; beyond it the dark is even
+    if (R.dark && R.dark.k === R.k) return R.dark;
+    var r = T * 7.6, k = R.k, n = Math.ceil(r * 2 * k), c = document.createElement('canvas'); c.width = c.height = n;
+    var g = c.getContext('2d'), m = n / 2, gr = g.createRadialGradient(m, m, T * 2 * k, m, m, T * 7.5 * k);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+    if (!R.vista) { var g2 = g.createRadialGradient(m, m, T * 6.6 * k, m, m, T * 7.4 * k); g2.addColorStop(0, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,.45)'); g.fillStyle = g2; g.fillRect(0, 0, n, n); }
+    return (R.dark = { cv: c, n: n, k: k, out: R.vista ? 'rgba(0,0,0,.55)' : 'rgba(0,0,0,.7525)' }); // .7525 = .55 and .45 stacked
+  }
+  function drawDark(ctx, hx, hy) {
+    var d = darkLayer(), W = R.cv.width, H = R.cv.height, x = Math.round(hx * R.k - d.n / 2), y = Math.round(hy * R.k - d.n / 2);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(d.cv, x, y); ctx.fillStyle = d.out;
+    if (y > 0) ctx.fillRect(0, 0, W, y); if (y + d.n < H) ctx.fillRect(0, y + d.n, W, H - y - d.n);
+    var y0 = Math.max(0, y), y1 = Math.min(H, y + d.n); if (x > 0) ctx.fillRect(0, y0, x, y1 - y0); if (x + d.n < W) ctx.fillRect(x + d.n, y0, W - x - d.n, y1 - y0);
+    ctx.restore();
+  }
+  function minimapImage() { // explored tiles, redrawn only when more of the land is seen
+    if (R.mm && R.mm.ver === R.seenVer) return R.mm.cv;
+    var c = (R.mm && R.mm.cv) || document.createElement('canvas'); c.width = MW; c.height = MH; var g = c.getContext('2d'), th = R.map.theme, img = g.createImageData(MW, MH), d = img.data;
+    var COL = {}; function rgb(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+    COL.wall = rgb('#3a3a3a'); COL.water = rgb(th.lava ? '#a0401a' : '#1f3550'); COL.path = rgb('#6a5a40'); COL.gate = rgb('#d6a860'); COL.ground = rgb('#4a5a44');
+    for (var i = 0; i < MW * MH; i++) { if (!R.seen[i]) continue; var tt = R.map.tiles[i], col = tt === G.WALL || tt === G.EDGE ? COL.wall : tt === G.WATER ? COL.water : tt === G.PATH ? COL.path : tt === G.GATE ? COL.gate : COL.ground; d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255; }
+    g.putImageData(img, 0, 0); R.mm = { cv: c, ver: R.seenVer }; return c;
   }
 
   /* ---------- input ---------- */
@@ -416,7 +469,7 @@ var Overworld = (function () {
   function gateOpen() { return !!((R.w.key || !R.map.key) && R.opts.bossOpen && R.opts.bossOpen()); } // a land with no key (the final land) has an open gate
   function frame(now) {
     if (!R) return;
-    var dt = Math.max(0, Math.min(50, now - R.last)) / 1000; R.last = now; R.t += dt;
+    var raw = now - R.last, dt = Math.max(0, Math.min(50, raw)) / 1000; R.last = now; R.t += dt; if (R.t > 4) gfxWatch(raw);
     if (!R.frozen) step(dt);
     if (!R) return;
     draw();
@@ -532,7 +585,7 @@ var Overworld = (function () {
   }
   function reveal() {
     var p = R.player, tx = Math.floor(p.x / T), ty = Math.floor(p.y / T), rad = 6;
-    for (var y = ty - rad; y <= ty + rad; y++) for (var x = tx - rad; x <= tx + rad; x++) if (x >= 0 && y >= 0 && x < MW && y < MH && (x - tx) * (x - tx) + (y - ty) * (y - ty) <= rad * rad + 1) R.seen[y * MW + x] = 1;
+    for (var y = ty - rad; y <= ty + rad; y++) for (var x = tx - rad; x <= tx + rad; x++) if (x >= 0 && y >= 0 && x < MW && y < MH && (x - tx) * (x - tx) + (y - ty) * (y - ty) <= rad * rad + 1 && !R.seen[y * MW + x]) { R.seen[y * MW + x] = 1; seenChanged(x, y); }
   }
 
   /* ---------- drawing ---------- */
@@ -543,7 +596,16 @@ var Overworld = (function () {
     R.camx = camx; R.camy = camy;
     ctx.fillStyle = '#07060a'; ctx.fillRect(0, 0, cvw, cvh);
     var x0 = Math.floor(camx / T), y0 = Math.floor(camy / T), x1 = Math.min(MW - 1, x0 + R.vw + 1), y1 = Math.min(MH - 1, y0 + R.vh + 1);
-    for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) {
+    R.chunked = !!(SP.ready && SP.terrainReady && SP.terrainReady(th.name)); SP.tileK = Number.isInteger(R.k) ? R.k : 0; // whole-number scales get pre-shrunk tiles
+    if (R.chunked) { // copy the cached ground, then draw the few live tiles (water, bonfire, gate)
+      ctx.imageSmoothingEnabled = chunkK() < R.k;
+      for (var cy = Math.floor(y0 / CH); cy <= Math.floor(y1 / CH); cy++) for (var cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++) {
+        var ck = R.chunks[cx + ',' + cy]; if (!ck || ck.dirty || ck.k !== chunkK()) ck = buildChunk(cx, cy); ck.used = R.t;
+        ctx.drawImage(ck.cv, cx * CH * T - camx, cy * CH * T - camy, ck.cv.width / R.k, ck.cv.height / R.k);
+      }
+      ctx.imageSmoothingEnabled = false;
+      for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) { var i = y * MW + x; if (R.seen[i] && LIVE[R.map.tiles[i]]) drawTile(ctx, x, y, R.map.tiles[i], x * T - camx, y * T - camy, th); }
+    } else for (var y = y0; y <= y1; y++) for (var x = x0; x <= x1; x++) {
       var i = y * MW + x; if (!R.seen[i]) continue;
       drawTile(ctx, x, y, R.map.tiles[i], x * T - camx, y * T - camy, th);
     }
@@ -562,25 +624,22 @@ var Overworld = (function () {
     // dropped lore marker
     if (R.S.dropped && R.S.dropped.land === R.L.id) { var de = R.ents.filter(function (e) { return e.ref && e.ref.id === R.S.dropped.creature && (R.S.dropped.inst == null || e.n === R.S.dropped.inst); })[0]; if (de) { var gx = de.x - camx, gy = de.y - camy - 14 + Math.sin(R.t * 4) * 1.5; ctx.fillStyle = '#8fd3ff'; ctx.beginPath(); ctx.arc(gx, gy, 2.5, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(143,211,255,.35)'; ctx.beginPath(); ctx.arc(gx, gy, 5, 0, 7); ctx.fill(); } }
     // fog: seen-but-far tiles darkened, unseen black (already black), soft light around hero
-    ctx.fillStyle = 'rgba(0,0,0,.45)';
-    if (!R.vista) for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) { i = y * MW + x; if (!R.seen[i]) continue; var dxx = x * T + T / 2 - p.x, dyy = y * T + T / 2 - p.y; if (dxx * dxx + dyy * dyy > (7 * T) * (7 * T)) ctx.fillRect(x * T - camx, y * T - camy, T, T); }
-    var grad = ctx.createRadialGradient(p.x - camx, p.y - camy, T * 2, p.x - camx, p.y - camy, T * 7.5);
-    grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,.55)'); ctx.fillStyle = grad; ctx.fillRect(0, 0, cvw, cvh);
+    drawDark(ctx, p.x - camx, p.y - camy);
     // brazier light burns through the dark: warm pools along the road wherever it has been seen
     if (R.brazOK && R.map.braziers && R.map.braziers.length) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       R.map.braziers.forEach(function (b, bi) { if (!R.seen[b.y * MW + b.x]) return; var bx = b.x * T + T / 2 - camx, by = b.y * T - 6 - camy; if (bx < -60 || by < -60 || bx > cvw + 60 || by > cvh + 60) return;
-        var fl = 0.75 + Math.sin(R.t * 7.3 + bi * 1.7) * 0.12 + Math.sin(R.t * 13.1 + bi) * 0.08, gr = ctx.createRadialGradient(bx, by, 1, bx, by, T * 3.2);
-        gr.addColorStop(0, 'rgba(255,150,60,' + (0.34 * fl) + ')'); gr.addColorStop(0.5, 'rgba(255,100,30,' + (0.12 * fl) + ')'); gr.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = gr; ctx.fillRect(bx - T * 3.3, by - T * 3.3, T * 6.6, T * 6.6); });
+        var fl = 0.75 + Math.sin(R.t * 7.3 + bi * 1.7) * 0.12 + Math.sin(R.t * 13.1 + bi) * 0.08; ctx.globalAlpha = fl; ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(SP.glow('brazier', T * 3.2, [[0, 'rgba(255,150,60,.34)'], [0.5, 'rgba(255,100,30,.12)'], [1, 'rgba(255,90,20,0)']]), bx - T * 3.2, by - T * 3.2, T * 6.4, T * 6.4); });
       ctx.restore();
     }
     if (R.w.campfire) { var cfp = R.w.campfire, cbx = cfp.x * T + T / 2 - camx, cby = cfp.y * T - 8 - camy, cfl = 0.8 + Math.sin(R.t * 6.1) * 0.12 + Math.sin(R.t * 11.7) * 0.08;
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; var cgr = ctx.createRadialGradient(cbx, cby, 1, cbx, cby, T * 4.2);
-      cgr.addColorStop(0, 'rgba(255,160,70,' + (0.42 * cfl) + ')'); cgr.addColorStop(0.5, 'rgba(255,110,40,' + (0.15 * cfl) + ')'); cgr.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = cgr; ctx.fillRect(cbx - T * 4.3, cby - T * 4.3, T * 8.6, T * 8.6); ctx.restore(); }
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = cfl; ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(SP.glow('campfire', T * 4.2, [[0, 'rgba(255,160,70,.42)'], [0.5, 'rgba(255,110,40,.15)'], [1, 'rgba(255,90,20,0)']]), cbx - T * 4.2, cby - T * 4.2, T * 8.4, T * 8.4); ctx.restore(); }
     // minimap (explored tiles only)
     if (cvw >= 300) {
     var mx = cvw - MW - 4, my = 4; ctx.fillStyle = 'rgba(10,8,12,.75)'; ctx.fillRect(mx - 2, my - 2, MW + 4, MH + 4);
-    for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { i = y * MW + x; if (!R.seen[i]) continue; var tt = R.map.tiles[i]; ctx.fillStyle = tt === G.WALL || tt === G.EDGE ? '#3a3a3a' : tt === G.WATER ? (th.lava ? '#a0401a' : '#1f3550') : tt === G.PATH ? '#6a5a40' : tt === G.GATE ? '#d6a860' : '#4a5a44'; ctx.fillRect(mx + x, my + y, 1, 1); }
+    ctx.drawImage(minimapImage(), mx, my);
     R.ents.forEach(function (e) { if (!R.seen[Math.floor(e.y / T) * MW + Math.floor(e.x / T)]) return; if (e.kind === 'creature' || e.kind === 'boss') { ctx.fillStyle = e.kind === 'boss' ? '#d8433a' : LEVEL_COLORS[e.ref.level]; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } else if (e.kind === 'corpse') { ctx.fillStyle = '#555'; ctx.fillRect(mx + Math.floor(e.x / T), my + Math.floor(e.y / T), 1, 1); } });
     ctx.fillStyle = '#ff9a3c'; ctx.fillRect(mx + R.map.spawn.x, my + R.map.spawn.y, 1, 1); if (R.w.campfire) ctx.fillRect(mx + R.w.campfire.x, my + R.w.campfire.y, 1, 1); if (R.well) { ctx.fillStyle = '#5aaaff'; ctx.fillRect(mx + R.well.x, my + R.well.y, 1, 1); }
     ctx.fillStyle = Math.floor(R.t * 3) % 2 ? '#ffffff' : '#e8dcc0'; ctx.fillRect(mx + Math.floor(p.x / T), my + Math.floor(p.y / T), 1, 1);
@@ -696,7 +755,7 @@ var Overworld = (function () {
   }
   function alarm(tilesR) { if (!R) return; R.ents.forEach(function (e) { if (e.kind === 'creature' && Math.hypot(e.x - R.player.x, e.y - R.player.y) < (tilesR || 14) * T) { e.alert = 5; e.stun = 0; } }); }
   function smoke() { if (!R) return; R.ents.forEach(function (e) { if (e.kind === 'creature') { e.blind = 8; e.alert = 0; if (e.state === 'chase') e.state = 'home'; } }); }
-  function revealAll() { if (!R) return; for (var i = 0; i < R.seen.length; i++) if (!SOLID[R.map.tiles[i]] || R.map.tiles[i] === G.GATE) R.seen[i] = 1; persist(); }
+  function revealAll() { if (!R) return; for (var i = 0; i < R.seen.length; i++) if (!SOLID[R.map.tiles[i]] || R.map.tiles[i] === G.GATE) R.seen[i] = 1; R.chunks = {}; R.seenVer = (R.seenVer || 0) + 1; persist(); }
   function announce(msg) { if (R) say(msg); }
   function counts() { if (!R) return null; var alive = 0, dead = 0; R.ents.forEach(function (e) { if (e.kind === 'creature') alive++; else if (e.kind === 'corpse') dead++; }); return { alive: alive, dead: dead }; }
   function warpHome() { // carried back to this land's bonfire: anything chasing loses the scent

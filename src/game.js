@@ -575,7 +575,7 @@
     var D = UI.duel, v = D.view, now = duelServerNow(), cd = document.getElementById('duel-count'), bar = document.getElementById('duel-timer');
     if (now < v.startAt) { if (cd) cd.textContent = Math.ceil((v.startAt - now) / 1000); return; }
     if (cd && !D.revealed) { D.revealed = true; render(); return; }
-    if (bar) { var left = Math.max(0, v.startAt + v.limit * 1000 - now), fr = left / (v.limit * 1000); bar.querySelector('.fill').style.width = (fr * 100) + '%'; bar.querySelector('.n').textContent = Math.ceil(left / 1000) + ' s'; bar.classList.toggle('low', fr < 0.2); if (!left && !D.timeUp) { D.timeUp = true; render(); } }
+    if (bar) { var left = Math.max(0, v.startAt + v.limit * 1000 - now), fr = left / (v.limit * 1000); bar.querySelector('.fill').style.transform = 'scaleX(' + fr.toFixed(4) + ')'; bar.querySelector('.n').textContent = Math.ceil(left / 1000) + ' s'; bar.classList.toggle('low', fr < 0.2); if (!left && !D.timeUp) { D.timeUp = true; render(); } }
     if (D.mf) try { D.typed = D.mf.value(); } catch (e) {}
   }
   function screenDuel() {
@@ -1066,7 +1066,7 @@
     var B = UI.battle; if (!B || B.done || !B.deadline || UI.screen !== 'battle') return;
     if (B.phase !== 'ask' && B.phase !== 'warn') return;
     var left = Math.max(0, B.deadline - Date.now()), bar = document.getElementById('qtimer');
-    if (bar) { var tot = questionTime(B) * 1000, fr = left / tot; bar.querySelector('.fill').style.width = (fr * 100) + '%'; var secs = Math.ceil(left / 1000); bar.querySelector('.n').textContent = secs + ' s'; bar.classList.toggle('low', left < 10000); if (left < 10000 && secs !== B.lastBeep) { B.lastBeep = secs; sfx('timer'); } }
+    if (bar) { var tot = questionTime(B) * 1000, fr = left / tot; bar.querySelector('.fill').style.transform = 'scaleX(' + fr.toFixed(4) + ')'; var secs = Math.ceil(left / 1000), nn = bar.querySelector('.n'); if (nn.textContent !== secs + ' s') nn.textContent = secs + ' s'; bar.classList.toggle('low', left < 10000); if (left < 10000 && secs !== B.lastBeep) { B.lastBeep = secs; sfx('timer'); } }
     if (left <= 0) timeUp();
   }
   setInterval(tickTimer, 250);
@@ -1143,13 +1143,19 @@
       ctx.restore();
     });
   }
+  function SP_A(id) { return Overworld.SP.actor(id); }
+  function frameAt(d, anim, el) { var a = d && (d.anims[anim] || d.anims.idle); if (!a) return 0; var i = Math.floor(el * a.fps), n = a.frames.length; return a.loop ? ((i % n) + n) % n : Math.max(0, Math.min(n - 1, i)); }
   function stageFrame() {
     Stage.raf = 0; var cv = Stage.cv; if (!cv || !document.body.contains(cv) || !window.Overworld || !Overworld.SP.actor) return;
     Stage.raf = requestAnimationFrame(stageFrame);
-    var dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
-    if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    var dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+    var resized = false; if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); resized = true; }
+    var hd = SP_A(Stage.hero.id), fd = SP_A(Stage.foe.id), t = nowS();
+    // redraw only when something on the stage changes: idle animations step a few times a second, so most frames are skipped
+    var busy = t - Stage.hero.hurt < 0.5 || t - Stage.foe.hurt < 0.5 || Stage.hero.anim !== 'idle' || Stage.foe.anim !== 'idle' || (Stage.ward && t - Stage.ward.t0 < 2);
+    var sig = busy ? null : [Stage.hero.id, Stage.foe.id, frameAt(hd, 'idle', t - Stage.hero.t0), frameAt(fd, 'idle', t - Stage.foe.t0), W, H].join('|');
+    if (sig && sig === Stage.sig && !resized) return; Stage.sig = sig;
     var ctx = cv.getContext('2d'), SP = Overworld.SP; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-    var hd = SP.actor(Stage.hero.id), fd = SP.actor(Stage.foe.id), t = nowS();
     function tall(d) { if (!d) return 26; var f = d.anims.idle.frames[0]; return f.h * d.scale; }
     var ground = H - 24, k = Math.min(4.2, (H - 44) / Math.max(tall(hd), tall(fd))), hx = W * 0.3, fx = W * 0.7, gap = fx - hx;
     [['hero', hd, hx, false, 1], ['foe', fd, fx, true, -1]].forEach(function (row) {
@@ -2201,7 +2207,7 @@
     list.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); }).forEach(function (x) { var c = el('button', 'attn-chip', esc(x.name)); c.type = 'button'; c.onclick = function () { lgOpenStudent(x.key); }; chips.appendChild(c); });
     w.appendChild(chips); return w;
   }
-  function lgOpenStudent(key) { LG.tab = 'students'; LG.sel = key; LG.detail = null; render(); lgLoadDetail(); setTimeout(function () { var d = document.getElementById('ledger-detail'); if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80); }
+  function lgOpenStudent(key) { LG.tab = 'students'; LG.sel = key; LG.detail = null; LG.q = ''; render(); lgScrollToSel(); }
   function lgLoadDetail() { var k = LG.sel; Ledger.player(LG.key, k, function (res) { if (res && res.ok && LG.sel === res.key) { LG.detail = res; renderLedgerDetail(); } }); }
 
   /* ---------- Outcomes ---------- */
@@ -2216,8 +2222,7 @@
   function lgStudents() {
     var tp = el('div', 'panel'); tp.id = 'ledger-table'; app.appendChild(tp);
     renderLedgerTable();
-    var dp = el('div'); dp.id = 'ledger-detail'; app.appendChild(dp);
-    if (LG.sel) { renderLedgerDetail(); if (!LG.detail) lgLoadDetail(); }
+    if (LG.sel && !LG.detail) lgLoadDetail();
   }
   function ocChips(p) { // one square per outcome, coloured by the hardest level answered right
     return '<span class="oc-chips">' + outcomeOrder().map(function (o) { var b = bestLevel(pOut(p), o.id); return '<i class="lvl-' + (b || 'nt') + '" title="' + esc(o.id) + ': ' + (b === 'none' ? 'tried, none right' : b ? LEVELS[b].name : 'not tried') + '"></i>'; }).join('') + '</span>';
@@ -2239,19 +2244,24 @@
         '<td' + (daysAgo(p.lastSeen) > 7 ? ' class="stale"' : '') + '>' + fmtAgo(p.lastSeen) + '</td><td>' + fmtDur(p.playSeconds) + '</td><td>' + landPips(p) + '</td><td>' + ocChips(p) + '</td>' +
         '<td><div class="acc-bar"><span style="width:' + (a == null ? 0 : a) + '%;background:' + accColor(a) + '"></span></div><span class="sm">' + (a == null ? '—' : a + '%') + ' <span class="muted">of ' + n(pTries(p)) + '</span></span></td>' +
         '<td class="lore">' + n(p.legend || 0) + '</td></tr>';
+      if (LG.sel === p.key) t += '<tr class="lgs-open"><td colspan="7"><div id="ledger-detail"></div></td></tr>';
     });
     var tw = el('div', 'table-wrap'); tw.innerHTML = t + '</table>'; tp.appendChild(tw);
     if (!players.length) tp.appendChild(el('p', 'muted', 'No students match that search.'));
     tw.querySelectorAll('th[data-k]').forEach(function (th) { th.onclick = function () { var k = th.getAttribute('data-k'); if (LG.sort === k) LG.dir = -LG.dir; else { LG.sort = k; LG.dir = k === 'name' ? 1 : -1; } renderLedgerTable(); }; });
-    tw.querySelectorAll('tr[data-key]').forEach(function (tr) { tr.onclick = function () { LG.sel = tr.getAttribute('data-key'); LG.detail = null; renderLedgerTable(); renderLedgerDetail(); lgLoadDetail(); var d = document.getElementById('ledger-detail'); if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+    if (LG.sel) renderLedgerDetail();
+    tw.querySelectorAll('tr[data-key]').forEach(function (tr) { tr.onclick = function () { // open the student's card under their row; click again to close it
+      var key = tr.getAttribute('data-key'); if (LG.sel === key) { LG.sel = null; LG.detail = null; renderLedgerTable(); return; }
+      LG.sel = key; LG.detail = null; LG.allQ = false; renderLedgerTable(); lgLoadDetail(); lgScrollToSel(); }; });
   }
+  function lgScrollToSel() { setTimeout(function () { var r = document.querySelector('table.lg-students tr.sel'); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60); }
   function renderLedgerDetail() {
     var dp = document.getElementById('ledger-detail'); if (!dp) return; dp.innerHTML = '';
     var p = (LG.data.players || []).filter(function (x) { return x.key === LG.sel; })[0]; if (!p) return;
     var pn = el('div', 'panel lg-student');
     var top = el('div', 'lgs-top');
     top.innerHTML = '<div><div class="eyebrow">' + esc(p['class']) + (p.hero ? ' · ' + esc(p.hero) + ' the ' + esc(className(p.heroClass)) : '') + '</div><h2>' + esc(p.name) + '</h2></div>';
-    var cx = el('button', 'btn ghost small', 'Close'); cx.type = 'button'; cx.onclick = function () { LG.sel = null; LG.detail = null; dp.innerHTML = ''; renderLedgerTable(); }; top.appendChild(cx);
+    var cx = el('button', 'btn ghost small', 'Close'); cx.type = 'button'; cx.onclick = function (e) { e.stopPropagation(); LG.sel = null; LG.detail = null; renderLedgerTable(); }; top.appendChild(cx);
     pn.appendChild(top);
     var k = el('div', 'chron-kpis lg-kpis sm');
     [['Accuracy', acc(p) == null ? '—' : acc(p) + '%', 'of ' + n(pTries(p)) + ' answers'], ['Time played', fmtDur(p.playSeconds), 'last seen ' + fmtAgo(p.lastSeen)], ['Level', n(p.level || 1), n(p.legend || 0) + ' Legend'],
@@ -2272,12 +2282,15 @@
     else if (!LG.detail.attempts.length) pn.appendChild(el('p', 'muted', 'No questions recorded yet.'));
     else {
       var tw = el('div', 'table-wrap'), t2 = '<table class="oc attempts"><tr><th>When</th><th>Where</th><th>Question</th><th>They wrote</th><th>Result</th></tr>';
-      LG.detail.attempts.slice().sort(function (x, y) { return (Number(y.time) || 0) - (Number(x.time) || 0); }).forEach(function (a) {
-        if (lgIn() && a.inClass === false) return;
+      var shownA = LG.detail.attempts.slice().sort(function (x, y) { return (Number(y.time) || 0) - (Number(x.time) || 0); }).filter(function (a) { return !(lgIn() && a.inClass === false); }), moreA = shownA.length - 10;
+      if (!LG.allQ) shownA = shownA.slice(0, 10);
+      shownA.forEach(function (a) {
         t2 += '<tr class="r-' + esc(a.result) + (a.inClass === false ? ' outside' : '') + '"><td>' + fmtAgo(a.time) + (a.inClass === false ? '<br><span class="out-tag">outside class</span>' : '') + '</td><td>' + esc(a.outcome) + ' · ' + esc(a.level) + (a.boss ? ' · boss' : '') + '</td><td class="qtext">' + esc(a.question) + '</td><td>' + typedTex(a.typed) + '</td><td><b>' + (a.result === 'correct' ? 'correct' : a.result === 'form' ? 'right value, wrong form' : 'wrong') + '</b></td></tr>';
       });
       tw.innerHTML = t2 + '</table>'; pn.appendChild(tw);
+      if (moreA > 0) { var mb = el('button', 'btn ghost small', LG.allQ ? 'Show only the latest 10' : 'Show ' + moreA + ' more'); mb.type = 'button'; mb.onclick = function () { LG.allQ = !LG.allQ; renderLedgerDetail(); }; pn.appendChild(mb); }
     }
+    pn.onclick = function (e) { e.stopPropagation(); };
     dp.appendChild(pn); typeset(dp);
   }
 

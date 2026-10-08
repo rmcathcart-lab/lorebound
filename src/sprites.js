@@ -164,7 +164,7 @@
       sc.globalCompositeOperation = 'source-atop'; if (o.tint) { sc.fillStyle = o.tint; sc.fillRect(0, 0, f.w, f.h); } if (o.flash) { sc.fillStyle = 'rgba(255,60,40,' + (0.55 * o.flash) + ')'; sc.fillRect(0, 0, f.w, f.h); }
       img = scratch; sx = 0; sy = 0;
     }
-    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; if (o.alpha != null) ctx.globalAlpha *= o.alpha;
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = SP.q; if (o.alpha != null) ctx.globalAlpha *= o.alpha;
     if (flip) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.drawImage(img, sx, sy, f.w, f.h, -f.ax * s, y - f.ay * s, f.w * s, f.h * s); }
     else ctx.drawImage(img, sx, sy, f.w, f.h, x - f.ax * s, y - f.ay * s, f.w * s, f.h * s);
     ctx.restore(); return true;
@@ -173,6 +173,12 @@
   /* ---------- painted terrain per land (tools/pack_terrain.py) ---------- */
   var TSET = { marsh: 'L1', volcano: 'L2', forest: 'L3', crypt: 'L4', fen: 'L5', coast: 'L6', thorn: 'L7', citadel: 'L8', spire: 'L9', frost: 'L10', throne: 'L11' }, terr = {};
   var TTINT = {}; // a land without its own set can borrow one, recoloured: { theme: 'rgba(...)' }
+  SP.q = 'high'; // image smoothing quality for painted art; the overworld lowers it on slow devices
+  SP.terrainReady = function (name) { return !!terrainFor(name); };
+  /* a soft round glow, drawn once and reused (radial gradients rebuilt every frame are costly on slow devices) */
+  var glowCache = {};
+  SP.glow = function (key, r, stops) { var c = glowCache[key]; if (c) return c; c = document.createElement('canvas'); c.width = c.height = Math.ceil(r * 2 * 4); var g = c.getContext('2d'), R4 = r * 4, gr = g.createRadialGradient(R4, R4, 0, R4, R4, R4);
+    stops.forEach(function (st) { gr.addColorStop(st[0], st[1]); }); g.fillStyle = gr; g.fillRect(0, 0, c.width, c.height); glowCache[key] = c; return c; };
   function terrainFor(th) {
     var id = TSET[th]; if (!id || !window.TERRAIN_DEFS || !TERRAIN_DEFS[id]) return null;
     var t = terr[th]; if (t) return t.ready ? t : null;
@@ -191,10 +197,16 @@
   }
   SP.terrainFor = terrainFor;
   function isWallT(tt) { var G = Overworld.G; return tt === G.WALL || tt === G.EDGE; }
+  /* a terrain tile shrunk once to k device pixels per world pixel (16k square) with high-quality smoothing */
+  function scaledTile(ts, i, k) {
+    var sc = ts.scaled || (ts.scaled = {}); if (sc.k !== k) { ts.scaled = sc = { k: k }; }
+    var c = sc[i]; if (c) return c; c = document.createElement('canvas'); c.width = c.height = Math.round(16 * k);
+    var g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(ts.tiles[i], 0, 0, c.width, c.height); return (sc[i] = c);
+  }
   function drawTerrainTile(ctx, ts, t, tx, ty, x, y, tiles) {
     var G = Overworld.G, MW = Overworld.MW, MH = Overworld.MH, def = ts.def, r = h2(tx, ty);
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    function put(i) { ctx.drawImage(ts.tiles[i], x, y, 16, 16); }
+    var k = SP.tileK || 0; if (!k) { ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = SP.q; }
+    function put(i) { ctx.drawImage(k ? scaledTile(ts, i, k) : ts.tiles[i], x, y, 16, 16); } // pre-shrunk to the screen's size: a plain copy
     if (t === G.WALL || t === G.EDGE) {
       var at = function (dx, dy) { var nx = tx + dx, ny = ty + dy; return nx < 0 || ny < 0 || nx >= MW || ny >= MH || isWallT(tiles[ny * MW + nx]); };
       var m = (at(0, -1) ? 1 : 0) | (at(1, 0) ? 2 : 0) | (at(0, 1) ? 4 : 0) | (at(-1, 0) ? 8 : 0);
@@ -236,12 +248,10 @@
       drawHD(ctx, propDef(nm, sheet), 0, x, y, h2(tx * 2, ty * 2 + 9) < 0.5);
     }
   };
-  function landOverlay(ctx, TS, th, x0, y0, x1, y1, camx, camy, tiles, seen, t) {
-    var G = Overworld.G, MW = Overworld.MW, MH = Overworld.MH, props = TS.def.props, tall = [], flat = [], wet = [];
-    props.forEach(function (p, i) { if (p.water) wet.push(i); else if (p.flat) flat.push(i); else tall.push(i); });
-    if (!flat.length) flat = []; if (!tall.length) tall = flat;
-    // 1. contact shadows where walls meet open ground, so the edge of the walkable area reads at a glance
-    for (var ty = Math.max(0, y0); ty <= Math.min(MH - 1, y1 + 1); ty++) for (var tx = Math.max(0, x0); tx <= Math.min(MW - 1, x1 + 1); tx++) {
+  /* contact shadows where walls meet open ground, so the edge of the walkable area reads at a glance (tiles x0..x1, y0..y1) */
+  function contactShadows(ctx, tiles, seen, x0, y0, x1, y1, camx, camy) {
+    var MW = Overworld.MW, MH = Overworld.MH;
+    for (var ty = Math.max(0, y0); ty <= Math.min(MH - 1, y1); ty++) for (var tx = Math.max(0, x0); tx <= Math.min(MW - 1, x1); tx++) {
       var i = ty * MW + tx, tt = tiles[i]; if (!seen[i] || !WALK[tt]) continue;
       var x = tx * 16 - camx, y = ty * 16 - camy, g;
       if (ty > 0 && isWallT(tiles[i - MW])) { g = ctx.createLinearGradient(0, y, 0, y + 7); g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y, 16, 7); }
@@ -249,6 +259,15 @@
       if (tx < MW - 1 && isWallT(tiles[i + 1])) { g = ctx.createLinearGradient(x + 16, 0, x + 11, 0); g.addColorStop(0, 'rgba(0,0,0,.4)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x + 11, y, 5, 16); }
       if (ty < MH - 1 && isWallT(tiles[i + MW])) { g = ctx.createLinearGradient(0, y + 16, 0, y + 12); g.addColorStop(0, 'rgba(0,0,0,.3)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y + 12, 16, 4); }
     }
+  }
+  SP.contactShadows = function (ctx, tiles, seen, x0, y0, x1, y1, ox, oy) { if (SP.terrainReady((Overworld.run() || { map: { theme: {} } }).map.theme.name)) contactShadows(ctx, tiles, seen, x0, y0, x1, y1, ox, oy); };
+  function landOverlay(ctx, TS, th, x0, y0, x1, y1, camx, camy, tiles, seen, t) {
+    var G = Overworld.G, MW = Overworld.MW, MH = Overworld.MH, props = TS.def.props, tall = [], flat = [], wet = [];
+    props.forEach(function (p, i) { if (p.water) wet.push(i); else if (p.flat) flat.push(i); else tall.push(i); });
+    if (!flat.length) flat = []; if (!tall.length) tall = flat;
+    // 1. contact shadows where walls meet open ground (the overworld bakes these into its terrain cache instead)
+    if (!(Overworld.run() || {}).chunked) contactShadows(ctx, tiles, seen, x0, y0, x1 + 1, y1 + 1, camx, camy);
+    var ty, tx, i, tt, x, y;
     if (!TS.propsOK) return;
     var run = Overworld.run && Overworld.run(), fixed = run && run.map && run.map.props;
     if (fixed) { // a hand-dressed land: only the bonfire glow and the flat pieces here; tall ones are y-sorted with the actors
@@ -258,8 +277,7 @@
     for (ty = Math.max(0, y0 - 1); ty <= Math.min(MH - 1, y1 + 3); ty++) for (tx = Math.max(0, x0 - 2); tx <= Math.min(MW - 1, x1 + 2); tx++) {
       i = ty * MW + tx; tt = tiles[i]; if (!seen[i]) continue;
       x = tx * 16 - camx + 8; y = ty * 16 - camy + 15;
-      if (tt === G.FIRE) { var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05, rg = ctx.createRadialGradient(x, y - 10, 1, x, y - 10, 30);
-        rg.addColorStop(0, 'rgba(255,170,80,' + (0.38 * gl) + ')'); rg.addColorStop(1, 'rgba(255,120,40,0)'); ctx.fillStyle = rg; ctx.fillRect(x - 30, y - 40, 60, 60); if (propOK && !SP.actor('cr:bonfire')) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue; }
+      if (tt === G.FIRE) { var gl = 0.55 + Math.sin(t * 5.3) * 0.08 + Math.sin(t * 13.1) * 0.05; ctx.save(); ctx.globalAlpha = 0.38 * gl; ctx.imageSmoothingEnabled = true; ctx.drawImage(SP.glow('bonfire', 30, [[0, 'rgba(255,170,80,1)'], [1, 'rgba(255,120,40,0)']]), x - 30, y - 40, 60, 60); ctx.restore(); if (propOK && !SP.actor('cr:bonfire')) drawHD(ctx, propDef('brazier_lit'), 0, x, y, false); continue; }
       if (fixed) continue;
       if (tt === G.DECO && flat.length) { if (h2(tx * 3 + 7, ty * 5 + 1) < (flat.length > 1 ? 0.6 : 0.22)) landProp(ctx, TS, flat[Math.floor(h2(tx, ty * 7) * flat.length)], x, y, h2(tx, ty * 3) < 0.5); continue; }
       if (tt === G.WATER && wet.length) { if (h2(tx * 13 + 1, ty * 3 + 4) < 0.07) landProp(ctx, TS, wet[0], x, y - 3, h2(tx, ty) < 0.5); continue; }
@@ -269,7 +287,7 @@
       landProp(ctx, TS, tall[Math.floor(h2(tx * 5 + 1, ty * 9 + 2) * tall.length)], x, y, h2(tx * 2, ty * 2 + 9) < 0.5);
     }
   }
-  function drawHD(ctx, d, fi, x, y, flip) { var f = d.frames[fi], s = d.scale; ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  function drawHD(ctx, d, fi, x, y, flip) { var f = d.frames[fi], s = d.scale; ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = SP.q;
     if (flip) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.drawImage(d.img, f.x, f.y, f.w, f.h, -f.ax * s, y - f.ay * s, f.w * s, f.h * s); } else ctx.drawImage(d.img, f.x, f.y, f.w, f.h, x - f.ax * s, y - f.ay * s, f.w * s, f.h * s);
     ctx.restore(); }
   SP.drawHD = drawHD;
