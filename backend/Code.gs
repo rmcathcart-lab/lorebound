@@ -199,13 +199,17 @@ function ledger_() {
   var players = [], byKey = {};
   if (psh.getLastRow() > 1) psh.getRange(2, 1, psh.getLastRow() - 1, PLAYER_COLS.length).getValues().forEach(function (r) {
     var o = {}; PLAYER_COLS.forEach(function (c, i) { if (c === 'save') return; var v = r[i]; o[c] = (v instanceof Date) ? v.getTime() : v; });
-    o.outcomes = {}; o.outcomesIn = {}; o.attemptsIn = 0; o.correctIn = 0; players.push(o); byKey[o.key] = o;
+    o.outcomes = {}; o.outcomesIn = {}; o.attemptsIn = 0; o.correctIn = 0; o.days = {}; players.push(o); byKey[o.key] = o;
   });
+  var since = Date.now() - 35 * 86400000, dayOf = {}; // answers per day for the last five weeks: { "2026-10-08": [all, in class, right] }
   function add(map, oc, lv, res) { var cell = (map[oc] = map[oc] || {})[lv] = map[oc][lv] || { a: 0, c: 0, f: 0 }; cell.a++; if (res === 'correct') cell.c++; else if (res === 'form') cell.f++; }
   if (ash.getLastRow() > 1) ash.getRange(2, 1, ash.getLastRow() - 1, ATTEMPT_COLS.length).getValues().forEach(function (r) {
     var p = byKey[keyOf_(r[1], r[2])]; if (!p) return;
     var oc = r[5], lv = r[7], res = r[12], inside = r[15] !== 'N'; // rows from before class times were set count as in class
     if (inside) { p.attemptsIn++; if (res === 'correct') p.correctIn++; }
+    var t = r[0] instanceof Date ? r[0].getTime() : Number(r[0]) || 0;
+    if (t >= since) { var hk = Math.floor(t / 3600000), dk = dayOf[hk] || (dayOf[hk] = Utilities.formatDate(new Date(t), BELL_TZ, 'yyyy-MM-dd'));
+      var dd = p.days[dk] || (p.days[dk] = [0, 0, 0]); dd[0]++; if (inside) dd[1]++; if (res === 'correct') dd[2]++; }
     if (!oc || !lv) return;
     add(p.outcomes, oc, lv, res); if (inside) add(p.outcomesIn, oc, lv, res);
   });

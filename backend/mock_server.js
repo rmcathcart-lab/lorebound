@@ -63,6 +63,9 @@ var stats = { get: 0, post: 0, maxConcurrent: 0, open: 0 };
 http.createServer(function (req, res) {
   var u = url.parse(req.url, true), body = '';
   if (u.pathname === '/__stats') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ stats: stats, sheets: Object.keys(book.sheets).reduce(function (o, k) { o[k] = book.sheets[k].rows; return o; }, {}), props: props })); return; }
+  if (u.pathname === '/__rows' && req.method === 'POST') { // test-only: append rows to a sheet { sheet, cols, rows } (column 1 numbers become Dates)
+    var raw = ''; req.on('data', function (c) { raw += c; }); req.on('end', function () { var b = JSON.parse(raw), sh = book.sheets[b.sheet] || SS.insertSheet(b.sheet); if (!sh.rows.length) sh.appendRow(b.cols);
+      b.rows.forEach(function (r) { if (b.dateCols) b.dateCols.forEach(function (i) { if (typeof r[i] === 'number') r[i] = new Date(r[i]); }); sh.appendRow(r); }); vm.runInContext("CacheService.getScriptCache().remove('ledger')", ctx); res.end('ok ' + sh.rows.length); }); return; }
   if (u.pathname === '/__set') { Object.keys(u.query).forEach(function (k) { if (k === '__offset') OFFSET = Number(u.query[k]) || 0; else props[k] = u.query[k]; }); res.end('ok'); return; }
   req.on('data', function (c) { body += c; });
   req.on('end', function () {

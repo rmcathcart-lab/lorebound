@@ -1093,6 +1093,78 @@ img.lord-mini { width: 26px; height: 26px; vertical-align: -8px; margin: -4px 0;
 .out-tag { display: inline-block; margin-top: 3px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #e9c46a; border: 1px solid rgba(233,196,106,.45); border-radius: 999px; padding: 1px 6px; }
 table.oc tr.outside td { opacity: .8; }
 
+/* ---------- the Chronicler's Ledger, redesigned (tabs, overview charts, students, export) ---------- */
+.lg-tabs { display: flex; gap: 4px; margin: 4px 0 14px; border-bottom: 1px solid var(--edge); }
+.lg-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--bone-dim); font-family: var(--font-ui); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; padding: 10px 16px; cursor: pointer; margin-bottom: -1px; }
+.lg-tab:hover { color: var(--bone); }
+.lg-tab.on { color: #e9c98d; border-bottom-color: #e9c98d; }
+.ledger-bar .btn#lg-export { background: var(--ember); border-color: var(--ember); color: #1a1008; }
+.lg-inview { color: #e9c46a; }
+.lg-kpis { margin-bottom: 14px; }
+.lg-kpis .ck { min-height: 0; } .lg-kpis .ck-v { font-size: 32px; }
+.lg-kpis.sm .ck { padding: 10px 12px; } .lg-kpis.sm .ck-v { font-size: 26px; }
+.lg-two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+.lg-two > .panel { margin: 0; }
+.lg-bars { width: 100%; height: auto; display: block; margin-top: 8px; }
+.lg-axis { fill: var(--bone-dim); font-size: 10px; font-family: var(--font-ui); letter-spacing: .04em; }
+.lg-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: 13px; color: var(--bone-dim); margin-top: 8px; }
+.lg-legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.attn-g + .attn-g { margin-top: 12px; }
+.attn-h { font-size: 14px; color: var(--bone); margin-bottom: 6px; } .attn-h b { color: #e9c46a; margin-left: 4px; }
+.attn-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.attn-chip { background: rgba(255,255,255,.04); border: 1px solid var(--edge); color: var(--bone); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.attn-chip:hover { border-color: #e9c98d; }
+.attn-chip span { color: var(--bone-dim); margin-left: 4px; }
+.lj-row { display: grid; grid-template-columns: 76px minmax(160px, 1.1fr) minmax(160px, 2fr) 190px; gap: 14px; align-items: center; padding: 9px 0; border-top: 1px solid rgba(58,49,68,.6); }
+.lj-bar, .lm-bar { display: flex; height: 12px; border-radius: 6px; overflow: hidden; gap: 2px; background: rgba(255,255,255,.03); }
+.lj-lab { font-size: 13px; color: var(--bone-dim); } .lj-lab b { color: var(--bone); }
+.lm-row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 4px 14px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(58,49,68,.6); }
+.lm-oc b { color: var(--bone); font-size: 15px; } .lm-oc span { display: block; font-size: 12px; color: var(--bone-dim); }
+.lm-bar { height: 24px; border-radius: 5px; }
+.lm-seg { border: 0; padding: 0; min-width: 22px; color: rgba(10,8,12,.85); font-family: var(--font-ui); font-size: 12px; font-weight: 600; cursor: pointer; }
+.lm-seg.lvl-nt { color: var(--bone-dim); } .lm-seg.lvl-none { color: #f2c0b6; }
+.lm-seg:hover, .lm-seg.on { filter: brightness(1.2); box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); }
+.lm-names { grid-column: 2; }
+.lm-list { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 6px; background: rgba(0,0,0,.18); }
+.lm-list-h { font-family: var(--font-ui); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--bone-dim); margin-bottom: 8px; }
+.lm-untried { margin-top: 10px; font-size: 13px; }
+.lvl-MAS { background: var(--mas) !important; } .lvl-PRG { background: var(--prg) !important; } .lvl-BEG { background: var(--beg) !important; }
+.lvl-none { background: rgba(216,67,58,.55) !important; } .lvl-nt { background: rgba(255,255,255,.07) !important; }
+.lg-legend i.lvl-nt { box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+.oc-chips { display: inline-flex; gap: 3px; flex-wrap: wrap; max-width: 260px; }
+.oc-chips i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.oc-chips i.lvl-nt { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,.18); }
+.land-pips { display: inline-flex; gap: 3px; }
+.land-pips i { width: 9px; height: 14px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+.land-pips i.rc { background: rgba(217,120,46,.75); box-shadow: none; } .land-pips i.cl { background: #e9c98d; box-shadow: none; }
+.acc-bar { height: 6px; width: 90px; border-radius: 3px; background: rgba(255,255,255,.06); overflow: hidden; margin: 2px 0 4px; }
+.acc-bar span { display: block; height: 100%; }
+table.lg-students td { vertical-align: middle; } table.lg-students td.stale { color: #e9c46a; }
+.sm { font-size: 12px; }
+.lg-thead { display: flex; align-items: center; gap: 12px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 8px; }
+.lg-thead input { max-width: 260px; }
+.lg-student { border-color: rgba(233,201,141,.35); }
+.lgs-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; } .lgs-top h2 { margin: 2px 0 0; }
+.lgs-oc { margin: 4px 0 14px; }
+.lvl-tag { display: inline-block; min-width: 38px; text-align: center; padding: 2px 8px; border-radius: 999px; font-family: var(--font-ui); font-size: 12px; font-weight: 600; letter-spacing: .06em; color: #120e16; }
+.lvl-tag.lvl-none { color: #f2c0b6; } .lvl-tag.lvl-nt { color: var(--bone-dim); }
+.ind-MAS { background: var(--mas); } .ind-ADV { background: #7a8fe8; } .ind-PRG { background: var(--prg); } .ind-EMG { background: #6fb7a8; } .ind-BEG { background: var(--beg); } .ind-LIM { background: #d9a14e; } .ind-NM { background: rgba(216,67,58,.75); color: #fff; }
+.lg-export { width: min(980px, 100%); }
+.lgx-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0; }
+.lg-export .fld { display: grid; gap: 4px; font-size: 13px; color: var(--bone-dim); }
+.lg-export .fld input, .lg-export .fld select { background: var(--ash); color: var(--bone); border: 1px solid var(--edge); border-radius: 4px; padding: 7px 9px; font: inherit; color-scheme: dark; }
+.lgx-card { border: 1px solid var(--edge); border-radius: 6px; padding: 12px 14px; margin: 10px 0; background: rgba(0,0,0,.15); }
+.lgx-card.warnbox { border-color: rgba(233,196,106,.45); }
+.lgx-pair { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 0; border-top: 1px solid rgba(58,49,68,.5); }
+.lgx-pair select { background: var(--ash); color: var(--bone); border: 1px solid var(--edge); border-radius: 4px; padding: 5px 8px; }
+.lg-export .okmsg { color: var(--good); } .lg-export .warn { color: #e9c46a; }
+.lg-danger .actions { flex-wrap: wrap; }
+@media (max-width: 900px) { .lg-two { grid-template-columns: 1fr; } .lj-row { grid-template-columns: 56px 1fr; } .lj-row .lj-bar, .lj-row .lj-lab { grid-column: 1 / -1; } .lm-row { grid-template-columns: 1fr; } .lm-names { grid-column: 1; } }
+
+.need-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--bone-dim); margin: 0 0 8px; }
+.need-pick select { width: auto; background: var(--ash); color: var(--bone); border: 1px solid var(--edge); border-radius: 4px; padding: 4px 8px; font: inherit; color-scheme: dark; }
+.lg-export #xNeed { flex-basis: 100%; }
+
 </style>
 <div id="artdefs"></div>
 <div id="hud" class="hud" hidden></div>
@@ -12279,7 +12351,7 @@ var Overworld = (function () {
 
   /* ---------- Teacher's Ledger (dashboard) ---------- */
   var LG = { key: '', data: null, klass: '', sort: 'lastSeen', dir: -1, sel: null, detail: null, q: '', inClass: false };
-  try { LG.key = localStorage.getItem(SAVE_PREFIX + 'tkey') || ''; LG.inClass = localStorage.getItem(SAVE_PREFIX + 'ledgerView') === 'in'; } catch (e) {}
+  try { LG.key = localStorage.getItem(SAVE_PREFIX + 'tkey') || ''; LG.inClass = localStorage.getItem(SAVE_PREFIX + 'ledgerView') === 'in'; LG.need = Number(localStorage.getItem(SAVE_PREFIX + 'ledgerNeed')) || 1; } catch (e) {}
   function lgIn() { return LG.inClass && !!(LG.data && LG.data.blocks); } // "in class only" (needs the class-times backend)
   function pOut(p) { return (lgIn() ? p.outcomesIn : p.outcomes) || {}; }
   function pTries(p) { return lgIn() ? Number(p.attemptsIn) || 0 : Number(p.attempts) || 0; }
@@ -12317,23 +12389,37 @@ var Overworld = (function () {
     });
   }
   function ledgerClasses() { var out = []; (LG.data.players || []).forEach(function (p) { if (out.indexOf(p['class']) < 0) out.push(p['class']); }); return out.sort(); }
-  function ledgerPlayers() {
-    var list = (LG.data.players || []).filter(function (p) { return (!LG.klass || p['class'] === LG.klass) && (!LG.q || (String(p.name) + ' ' + String(p.hero || '')).toLowerCase().indexOf(LG.q.toLowerCase()) >= 0); });
+  function ledgerPlayers(all) { // the chosen class (all = ignore the search box), sorted as the table asks
+    var list = (LG.data.players || []).filter(function (p) { return (!LG.klass || p['class'] === LG.klass) && (all || !LG.q || (String(p.name) + ' ' + String(p.hero || '')).toLowerCase().indexOf(LG.q.toLowerCase()) >= 0); });
     var k = LG.sort, dir = LG.dir;
-    list.sort(function (a, b) { var va = a[k], vb = b[k]; if (k === 'accuracy') { va = acc(a); vb = acc(b); } if (typeof va === 'string' || typeof vb === 'string') return String(va || '').localeCompare(String(vb || '')) * dir; return ((Number(va) || 0) - (Number(vb) || 0)) * dir; });
+    function v(p) { if (k === 'accuracy') return acc(p); if (k === 'lands') return lgLands().reduce(function (s, L) { return s + (cleared(p, L) ? 2 : reached(p, L) ? 1 : 0); }, 0); return p[k]; }
+    list.sort(function (a, b) { var va = v(a), vb = v(b); if (typeof va === 'string' || typeof vb === 'string') return String(va || '').localeCompare(String(vb || '')) * dir; return ((va == null ? -1 : Number(va) || 0) - (vb == null ? -1 : Number(vb) || 0)) * dir; });
     return list;
   }
   function acc(p) { var a = pTries(p); return a ? Math.round(100 * pRight(p) / a) : null; }
+  /* ----- the ledger, laid out in four tabs: Overview (how the class is doing), Students, Outcomes (reteach groups),
+   * Settings (class codes, lands, duels, class times). Grades follow the exit-slip rules: an outcome's grade is the
+   * hardest level answered right; a unit's grade is the % of its questions answered right, banded MAS..NM. ----- */
+  var LV3 = ['BEG', 'PRG', 'MAS'], LVCOL = { MAS: 'var(--mas)', PRG: 'var(--prg)', BEG: 'var(--beg)' };
+  function lgLands() { return LANDS.filter(function (L) { return !L.finale && L.creatures; }); }
+  function landOutcomes(L) { var o = []; (L.creatures || []).forEach(function (c) { if (o.indexOf(c.outcome) < 0) o.push(c.outcome); }); return o; }
+  function bestLevel(map, oc) { // 'MAS' | 'PRG' | 'BEG' | 'none' (tried, nothing right) | '' (never tried)
+    var m = map && map[oc], need = LG.need || 1; if (!m) return ''; for (var i = 2; i >= 0; i--) { var c = m[LV3[i]]; if (c && c.c >= need) return LV3[i]; }
+    return LV3.some(function (l) { return m[l] && m[l].a; }) ? 'none' : '';
+  }
+  function triesOn(map, ocs) { var a = 0, c = 0; ocs.forEach(function (oc) { var m = map && map[oc]; if (m) LV3.forEach(function (l) { if (m[l]) { a += m[l].a || 0; c += m[l].c || 0; } }); }); return { a: a, c: c }; }
+  function band(p) { if (p == null || isNaN(p)) return ''; var v = Math.round(p * 1000) / 10; return v >= 85 ? 'MAS' : v >= 75 ? 'ADV' : v >= 65 ? 'PRG' : v >= 55 ? 'EMG' : v >= 45 ? 'BEG' : v >= 25 ? 'LIM' : 'NM'; }
+  function reached(p, L) { return triesOn(p.outcomes, landOutcomes(L)).a > 0 || String(p.lastLand || '') === L.id; }
+  function cleared(p, L) { return (' ' + String(p.landsCleared || '') + ' ').indexOf(' ' + L.id + ' ') >= 0; }
+  function daysAgo(ts) { return ts ? (Date.now() - Number(ts)) / 86400000 : Infinity; }
   function ledgerBody() {
-    var players = ledgerPlayers(), classes = ledgerClasses();
-    // controls
+    var classes = ledgerClasses(); LG.tab = LG.tab || 'overview';
     var bar = el('div', 'panel ledger-bar');
     var sel = el('select'); sel.id = 'ledger-class';
     var allOpt = el('option', null, 'All classes'); allOpt.value = ''; sel.appendChild(allOpt);
     classes.forEach(function (c) { var o = el('option', null, esc(c)); o.value = c; if (c === LG.klass) o.selected = true; sel.appendChild(o); });
-    sel.onchange = function () { LG.klass = sel.value; LG.sel = null; LG.detail = null; render(); };
+    sel.onchange = function () { LG.klass = sel.value; LG.sel = null; LG.detail = null; LG.open = null; render(); };
     bar.appendChild(el('label', 'eyebrow', 'Class')); bar.appendChild(sel);
-    var q = el('input'); q.type = 'search'; q.placeholder = 'Find a student'; q.value = LG.q; q.oninput = function () { LG.q = q.value; renderLedgerTable(); }; bar.appendChild(q);
     if (LG.data.blocks) { // count every answer, or only those given in class time
       var seg = el('div', 'seg'); seg.setAttribute('role', 'group'); seg.setAttribute('aria-label', 'Which answers to count');
       [[false, 'All play'], [true, 'In class only']].forEach(function (x) { var b = el('button', 'seg-b' + (LG.inClass === x[0] ? ' on' : ''), x[1]); b.type = 'button'; b.setAttribute('aria-pressed', LG.inClass === x[0] ? 'true' : 'false');
@@ -12341,34 +12427,332 @@ var Overworld = (function () {
       bar.appendChild(seg); }
     bar.appendChild(el('span', 'spacer'));
     var rf = el('button', 'btn ghost', 'Refresh'); rf.type = 'button'; rf.onclick = function () { ledgerLoad(); }; bar.appendChild(rf);
-    var out = el('button', 'btn ghost', 'Forget key'); out.type = 'button'; out.onclick = function () { LG.key = ''; LG.data = null; try { localStorage.removeItem(SAVE_PREFIX + 'tkey'); } catch (e) {} go('ledger'); }; bar.appendChild(out);
+    var xb = el('button', 'btn', 'Export grades'); xb.type = 'button'; xb.id = 'lg-export'; xb.onclick = function () { openExport(); }; bar.appendChild(xb);
+    bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '') + (lgIn() ? ' · <span class="lg-inview">counting in-class answers only</span>' : '')));
+    app.appendChild(bar);
+    var tabs = el('div', 'lg-tabs'); tabs.setAttribute('role', 'tablist');
+    [['overview', 'Overview'], ['students', 'Students'], ['outcomes', 'Outcomes'], ['settings', 'Settings']].forEach(function (t) {
+      var b = el('button', 'lg-tab' + (LG.tab === t[0] ? ' on' : ''), t[1]); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', LG.tab === t[0] ? 'true' : 'false');
+      b.onclick = function () { LG.tab = t[0]; render(); }; tabs.appendChild(b); });
+    app.appendChild(tabs);
+    if (LG.tab === 'settings') { ledgerClassCodes(); ledgerLands(); ledgerFeatures(); ledgerTimes(); ledgerDanger(); return; }
+    var players = ledgerPlayers(true);
+    if (!players.length) { app.appendChild(el('div', 'panel', '<p class="muted">No students yet' + (LG.klass ? ' in ' + esc(LG.klass) : '') + '. They appear here after entering the class code on the title screen.</p>')); return; }
+    if (LG.tab === 'overview') lgOverview(players);
+    else if (LG.tab === 'students') lgStudents();
+    else lgOutcomes(players);
+  }
+  function ledgerDanger() {
+    var p = el('div', 'panel lg-danger'); p.appendChild(el('div', 'eyebrow', 'This device and this class'));
+    var row = el('div', 'actions');
+    var out = el('button', 'btn ghost', 'Forget the teacher key on this device'); out.type = 'button'; out.onclick = function () { LG.key = ''; LG.data = null; try { localStorage.removeItem(SAVE_PREFIX + 'tkey'); } catch (e) {} go('ledger'); }; row.appendChild(out);
     if (LG.klass) { var pg = el('button', 'btn ghost danger', 'Delete class ' + esc(LG.klass) + '…'); pg.type = 'button'; var armed = false;
       pg.onclick = function () { if (!armed) { armed = true; pg.textContent = 'Really delete every record for ' + LG.klass + '? Click again.'; setTimeout(function () { armed = false; pg.textContent = 'Delete class ' + LG.klass + '…'; }, 6000); return; }
         pg.disabled = true; Ledger.purge(LG.key, LG.klass, function (res) { toast(res && res.ok ? 'Deleted ' + n(res.players || 0) + ' students and ' + n(res.attempts || 0) + ' answers.' : 'Could not delete: ' + ((res && res.error) || 'no reply')); LG.klass = ''; ledgerLoad(); }); };
-      bar.appendChild(pg); }
-    bar.appendChild(el('div', 'muted ledger-stamp', 'Read ' + fmtAgo(LG.data.generated) + (LG.data.sheetUrl ? ' · <a href="' + esc(LG.data.sheetUrl) + '" target="_blank" rel="noopener">open the spreadsheet</a>' : '')));
-    app.appendChild(bar);
-    ledgerClassCodes();
-    ledgerLands(); ledgerFeatures(); ledgerTimes();
-    // class summary
-    var tot = { students: players.length, play: 0, attempts: 0, correct: 0, bosses: 0, legend: 0, deaths: 0 };
-    players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.attempts += pTries(p); tot.correct += pRight(p); tot.bosses += Number(p.bossKills) || 0; tot.legend += Number(p.legend) || 0; tot.deaths += Number(p.deaths) || 0; });
-    var st = el('div', 'panel'), stats = el('div', 'stats');
-    [['Students', n(tot.students)], ['Time played', fmtDur(tot.play)], ['Questions answered', n(tot.attempts)], ['Accuracy', tot.attempts ? Math.round(100 * tot.correct / tot.attempts) + '%' : '—'], ['Deaths', n(tot.deaths)], ['Bosses slain', n(tot.bosses)], ['Legend (total)', n(tot.legend), 'lore']].forEach(function (x) {
-      stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>'));
+      row.appendChild(pg); }
+    p.appendChild(row);
+    p.appendChild(el('p', 'muted', LG.klass ? 'Deleting a class removes its students and every answer they gave from the spreadsheet. Use it for test data before launch.' : 'Choose a class above to delete its records.'));
+    app.appendChild(p);
+  }
+
+  /* ---------- Overview ---------- */
+  function lgOverview(players) {
+    var tot = { play: 0, a: 0, c: 0, bosses: 0, week: 0, mas: 0, inA: 0, allA: 0 }, ocAll = outcomeOrder();
+    players.forEach(function (p) { tot.play += Number(p.playSeconds) || 0; tot.a += pTries(p); tot.c += pRight(p); tot.bosses += Number(p.bossKills) || 0; if (daysAgo(p.lastSeen) <= 7) tot.week++;
+      tot.inA += Number(p.attemptsIn) || 0; tot.allA += Number(p.attempts) || 0; ocAll.forEach(function (o) { if (bestLevel(pOut(p), o.id) === 'MAS') tot.mas++; }); });
+    var clearedAny = players.filter(function (p) { return String(p.landsCleared || '').trim(); }).length;
+    var k = el('div', 'chron-kpis lg-kpis');
+    [['Students', n(players.length), tot.week + ' played this week'], ['Time played', fmtDur(tot.play), players.length ? 'about ' + fmtDur(tot.play / players.length) + ' each' : ''],
+      ['Questions answered', n(tot.a), LG.data.blocks && tot.allA ? Math.round(100 * tot.inA / tot.allA) + '% of all answers were in class' : 'every answer counts'],
+      ['Accuracy', tot.a ? Math.round(100 * tot.c / tot.a) + '%' : '—', 'first answers, before any retry'],
+      ['Bosses slain', n(tot.bosses), clearedAny + ' student' + (clearedAny === 1 ? ' has' : 's have') + ' cleared a land'],
+      ['At Mastery', n(tot.mas), 'student × outcome pairs with a Mastery question right']].forEach(function (x) {
+      k.appendChild(el('div', 'ck', '<div class="ck-k">' + x[0] + '</div><div class="ck-v">' + x[1] + '</div><div class="ck-sub">' + x[2] + '</div>')); });
+    app.appendChild(k);
+    var row = el('div', 'lg-two');
+    row.appendChild(lgActivity(players)); row.appendChild(lgAttention(players));
+    app.appendChild(row);
+    app.appendChild(lgJourney(players));
+    app.appendChild(lgMastery(players, false));
+  }
+  function lgActivity(players) { // answers per day for four weeks, in class (gold) and outside it (grey)
+    var p = el('div', 'panel lg-activity'), days = [], today = new Date(); today.setHours(12, 0, 0, 0);
+    for (var i = 27; i >= 0; i--) { var d = new Date(today.getTime() - i * 86400000), key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); days.push({ d: d, key: key, all: 0, inn: 0 }); }
+    players.forEach(function (pl) { var dd = pl.days || {}; days.forEach(function (x) { var v = dd[x.key]; if (v) { x.all += v[0] || 0; x.inn += v[1] || 0; } }); });
+    var max = Math.max(5, Math.max.apply(null, days.map(function (x) { return x.all; }))), W = 560, H = 150, bw = W / 28, sum = 0, sumIn = 0;
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + (H + 22) + '" class="lg-bars" role="img" aria-label="Answers per day for the last four weeks">';
+    days.forEach(function (x, i) { sum += x.all; sumIn += x.inn; var dow = x.d.getDay(), X = i * bw;
+      if (dow === 0 || dow === 6) svg += '<rect x="' + X + '" y="0" width="' + bw + '" height="' + H + '" fill="rgba(255,255,255,.025)"/>';
+      var hAll = Math.round(H * x.all / max), hIn = LG.data.blocks ? Math.round(H * x.inn / max) : hAll;
+      if (x.all) { svg += '<g><title>' + x.d.toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }) + ': ' + x.all + ' answers' + (LG.data.blocks ? ' (' + x.inn + ' in class)' : '') + '</title>' +
+        '<rect x="' + (X + 2) + '" y="' + (H - hAll) + '" width="' + (bw - 4) + '" height="' + (hAll - hIn) + '" rx="2" fill="rgba(200,190,170,.35)"/>' +
+        '<rect x="' + (X + 2) + '" y="' + (H - hIn) + '" width="' + (bw - 4) + '" height="' + hIn + '" rx="2" fill="#e9c46a"/></g>'; }
+      if (dow === 1) svg += '<text x="' + (X + 2) + '" y="' + (H + 16) + '" class="lg-axis">' + x.d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }) + '</text>';
     });
-    st.appendChild(stats); if (lgIn()) st.appendChild(el('p', 'muted lg-note', 'Showing answers given <b>in class time</b> only (questions answered, accuracy and the grids). Time, Legend, deaths and kills always include all play.')); app.appendChild(st);
-    // heat map by outcome × level
+    svg += '<line x1="0" x2="' + W + '" y1="' + H + '" y2="' + H + '" stroke="rgba(255,255,255,.12)"/></svg>';
+    if (!players.some(function (x) { return x.days; })) { p.innerHTML = '<div class="eyebrow">Answers per day · last four weeks</div><p class="muted">Deploy the newest <b>backend/Code.gs</b> to see answers day by day.</p>'; return p; }
+    p.innerHTML = '<div class="eyebrow">Answers per day · last four weeks</div>' + svg +
+      '<div class="lg-legend">' + (LG.data.blocks ? '<span><i style="background:#e9c46a"></i>In class</span><span><i style="background:rgba(200,190,170,.35)"></i>Outside class</span>' : '<span><i style="background:#e9c46a"></i>Answers</span>') +
+      '<span class="muted">' + n(sum) + ' answers' + (LG.data.blocks ? ', ' + n(sumIn) + ' in class' : '') + ' · weekends shaded</span></div>';
+    return p;
+  }
+  function lgAttention(players) { // who to check on
+    var p = el('div', 'panel lg-attn'); p.appendChild(el('div', 'eyebrow', 'Worth a look'));
+    var away = players.filter(function (x) { return daysAgo(x.lastSeen) > 7; }), none = players.filter(function (x) { return !pTries(x); }),
+      low = players.filter(function (x) { var a = pTries(x); return a >= 10 && pRight(x) / a < 0.5; }).sort(function (a, b) { return pRight(a) / pTries(a) - pRight(b) / pTries(b); });
+    var any = false;
+    [['Below 50% accuracy', low, function (x) { return Math.round(100 * pRight(x) / pTries(x)) + '%'; }], ['Not seen for over a week', away, function (x) { return fmtAgo(x.lastSeen); }], [lgIn() ? 'No answers in class yet' : 'No answers yet', none, null]].forEach(function (g) {
+      if (!g[1].length) return; any = true;
+      var box = el('div', 'attn-g'); box.appendChild(el('div', 'attn-h', esc(g[0]) + ' <b>' + g[1].length + '</b>'));
+      var chips = el('div', 'attn-chips');
+      g[1].slice(0, 14).forEach(function (x) { var c = el('button', 'attn-chip', esc(x.name) + (g[2] ? ' <span>' + g[2](x) + '</span>' : '')); c.type = 'button'; c.onclick = function () { lgOpenStudent(x.key); }; chips.appendChild(c); });
+      if (g[1].length > 14) chips.appendChild(el('span', 'muted', '+' + (g[1].length - 14) + ' more'));
+      box.appendChild(chips); p.appendChild(box); });
+    if (!any) p.appendChild(el('p', 'muted', 'Nothing stands out: everyone has played this week, and nobody with ten or more answers is below 50%.'));
+    return p;
+  }
+  function lgJourney(players) { // how far the class has come, land by land
+    var p = el('div', 'panel lg-journey'); p.appendChild(el('div', 'eyebrow', 'Through the lands'));
+    p.appendChild(el('p', 'muted', 'For each land: students who have slain its boss, students fighting there now, and students who have not reached it.'));
+    lgLands().forEach(function (L) {
+      var cl = players.filter(function (x) { return cleared(x, L); }).length, rc = players.filter(function (x) { return !cleared(x, L) && reached(x, L); }).length, no = players.length - cl - rc;
+      var r = el('div', 'lj-row'), ban = window.ART_IMG && ART_IMG[L.banner];
+      r.innerHTML = '<div class="jr-ban"' + (ban ? ' style="background-image:url(' + ban + ')"' : '') + '></div><div class="jr-name"><b>' + esc(L.name) + '</b><span>Unit ' + L.unit + ' · ' + esc(L.subject) + '</span></div>' +
+        '<div class="lj-bar">' + seg3([[cl, '#e9c98d', 'cleared'], [rc, 'rgba(217,120,46,.75)', 'fighting here'], [no, 'rgba(255,255,255,.07)', 'not reached']], players.length) + '</div>' +
+        '<div class="lj-lab"><b>' + cl + '</b> cleared · <b>' + rc + '</b> here' + (no ? ' · ' + no + ' not yet' : '') + '</div>';
+      p.appendChild(r); });
+    return p;
+  }
+  function seg3(parts, total) { // a stacked bar: [[count, colour, label], ...]
+    return parts.map(function (x) { return x[0] ? '<span style="flex:' + x[0] + ';background:' + x[1] + '" title="' + x[0] + ' ' + x[2] + '"></span>' : ''; }).join('') || '<span style="flex:1;background:rgba(255,255,255,.07)"></span>';
+  }
+  /* each outcome: students by the hardest level they have answered right. Click a band to list them (reteach groups). */
+  function lgMastery(players, detailed) {
+    var p = el('div', 'panel lg-mastery');
+    p.appendChild(el('div', 'eyebrow', 'Outcome levels' + (lgIn() ? ' · in class only' : '')));
+    p.appendChild(el('p', 'muted', 'Each student counts once, at the hardest level they have answered right on that outcome (the outcome grade in the export). Click a band to see who is in it.'));
+    p.appendChild(needPicker());
+    var lg = el('div', 'lg-legend'); [['MAS', 'Mastery'], ['PRG', 'Progressing'], ['BEG', 'Beginning'], ['none', 'tried, none right'], ['', 'not tried']].forEach(function (x) { lg.appendChild(el('span', null, '<i class="lvl-' + (x[0] || 'nt') + '"></i>' + x[1])); }); p.appendChild(lg);
+    var untried = [];
+    outcomeOrder().forEach(function (oc) {
+      var groups = { MAS: [], PRG: [], BEG: [], none: [], '': [] };
+      players.forEach(function (x) { groups[bestLevel(pOut(x), oc.id)].push(x); });
+      if (!detailed && groups[''].length === players.length) { untried.push(oc.id); return; }
+      var r = el('div', 'lm-row'), bar = el('div', 'lm-bar');
+      ['MAS', 'PRG', 'BEG', 'none', ''].forEach(function (lv) {
+        var g = groups[lv]; if (!g.length) return;
+        var s = el('button', 'lm-seg lvl-' + (lv || 'nt'), g.length >= 1 ? String(g.length) : ''); s.type = 'button'; s.style.flex = g.length; s.title = g.length + ' · ' + (lv === 'none' ? 'tried, none right' : lv === '' ? 'not tried' : LEVELS[lv].name);
+        s.onclick = function () { var key = oc.id + '|' + lv; LG.open = LG.open === key ? null : key; var host = r.querySelector('.lm-names'); host.innerHTML = ''; bar.querySelectorAll('.lm-seg').forEach(function (y) { y.classList.remove('on'); });
+          if (LG.open === key) { s.classList.add('on'); host.appendChild(lgNameList(g, oc.id, lv)); } };
+        bar.appendChild(s); });
+      r.innerHTML = '<div class="lm-oc"><b>' + esc(oc.id) + '</b><span>' + esc(oc.land.name) + '</span></div>';
+      r.appendChild(bar); r.appendChild(el('div', 'lm-names'));
+      p.appendChild(r);
+      if (LG.open && LG.open.indexOf(oc.id + '|') === 0) { var lv0 = LG.open.split('|')[1], seg0 = bar.querySelector('.lvl-' + (lv0 || 'nt')); if (seg0 && groups[lv0] && groups[lv0].length) { seg0.classList.add('on'); r.querySelector('.lm-names').appendChild(lgNameList(groups[lv0], oc.id, lv0)); } }
+    });
+    if (untried.length) p.appendChild(el('p', 'muted lm-untried', 'Nobody has tried yet: ' + untried.join(', ') + '.'));
+    return p;
+  }
+  function needPicker() { // how many right answers at a level before it counts (exit slips: 1)
+    var w = el('label', 'need-pick'), sel = el('select'); w.appendChild(el('span', null, 'A level counts once a student has answered'));
+    [1, 2, 3, 4, 5].forEach(function (k) { var o = el('option', null, k === 1 ? '1 question' : k + ' questions'); o.value = k; if (k === (LG.need || 1)) o.selected = true; sel.appendChild(o); });
+    sel.onchange = function () { LG.need = Number(sel.value) || 1; try { localStorage.setItem(SAVE_PREFIX + 'ledgerNeed', LG.need); } catch (e) {} if (UI.modal && UI.modal.querySelector('.lg-export')) { if (XP.tpl) applyTemplate(XP.tpl.text); else drawExport(); } render(); };
+    w.appendChild(sel); w.appendChild(el('span', null, 'at it right')); return w;
+  }
+  function lgNameList(list, oc, lv) {
+    var w = el('div', 'lm-list'); w.appendChild(el('div', 'lm-list-h', esc(oc) + ' · ' + (lv === 'none' ? 'tried, none right' : lv === '' ? 'not tried yet' : LEVELS[lv].name) + ' · ' + list.length));
+    var chips = el('div', 'attn-chips');
+    list.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); }).forEach(function (x) { var c = el('button', 'attn-chip', esc(x.name)); c.type = 'button'; c.onclick = function () { lgOpenStudent(x.key); }; chips.appendChild(c); });
+    w.appendChild(chips); return w;
+  }
+  function lgOpenStudent(key) { LG.tab = 'students'; LG.sel = key; LG.detail = null; render(); lgLoadDetail(); setTimeout(function () { var d = document.getElementById('ledger-detail'); if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80); }
+  function lgLoadDetail() { var k = LG.sel; Ledger.player(LG.key, k, function (res) { if (res && res.ok && LG.sel === res.key) { LG.detail = res; renderLedgerDetail(); } }); }
+
+  /* ---------- Outcomes ---------- */
+  function lgOutcomes(players) {
     var hm = el('div', 'panel'); hm.appendChild(el('div', 'eyebrow', (LG.klass || 'All classes') + ' · accuracy by outcome and level' + (lgIn() ? ' · in class only' : '')));
     hm.appendChild(el('p', 'muted', 'Each cell: percent correct (first answer, before any retry) over every attempt by every student shown, with the number of attempts. Darker green is better; red needs a lesson.'));
-    hm.appendChild(heatTable(players.map(pOut)));
-    app.appendChild(hm);
-    // table
+    hm.appendChild(heatTable(players.map(pOut))); app.appendChild(hm);
+    app.appendChild(lgMastery(players, true));
+  }
+
+  /* ---------- Students ---------- */
+  function lgStudents() {
     var tp = el('div', 'panel'); tp.id = 'ledger-table'; app.appendChild(tp);
     renderLedgerTable();
-    // detail
     var dp = el('div'); dp.id = 'ledger-detail'; app.appendChild(dp);
-    if (LG.sel) renderLedgerDetail();
+    if (LG.sel) { renderLedgerDetail(); if (!LG.detail) lgLoadDetail(); }
+  }
+  function ocChips(p) { // one square per outcome, coloured by the hardest level answered right
+    return '<span class="oc-chips">' + outcomeOrder().map(function (o) { var b = bestLevel(pOut(p), o.id); return '<i class="lvl-' + (b || 'nt') + '" title="' + esc(o.id) + ': ' + (b === 'none' ? 'tried, none right' : b ? LEVELS[b].name : 'not tried') + '"></i>'; }).join('') + '</span>';
+  }
+  function landPips(p) { return '<span class="land-pips">' + lgLands().map(function (L) { var c = cleared(p, L), r = !c && reached(p, L); return '<i class="' + (c ? 'cl' : r ? 'rc' : '') + '" title="' + esc(L.name) + ': ' + (c ? 'boss slain' : r ? 'fighting here' : 'not reached') + '"></i>'; }).join('') + '</span>'; }
+  function renderLedgerTable() {
+    var tp = document.getElementById('ledger-table'); if (!tp) return;
+    var players = ledgerPlayers();
+    tp.innerHTML = '';
+    var head = el('div', 'lg-thead'); head.appendChild(el('div', 'eyebrow', 'Students · ' + n(players.length)));
+    var q = el('input'); q.type = 'search'; q.placeholder = 'Find a student'; q.value = LG.q; q.id = 'lg-search';
+    q.oninput = function () { LG.q = q.value; var pos = q.selectionStart; renderLedgerTable(); var q2 = document.getElementById('lg-search'); if (q2) { q2.focus(); try { q2.setSelectionRange(pos, pos); } catch (e) {} } };
+    head.appendChild(q); tp.appendChild(head);
+    var cols = [['name', 'Student'], ['lastSeen', 'Last seen'], ['playSeconds', 'Time'], ['lands', 'Lands'], ['oc', 'Outcome levels'], ['accuracy', 'Accuracy'], ['legend', 'Legend']];
+    var t = '<table class="oc students lg-students"><tr>' + cols.map(function (c) { var s = c[0] !== 'oc'; return '<th' + (s ? ' data-k="' + c[0] + '"' : '') + ' class="' + (LG.sort === c[0] ? 'sorted' : '') + '">' + c[1] + (LG.sort === c[0] ? (LG.dir < 0 ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '</tr>';
+    players.forEach(function (p) {
+      var a = acc(p);
+      t += '<tr data-key="' + esc(p.key) + '" class="' + (LG.sel === p.key ? 'sel' : '') + '"><td><b>' + esc(p.name) + '</b><br><span class="muted sm">' + esc(p.hero || '—') + (p.heroClass ? ' · ' + esc(className(p.heroClass)) : '') + (LG.klass ? '' : ' · ' + esc(p['class'])) + '</span></td>' +
+        '<td' + (daysAgo(p.lastSeen) > 7 ? ' class="stale"' : '') + '>' + fmtAgo(p.lastSeen) + '</td><td>' + fmtDur(p.playSeconds) + '</td><td>' + landPips(p) + '</td><td>' + ocChips(p) + '</td>' +
+        '<td><div class="acc-bar"><span style="width:' + (a == null ? 0 : a) + '%;background:' + accColor(a) + '"></span></div><span class="sm">' + (a == null ? '—' : a + '%') + ' <span class="muted">of ' + n(pTries(p)) + '</span></span></td>' +
+        '<td class="lore">' + n(p.legend || 0) + '</td></tr>';
+    });
+    var tw = el('div', 'table-wrap'); tw.innerHTML = t + '</table>'; tp.appendChild(tw);
+    if (!players.length) tp.appendChild(el('p', 'muted', 'No students match that search.'));
+    tw.querySelectorAll('th[data-k]').forEach(function (th) { th.onclick = function () { var k = th.getAttribute('data-k'); if (LG.sort === k) LG.dir = -LG.dir; else { LG.sort = k; LG.dir = k === 'name' ? 1 : -1; } renderLedgerTable(); }; });
+    tw.querySelectorAll('tr[data-key]').forEach(function (tr) { tr.onclick = function () { LG.sel = tr.getAttribute('data-key'); LG.detail = null; renderLedgerTable(); renderLedgerDetail(); lgLoadDetail(); var d = document.getElementById('ledger-detail'); if (d) d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }; });
+  }
+  function renderLedgerDetail() {
+    var dp = document.getElementById('ledger-detail'); if (!dp) return; dp.innerHTML = '';
+    var p = (LG.data.players || []).filter(function (x) { return x.key === LG.sel; })[0]; if (!p) return;
+    var pn = el('div', 'panel lg-student');
+    var top = el('div', 'lgs-top');
+    top.innerHTML = '<div><div class="eyebrow">' + esc(p['class']) + (p.hero ? ' · ' + esc(p.hero) + ' the ' + esc(className(p.heroClass)) : '') + '</div><h2>' + esc(p.name) + '</h2></div>';
+    var cx = el('button', 'btn ghost small', 'Close'); cx.type = 'button'; cx.onclick = function () { LG.sel = null; LG.detail = null; dp.innerHTML = ''; renderLedgerTable(); }; top.appendChild(cx);
+    pn.appendChild(top);
+    var k = el('div', 'chron-kpis lg-kpis sm');
+    [['Accuracy', acc(p) == null ? '—' : acc(p) + '%', 'of ' + n(pTries(p)) + ' answers'], ['Time played', fmtDur(p.playSeconds), 'last seen ' + fmtAgo(p.lastSeen)], ['Level', n(p.level || 1), n(p.legend || 0) + ' Legend'],
+      ['Bosses', n(p.bossKills || 0), p.titles ? esc(p.titles) : (p.bossKills ? 'slain' : 'none yet')], ['Deaths', n(p.deaths || 0), n(p.lostForever || 0) + ' Lore lost forever'], ['Carrying', n(p.lore || 0), 'Lore']].forEach(function (x) {
+      k.appendChild(el('div', 'ck', '<div class="ck-k">' + x[0] + '</div><div class="ck-v">' + x[1] + '</div><div class="ck-sub">' + x[2] + '</div>')); });
+    pn.appendChild(k);
+    // outcomes, land by land: grade + accuracy at each level
+    var og = el('div', 'lgs-oc'); og.appendChild(el('div', 'eyebrow', 'Outcomes' + (lgIn() ? ' · in class only' : '')));
+    var t = '<table class="oc lgs-table"><tr><th>Outcome</th><th>Grade</th><th>Beginning</th><th>Progressing</th><th>Mastery</th></tr>';
+    outcomeOrder().forEach(function (o) {
+      var m = pOut(p)[o.id], b = bestLevel(pOut(p), o.id); if (!m) return;
+      t += '<tr><td><b>' + esc(o.id) + '</b> <span class="muted sm">' + esc(o.land.name) + '</span></td><td><span class="lvl-tag lvl-' + (b || 'nt') + '">' + (b === 'none' ? 'none yet' : b || '—') + '</span></td>' + LV3.map(function (lv) { var c = m[lv]; return c && c.a ? '<td style="background:' + accColor(Math.round(100 * c.c / c.a)) + '">' + c.c + ' / ' + c.a + '</td>' : '<td class="empty">—</td>'; }).join('') + '</tr>';
+    });
+    og.innerHTML += Object.keys(pOut(p)).length ? '<div class="table-wrap">' + t + '</table></div>' : '<p class="muted">No answers' + (lgIn() ? ' in class' : '') + ' yet.</p>';
+    pn.appendChild(og);
+    pn.appendChild(el('div', 'eyebrow', 'Most recent questions'));
+    if (!LG.detail) pn.appendChild(el('p', 'muted', 'Loading…'));
+    else if (!LG.detail.attempts.length) pn.appendChild(el('p', 'muted', 'No questions recorded yet.'));
+    else {
+      var tw = el('div', 'table-wrap'), t2 = '<table class="oc attempts"><tr><th>When</th><th>Where</th><th>Question</th><th>They wrote</th><th>Result</th></tr>';
+      LG.detail.attempts.slice().sort(function (x, y) { return (Number(y.time) || 0) - (Number(x.time) || 0); }).forEach(function (a) {
+        if (lgIn() && a.inClass === false) return;
+        t2 += '<tr class="r-' + esc(a.result) + (a.inClass === false ? ' outside' : '') + '"><td>' + fmtAgo(a.time) + (a.inClass === false ? '<br><span class="out-tag">outside class</span>' : '') + '</td><td>' + esc(a.outcome) + ' · ' + esc(a.level) + (a.boss ? ' · boss' : '') + '</td><td class="qtext">' + esc(a.question) + '</td><td>' + typedTex(a.typed) + '</td><td><b>' + (a.result === 'correct' ? 'correct' : a.result === 'form' ? 'right value, wrong form' : 'wrong') + '</b></td></tr>';
+      });
+      tw.innerHTML = t2 + '</table>'; pn.appendChild(tw);
+    }
+    dp.appendChild(pn); typeset(dp);
+  }
+
+  /* ---------- Export grades for PowerSchool (the exit-slip format) ----------
+   * A PowerSchool score template (recommended) keeps PowerSchool's header and student numbers; its rows are matched to
+   * Lorebound players by student number (remembered on this device) or name, and any it cannot match can be paired by
+   * hand. Without a template the file is built from the teacher, class, assignment and due date typed here. */
+  var XP = { what: '', blank: false, tpl: null, pairs: null };
+  function psMap() { try { return JSON.parse(localStorage.getItem(SAVE_PREFIX + 'psmap') || '{}'); } catch (e) { return {}; } }
+  function psSave(m) { try { localStorage.setItem(SAVE_PREFIX + 'psmap', JSON.stringify(m)); } catch (e) {} }
+  function psSettings() { try { return JSON.parse(localStorage.getItem(SAVE_PREFIX + 'pset') || '{}'); } catch (e) { return {}; } }
+  function nameKey(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean).sort().join(' '); } // "Smith, Jordan" = "Jordan Smith"
+  function csvCell(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function parseCsvLine(l) { var out = [], cur = '', q = false; for (var i = 0; i < l.length; i++) { var c = l.charAt(i); if (q) { if (c === '"' && l.charAt(i + 1) === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; } else if (c === '"') q = true; else if (c === ',') { out.push(cur); cur = ''; } else cur += c; } out.push(cur); return out; }
+  function xpChoices() { var out = []; lgLands().forEach(function (L) { out.push({ id: 'U:' + L.id, label: 'Unit ' + L.unit + ' · ' + L.subject + ' (whole unit)', land: L }); landOutcomes(L).forEach(function (oc) { out.push({ id: 'O:' + oc, label: '    ' + oc + ' · outcome', oc: oc, land: L }); }); }); return out; }
+  function xpRows(what) { // [{key, name, num, info, grade}] for the chosen class
+    var ch = xpChoices().filter(function (c) { return c.id === what; })[0] || xpChoices()[0], map = psMap()[normClass(LG.klass)] || {}, numOf = {};
+    Object.keys(map).forEach(function (num) { numOf[map[num]] = num; });
+    return (LG.data.players || []).filter(function (p) { return p['class'] === LG.klass; }).map(function (p) {
+      var r = { key: p.key, name: p.name, num: numOf[p.key] || '', info: '', grade: '' };
+      if (ch.oc) { var b = bestLevel(pOut(p), ch.oc), tr = triesOn(pOut(p), [ch.oc]); r.info = tr.a ? tr.c + ' of ' + tr.a + ' right' : 'no answers'; r.grade = b === 'MAS' || b === 'PRG' || b === 'BEG' ? b : tr.a ? 'NM' : ''; }
+      else { var t = triesOn(pOut(p), landOutcomes(ch.land)); r.pct = t.a ? t.c / t.a : null; r.info = t.a ? Math.round(1000 * t.c / t.a) / 10 + '% of ' + t.a : 'no answers'; r.grade = band(r.pct); }
+      return r;
+    }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+  }
+  function xpAssign(what) { var ch = xpChoices().filter(function (c) { return c.id === what; })[0]; return ch ? (ch.oc ? 'Unit ' + ch.land.unit + ' ' + ch.oc + ' Lorebound' : 'Unit ' + ch.land.unit + ' Lorebound') : 'Lorebound'; }
+  function openExport() {
+    if (!LG.klass) { toast('Choose a class first: grades are exported one class at a time.'); var s = document.getElementById('ledger-class'); if (s) s.focus(); return; }
+    closeModal(); XP.tpl = null; XP.what = XP.what || 'U:' + (lgLands()[0] || {}).id;
+    var ov = el('div', 'modal-ov'), box = el('div', 'modal page lg-export'); ov.appendChild(box); document.body.appendChild(ov); UI.modal = ov;
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) closeModal(); });
+    drawExport();
+  }
+  function drawExport(msg) {
+    var box = UI.modal && UI.modal.querySelector('.lg-export'); if (!box) return;
+    var rows = xpRows(XP.what), ch = xpChoices().filter(function (c) { return c.id === XP.what; })[0], ps = psSettings();
+    var h = '<div class="eyebrow">Class ' + esc(LG.klass) + (lgIn() ? ' · in-class answers only' : ' · all play') + '</div><h2>Export grades for PowerSchool</h2>';
+    h += '<p class="muted">' + (ch && ch.oc ? 'For <b>' + esc(ch.oc) + '</b>: the hardest level each student has answered right on that outcome (MAS, PRG or BEG)' + ((LG.need || 1) > 1 ? ', at least ' + LG.need + ' times' : '') + '. Wrong answers never pull it down. Students who have tried it but got nothing right get NM.'
+      : 'For the whole unit: each student\'s % of that land\'s questions answered right, converted to an indicator: MAS 85–100 · ADV 75–85 · PRG 65–75 · EMG 55–65 · BEG 45–55 · LIM 25–45 · NM 0–25.') + ' Students with no answers are left blank. ' +
+      (LG.data.blocks ? (lgIn() ? 'Only answers given in class time count; switch to <b>All play</b> on the Ledger to include everything.' : 'Every answer counts, including play outside class; switch to <b>In class only</b> on the Ledger to leave that out.') : '') + '</p>';
+    h += '<div class="row lgx-row"><div id="xNeed"></div><label class="fld"><span>Grade</span><select id="xWhat">' + xpChoices().map(function (c) { return '<option value="' + c.id + '"' + (c.id === XP.what ? ' selected' : '') + '>' + esc(c.label) + '</option>'; }).join('') + '</select></label></div>';
+    h += '<div class="lgx-card"><b>1. PowerSchool template (recommended)</b><p class="muted">In PowerSchool, export the score template for this assignment, then choose that file here. The Score column is filled in and everything else is kept exactly as PowerSchool expects.</p><input type="file" id="xFile" accept=".csv,text/csv">' +
+      (XP.tpl ? '<p class="okmsg">Using template: <b>' + esc(XP.tpl.assign || '') + '</b> · ' + esc(XP.tpl.cls || '') + ' · ' + XP.tpl.matched + ' of ' + XP.tpl.count + ' students matched</p>' : '') + '</div>';
+    if (XP.tpl && XP.tpl.unmatched.length) { // pair the leftovers by hand
+      var free = rows.filter(function (r) { return !XP.tpl.used[r.key]; });
+      h += '<div class="lgx-card warnbox"><b>Not matched yet</b><p class="muted">These PowerSchool students could not be matched to a Lorebound player by number or name (students type their own names). Pick the right player; the pairing is remembered on this device.</p>' +
+        XP.tpl.unmatched.map(function (u) { return '<div class="lgx-pair"><span>' + esc(u.name) + ' <span class="muted">' + esc(u.num) + '</span></span><select data-num="' + esc(u.num) + '"><option value="">leave blank</option>' + free.map(function (r) { return '<option value="' + esc(r.key) + '">' + esc(r.name) + '</option>'; }).join('') + '</select></div>'; }).join('') + '</div>';
+    }
+    if (!XP.tpl) {
+      var missing = rows.filter(function (r) { return !r.num; }).length;
+      h += '<div class="lgx-card"><b>2. Or build the file without a template</b><div class="row lgx-row">' +
+        '<label class="fld"><span>Teacher name</span><input type="text" id="xTeacher" value="' + esc(ps.teacher || 'Ryan Cathcart') + '"></label>' +
+        '<label class="fld"><span>Class (as in PowerSchool)</span><input type="text" id="xClass" value="' + esc((ps.cls || {})[normClass(LG.klass)] || '') + '"></label>' +
+        '<label class="fld"><span>Assignment name</span><input type="text" id="xAssign" value="' + esc(xpAssign(XP.what)) + '"></label>' +
+        '<label class="fld"><span>Due date</span><input type="date" id="xDue" value="' + new Date().toISOString().slice(0, 10) + '"></label></div>' +
+        (missing ? '<p class="warn">' + missing + ' of ' + rows.length + ' students have no PowerSchool student number yet. Use a template once: the numbers it contains are remembered on this device for every later export.</p>' : '') + '</div>';
+    }
+    if (msg) h += msg;
+    h += '<div class="actions"><button class="btn" id="xDl" type="button">Download CSV</button>' + (!XP.tpl && ch ? '<button class="btn ghost" id="xAll" type="button">Download every outcome in Unit ' + ch.land.unit + '</button>' : '') + '<span class="spacer"></span><button class="btn ghost" id="xClose" type="button">Close</button></div>';
+    var shown = XP.tpl ? XP.tpl.preview : rows;
+    h += '<div class="table-wrap"><table class="oc lgx-prev"><tr><th>Student</th><th>Student #</th><th>' + (ch && ch.oc ? 'On ' + esc(ch.oc) : 'Unit') + '</th><th>Grade</th></tr>' + shown.map(function (r) {
+      return '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.num || '') + '</td><td>' + esc(r.info || '—') + '</td><td class="g">' + (r.grade ? '<span class="lvl-tag ind-' + r.grade + '">' + r.grade + '</span>' : '<span class="muted">blank</span>') + '</td></tr>'; }).join('') + '</table></div>';
+    box.innerHTML = h;
+    if (ch && ch.oc) box.querySelector('#xNeed').appendChild(needPicker()); else box.querySelector('#xNeed').remove();
+    box.querySelector('#xWhat').onchange = function () { XP.what = this.value; if (XP.tpl) applyTemplate(XP.tpl.text); else drawExport(); };
+    box.querySelector('#xClose').onclick = closeModal;
+    box.querySelector('#xFile').onchange = function () { var f = this.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { applyTemplate(String(rd.result)); }; rd.readAsText(f); };
+    box.querySelectorAll('.lgx-pair select').forEach(function (s) { s.onchange = function () { var m = psMap(), k = normClass(LG.klass); m[k] = m[k] || {}; if (s.value) m[k][s.getAttribute('data-num')] = s.value; else delete m[k][s.getAttribute('data-num')]; psSave(m); applyTemplate(XP.tpl.text); }; });
+    box.querySelector('#xDl').onclick = function () { var o = buildCsv(); if (o) download(o.name, o.lines.join('\r\n') + '\r\n'); };
+    var all = box.querySelector('#xAll'); if (all) all.onclick = function () {
+      if (!box.querySelector('#xClass').value.trim()) { toast('Type the class name exactly as PowerSchool shows it first.'); box.querySelector('#xClass').focus(); return; }
+      var keep = XP.what, list = landOutcomes(ch.land).map(function (oc) { return 'O:' + oc; }), i = 0;
+      (function next() { if (i >= list.length) { XP.what = keep; drawExport('<p class="okmsg">Downloaded ' + list.length + ' files, one per outcome.</p>'); return; } XP.what = list[i]; box.querySelector('#xAssign').value = xpAssign(XP.what); var o = buildCsv(); if (o) download(o.name, o.lines.join('\r\n') + '\r\n'); i++; setTimeout(next, 700); })();
+    };
+  }
+  function applyTemplate(text) {
+    var lines = String(text).replace(/^﻿/, '').split(/\r?\n/); while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    var hi = -1, meta = {};
+    lines.forEach(function (l, i) { var c = parseCsvLine(l); if (hi < 0 && /^student num/i.test(c[0])) hi = i; if (hi < 0 && c.length > 1) meta[c[0].replace(/:$/, '').trim().toLowerCase()] = c[1]; });
+    if (hi < 0) { toast('That file does not look like a PowerSchool score template (no "Student Num" row).'); return; }
+    var rows = xpRows(XP.what), byKey = {}, byName = {}, m = psMap(), k = normClass(LG.klass), mine = m[k] = m[k] || {}, learned = 0;
+    rows.forEach(function (r) { byKey[r.key] = r; var nk = nameKey(r.name); byName[nk] = byName[nk] ? 'dup' : r; });
+    var count = 0, matched = 0, unmatched = [], used = {}, preview = [];
+    var out = lines.map(function (l, i) {
+      if (i <= hi) return l;
+      var c = parseCsvLine(l); if (!c[0] && !c[1]) return l;
+      count++; var num = (c[0] || '').trim(), r = byKey[mine[num]] || (byName[nameKey(c[1])] !== 'dup' && byName[nameKey(c[1])]) || null;
+      if (r && used[r.key]) r = null;
+      if (r) { matched++; used[r.key] = 1; if (num && mine[num] !== r.key) { mine[num] = r.key; learned++; } } else unmatched.push({ num: num, name: c[1] });
+      c[2] = r ? r.grade : '';
+      preview.push({ name: c[1] + (r && nameKey(r.name) !== nameKey(c[1]) ? ' (plays as ' + r.name + ')' : ''), num: num, info: r ? r.info : 'no Lorebound player', grade: c[2] });
+      return c.slice(0, 3).map(csvCell).join(',');
+    });
+    if (learned) psSave(m);
+    XP.tpl = { text: text, lines: out, assign: meta['assignment name'], cls: meta['class'], count: count, matched: matched, unmatched: unmatched, used: used, preview: preview };
+    var ps = psSettings(); if (meta['teacher name']) ps.teacher = meta['teacher name']; if (meta['class']) { ps.cls = ps.cls || {}; ps.cls[k] = meta['class']; } try { localStorage.setItem(SAVE_PREFIX + 'pset', JSON.stringify(ps)); } catch (e) {}
+    drawExport();
+  }
+  function buildCsv() {
+    var box = UI.modal && UI.modal.querySelector('.lg-export'), base = xpAssign(XP.what).replace(/\s+/g, '') + '_' + String(LG.klass).replace(/[^A-Za-z0-9-]+/g, '');
+    if (XP.tpl) return { name: base + '.csv', lines: XP.tpl.lines };
+    var t = box.querySelector('#xTeacher').value.trim(), c = box.querySelector('#xClass').value.trim(), a = box.querySelector('#xAssign').value.trim(), due = box.querySelector('#xDue').value;
+    if (!c) { toast('Type the class name exactly as PowerSchool shows it (or use a template).'); box.querySelector('#xClass').focus(); return null; }
+    var ps = psSettings(); ps.teacher = t; ps.cls = ps.cls || {}; ps.cls[normClass(LG.klass)] = c; try { localStorage.setItem(SAVE_PREFIX + 'pset', JSON.stringify(ps)); } catch (e) {}
+    var lines = ['Teacher Name:,' + csvCell(t) + ',', 'Class:,' + csvCell(c) + ',', 'Assignment Name:,' + csvCell(a) + ',', 'Due Date:,' + due + ',', 'Points Possible:,10.0,', 'Extra Points:,0.0,', 'Score Type:,GRADESCALE,', 'Student Num,Student Name,Score'];
+    xpRows(XP.what).forEach(function (r) { lines.push([r.num, r.name, r.grade].map(csvCell).join(',')); });
+    return { name: base + '.csv', lines: lines };
+  }
+  function download(name, text) {
+    try { var blob = new Blob([text], { type: 'text/csv' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500); }
+    catch (e) { toast('The download was blocked by the browser.'); }
   }
   function ledgerClassCodes() { // the class codes the backend accepts; anything else is ignored (keeps the sheet clean)
     if (!Array.isArray(LG.data.classes)) return;
@@ -12502,44 +12886,6 @@ var Overworld = (function () {
     if (!Object.keys(agg).length) tw.innerHTML = '<p class="muted">No questions answered yet.</p>';
     return tw;
   }
-  function renderLedgerTable() {
-    var tp = document.getElementById('ledger-table'); if (!tp) return;
-    var players = ledgerPlayers();
-    tp.innerHTML = '<div class="eyebrow">Students · ' + n(players.length) + '</div>';
-    var cols = [['name', 'Student'], ['hero', 'Hero'], ['playSeconds', 'Time'], ['legend', 'Legend'], ['lore', 'Lore'], ['deaths', 'Deaths'], ['killsBEG', 'BEG'], ['killsPRG', 'PRG'], ['killsMAS', 'MAS'], ['bossKills', 'Boss'], ['accuracy', 'Accuracy'], ['lastLand', 'Land'], ['lastSeen', 'Last seen']];
-    var tw = el('div', 'table-wrap'), t = '<table class="oc students"><tr>' + cols.map(function (c) { return '<th data-k="' + c[0] + '" class="' + (LG.sort === c[0] ? 'sorted' : '') + '">' + c[1] + (LG.sort === c[0] ? (LG.dir < 0 ? ' ▾' : ' ▴') : '') + '</th>'; }).join('') + '</tr>';
-    players.forEach(function (p) {
-      var a = acc(p);
-      t += '<tr data-key="' + esc(p.key) + '" class="' + (LG.sel === p.key ? 'sel' : '') + '"><td><b>' + esc(p.name) + '</b>' + (LG.klass ? '' : '<br><span class="muted" style="font-size:12px">' + esc(p['class']) + '</span>') + '</td><td>' + esc(p.hero || '—') + (p.heroClass ? '<br><span class="muted" style="font-size:12px">' + esc(p.heroClass) + ' · stage ' + esc(p.stage || 1) + '</span>' : '') + '</td><td>' + fmtDur(p.playSeconds) + '</td><td class="lore">' + n(p.legend || 0) + '</td><td>' + n(p.lore || 0) + '</td><td>' + n(p.deaths || 0) + '</td><td>' + n(p.killsBEG || 0) + '</td><td>' + n(p.killsPRG || 0) + '</td><td>' + n(p.killsMAS || 0) + '</td><td>' + n(p.bossKills || 0) + (p.titles ? '<br><span class="muted" style="font-size:12px">' + esc(p.titles) + '</span>' : '') + '</td><td style="background:' + accColor(a) + '">' + (a == null ? '—' : a + '%') + '<br><span class="muted" style="font-size:12px">' + n(pTries(p)) + ' tries' + (!lgIn() && p.attemptsIn != null && pTries(p) > Number(p.attemptsIn) ? ' · ' + n(pTries(p) - Number(p.attemptsIn)) + ' outside' : '') + '</span></td><td>' + esc(p.lastLand || '—') + '</td><td>' + fmtAgo(p.lastSeen) + '</td></tr>';
-    });
-    t += '</table>'; tw.innerHTML = t; tp.appendChild(tw);
-    if (!players.length) tp.appendChild(el('p', 'muted', 'No students yet' + (LG.q ? ' match that search.' : '. They appear here after entering the class code on the title screen.')));
-    tw.querySelectorAll('th').forEach(function (th) { th.onclick = function () { var k = th.getAttribute('data-k'); if (LG.sort === k) LG.dir = -LG.dir; else { LG.sort = k; LG.dir = (k === 'name' || k === 'hero' || k === 'lastLand') ? 1 : -1; } renderLedgerTable(); }; });
-    tw.querySelectorAll('tr[data-key]').forEach(function (tr) { tr.onclick = function () { LG.sel = tr.getAttribute('data-key'); LG.detail = null; renderLedgerTable(); renderLedgerDetail(); Ledger.player(LG.key, LG.sel, function (res) { if (res && res.ok && LG.sel === res.key) { LG.detail = res; renderLedgerDetail(); } }); }; });
-  }
-  function renderLedgerDetail() {
-    var dp = document.getElementById('ledger-detail'); if (!dp) return; dp.innerHTML = '';
-    var p = (LG.data.players || []).filter(function (x) { return x.key === LG.sel; })[0]; if (!p) return;
-    var pn = el('div', 'panel');
-    pn.appendChild(el('div', 'eyebrow', esc(p.name) + ' · ' + esc(p['class']) + (p.hero ? ' · ' + esc(p.hero) + ' the ' + esc(className(p.heroClass)) : '')));
-    var stats = el('div', 'stats');
-    [['Time played', fmtDur(p.playSeconds)], ['Legend', n(p.legend || 0), 'lore'], ['Lore carried', n(p.lore || 0)], ['Deaths', n(p.deaths || 0)], ['Lore lost forever', n(p.lostForever || 0)], ['Accuracy', acc(p) == null ? '—' : acc(p) + '%'], ['First seen', fmtAgo(p.firstSeen)], ['Lands cleared', esc(p.landsCleared || '—')]].forEach(function (x) { stats.appendChild(el('div', 'stat', '<div class="k">' + x[0] + '</div><div class="v ' + (x[2] || '') + '">' + x[1] + '</div>')); });
-    pn.appendChild(stats);
-    pn.appendChild(el('div', 'eyebrow', 'Accuracy by outcome' + (lgIn() ? ' · in class only' : ''))); pn.appendChild(heatTable([pOut(p)]));
-    pn.appendChild(el('div', 'eyebrow', 'Most recent questions'));
-    if (!LG.detail) pn.appendChild(el('p', 'muted', 'Loading…'));
-    else if (!LG.detail.attempts.length) pn.appendChild(el('p', 'muted', 'No questions recorded yet.'));
-    else {
-      var tw = el('div', 'table-wrap'), t = '<table class="oc attempts"><tr><th>When</th><th>Where</th><th>Question</th><th>They wrote</th><th>Result</th></tr>';
-      LG.detail.attempts.forEach(function (a) {
-        if (lgIn() && a.inClass === false) return;
-        t += '<tr class="r-' + esc(a.result) + (a.inClass === false ? ' outside' : '') + '"><td>' + fmtAgo(a.time) + (a.inClass === false ? '<br><span class="out-tag">outside class</span>' : '') + '</td><td>' + esc(a.outcome) + ' · ' + esc(a.level) + (a.boss ? ' · boss' : '') + '</td><td class="qtext">' + esc(a.question) + '</td><td>' + typedTex(a.typed) + '</td><td><b>' + (a.result === 'correct' ? 'correct' : a.result === 'form' ? 'right value, wrong form' : 'wrong') + '</b></td></tr>';
-      });
-      t += '</table>'; tw.innerHTML = t; pn.appendChild(tw);
-    }
-    dp.appendChild(pn); typeset(dp);
-  }
-
   document.addEventListener('keydown', function (e) {
     if (!S || !S.hero || e.ctrlKey || e.metaKey || e.altKey) return;
     var t = e.target, tag = t && t.tagName ? t.tagName.toLowerCase() : '';
