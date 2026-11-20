@@ -1,5 +1,5 @@
 import re, base64, os, pathlib
-K='/home/claude/.npm-global/lib/node_modules/markdownlint-cli2/node_modules/katex/dist'
+K=next((d for d in ['/home/claude/.npm-global/lib/node_modules/markdownlint-cli2/node_modules/katex/dist', '/opt/npm-tools/node_modules/katex/dist'] if os.path.exists(d + '/katex.min.css')), '/opt/npm-tools/node_modules/katex/dist')
 css=open(K+'/katex.min.css').read()
 def datauri(m):
     name=m.group(1)
